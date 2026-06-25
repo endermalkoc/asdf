@@ -15,30 +15,62 @@ coding agents** (Claude, Codex, Cursor, opencode, …).
 
 ## The problem
 
-Spec-driven and agentic development scatter a project's "knowledge" across tools that don't
-compose: markdown specs, an FR-traceability registry, Notion planning boards, Qase test
-management, Jira/beads issues. They drift out of sync, none of it is queryable as a single
-graph, it isn't versioned together, and an agent can't reliably read or write across all of
-it.
+The new wave of spec-driven, agentic tools — Kiro, GitHub's Spec Kit, and the rest — gets the
+premise right: write the spec first, then build to it. But they treat the spec as
+**scaffolding, not an artifact**. An agent emits a `requirements.md` and a `design.md`, builds
+against them once, and moves on. What it leaves behind doesn't hold together:
+
+- **Specs aren't first-class.** They're loose markdown files with no stable identity — no id a
+  test, a commit, or another spec can point at.
+- **There's no traceability.** Nothing answers "which test covers this requirement?", "which
+  spec does it come from?", or "what else depends on it?" — those links were never recorded.
+- **Changes aren't tracked.** Regenerate the file and the previous version is gone: no history
+  of how a requirement evolved, who changed it, or why.
+- **Nothing is verifiable.** "Every requirement is covered by a test" is a claim no tool can
+  check, because requirements and tests live in separate places that never reference each other.
+
+The pre-agentic answer — a markdown repo plus an FR-traceability spreadsheet plus a Notion
+board plus Qase plus Jira — has the same disease in slower motion: the pieces drift, none of it
+is one queryable graph, and nothing reads or writes across all of it.
 
 ## The idea
 
-Put it all in one place, as one graph, in a database that branches and merges like code.
+Put it all in one place, as one graph, in a database that branches and merges like code. ASDF
+**inverts the model**: the database is the first-class artifact, and the Markdown is the
+throwaway scaffolding — the exact opposite of treating generated `.md` files as the spec. That
+inversion is what fixes the four failures above:
 
-- **One source of truth.** The Dolt database is canonical — always.
+- **One source of truth.** The Dolt database is canonical — always. Specs, requirements, and
+  tests are real records with stable ids, not loose files. *(first-class)*
 - **Generated, never edited.** Human- and agent-friendly **Markdown and HTML are
   auto-generated** from the DB. They are **git-ignored build artifacts** — never
   hand-edited, never agent-edited. Change content through the CLI/MCP, then regenerate.
 - **Branch / merge / diff.** Dolt gives the project's knowledge the same version-control
-  model as its code: agents work on branches, you review and merge.
+  model as its code: agents work on branches, you review and merge — and every change to a
+  spec is a commit you can diff, blame, and revert. *(changes tracked)*
 - **Two interfaces, one store.** Humans and agents **read, write, and validate through the
   CLI or an MCP server**. The generated Markdown is an optional *fast read path* for
   agents; it is never a write path.
 - **Traceability & impact.** Because everything is one linked graph, ASDF can **validate**
   (e.g. every requirement covered by a test, every deliverable linked) and answer
-  **impact** questions ("what breaks if this requirement changes?").
+  **impact** questions ("what breaks if this requirement changes?"). *(traceable + verifiable)*
 - **Generic core.** ASDF is domain-agnostic. Its data model was pressure-tested against a
   real corpus, but the core carries no project- or tenant-specific assumptions.
+
+## Who it's for (and who it isn't)
+
+ASDF is infrastructure, and infrastructure is overhead until the thing it manages gets big
+enough to lose track of. Below that line, skip it:
+
+- **Not** a weekend project or a vibe-coding session — the ceremony will only slow you down.
+- **Not** a small, well-bounded domain with a handful of requirements. Today's agents hold
+  that much in working memory and build it well; a system of record buys you nothing.
+
+It's built for the other end of the curve: **medium-to-large applications with enough
+requirements, specs, and tests that no one — human or agent — can keep the whole graph in their
+head.** When there are hundreds of requirements across many domains, when specs outlive the
+session that wrote them, and when "what does this change break?" stops having an obvious answer,
+traceability stops being overhead and becomes the thing that keeps the project coherent.
 
 ## How it flows
 
@@ -67,6 +99,8 @@ Identifiers use ULID surrogate keys plus human-readable unique business keys (e.
 `ATT-FR-012`). See [Identifiers & keys](docs/entities/identifiers.md).
 
 ## Planned commands (illustrative)
+
+The full intended surface. For the subset that **runs today** — with examples — see [Usage](#usage).
 
 | Command | Purpose |
 |---|---|
@@ -110,6 +144,83 @@ make build   # → ./asdf   (make install puts it on your PATH)
 > The binary is named `asdf`, which collides with the [asdf version manager](https://asdf-vm.com)
 > (see the name note below); use `ASDF_INSTALL_DIR` to control PATH precedence.
 
+## Usage
+
+What runs today. (For the full planned surface see the [illustrative table](#planned-commands-illustrative) above.)
+
+> **Prerequisite:** the [`dolt`](https://github.com/dolthub/dolt) binary on your `PATH`. `asdf init`
+> starts and manages a `dolt sql-server` for you — no separate database setup. To use a server you
+> run yourself, pass `--dsn` (or set `ASDF_DSN`). From a source checkout, every `asdf <cmd>` below
+> can be run as `go run ./cmd/asdf <cmd>`.
+
+### Quickstart
+
+```sh
+# 1. Create a workspace in your repo (starts a managed Dolt server, applies the schema)
+asdf init
+
+# 2. Add a domain, a spec under it, and a requirement
+asdf domain add enrollment Enrollment --description "Student lifecycle"
+asdf spec   add enrollment/add-student.md --domain enrollment --prefix ADDS --title "Add Student"
+asdf req    add ADDS "System MUST require first and last name" --delivery covered
+
+# 3. List what you created
+asdf domain ls
+asdf req ls ADDS
+
+# 4. Link two requirements in the cross-reference graph
+asdf req  add ADDS "System MUST default Student Type to Child"
+asdf edge add ADDS-FR-002 refines ADDS-FR-001
+```
+
+Each write becomes **one Dolt commit** attributed to you (`--actor`, else your git user / `$USER`).
+
+### Changesets (the PR model)
+
+Bundle many edits onto one reviewable branch instead of committing each to `main`:
+
+```sh
+asdf changeset start "wave 1"     # opens changeset/wave-1 and makes it the active target
+asdf req add ADDS "..."           # subsequent edits land on the changeset, not main
+asdf changeset diff               # combined diff vs base (the PR view)
+asdf changeset submit             # mark open for review (records the head commit)
+asdf changeset merge              # merge into main   (or: abandon to discard + delete the branch)
+asdf changeset ls                 # list changesets (* marks the active one); alias: asdf cs
+```
+
+Any mutating command also accepts `--changeset <name>` for a one-off target without making it active.
+
+### Import the tutor corpus
+
+A deterministic, no-LLM parse of the `tutor` documentation corpus into ASDF's entity shapes:
+
+```sh
+asdf import tutor ../tutor/docs                    # parse + report (counts, coverage, drift) — no writes
+asdf import tutor ../tutor/docs --json             # the full staged graph + report as JSON
+asdf import tutor ../tutor/docs --apply            # load it through the command contract (one commit)
+asdf import tutor ../tutor/docs --apply --changeset import-tutor   # …onto a changeset branch
+```
+
+`--apply` is idempotent — re-running converges instead of duplicating.
+
+### Command reference (working today)
+
+| Command | Purpose |
+|---|---|
+| `asdf init` | Create `.asdf/` + a managed Dolt database in the current repo |
+| `asdf version` | Print version, commit, and build date |
+| `asdf domain add <abbr> <name>` | Add a domain (`--kind`, `--description`) |
+| `asdf domain ls` | List domains |
+| `asdf spec add <path>` | Add a spec doc (`--domain` required; `--prefix`, `--title`, `--kind`) |
+| `asdf req add <spec-prefix> <statement>` | Add a requirement — auto-numbers, derives the FR key (`--delivery`, `--milestone-id`) |
+| `asdf req ls <spec-prefix>` | List a spec's requirements |
+| `asdf edge add <from-fr> <kind> <to-fr>` | Link two requirements (`kind`: references \| refines \| depends_on \| supersedes \| relates \| defers_to) |
+| `asdf changeset start \| diff \| submit \| merge \| abandon \| ls` | The changeset (PR) flow (alias `cs`) |
+| `asdf import tutor <docs>` | Parse the tutor corpus; add `--apply` to load it |
+
+**Global flags:** `--json` (machine-readable output) · `--actor <handle>` (attribution) ·
+`--changeset <name>` (target a changeset) · `--dsn <dsn>` (use an external Dolt server, env `ASDF_DSN`).
+
 ## Tech stack
 
 **Go** (locked) — single static binary across Windows/Mac/Linux, Dolt is itself Go, exposing
@@ -133,6 +244,7 @@ Inspired by — and building on the Dolt infrastructure of — [beads](https://g
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture & principles
 - [ROADMAP.md](docs/ROADMAP.md) — what's built, what's next
 - [docs/codebase-map.md](docs/codebase-map.md) — folder map + fresh-session orientation
+- [docs/build-and-release.md](docs/build-and-release.md) — build, versioning, release, install, `.gitignore` policy
 - [CLAUDE.md](CLAUDE.md) — guidance for agents and contributors
 
 > **Name note:** "asdf" collides with the popular [asdf version manager](https://asdf-vm.com/);

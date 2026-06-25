@@ -297,9 +297,9 @@ func ResolveDoltDir(asdfDir string) string {
 // Config holds the server configuration.
 type Config struct {
 	ASDFDir string     // Path to .asdf/ directory
-	Port     int        // MySQL protocol port (0 = allocate ephemeral port on Start)
-	Host     string     // Bind address (default: 127.0.0.1)
-	Mode     ServerMode // Server ownership mode (Owned, External, Embedded)
+	Port    int        // MySQL protocol port (0 = allocate ephemeral port on Start)
+	Host    string     // Bind address (default: 127.0.0.1)
+	Mode    ServerMode // Server ownership mode (Owned, External, Embedded)
 }
 
 // State holds runtime information about a managed server.
@@ -466,8 +466,8 @@ func DefaultConfig(asdfDir string) *Config {
 
 	cfg := &Config{
 		ASDFDir: asdfDir,
-		Host:     "127.0.0.1",
-		Mode:     ResolveServerMode(asdfDir),
+		Host:    "127.0.0.1",
+		Mode:    ResolveServerMode(asdfDir),
 	}
 
 	// Check env var override first (used by tests and manual overrides)

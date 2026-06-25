@@ -31,11 +31,25 @@ var reqAddCmd = &cobra.Command{
 		}
 		defer ws.Close()
 		var r store.Requirement
+		var resolved app.ResolvedRefs
 		err = app.Mutate(ctx, ws, app.MutateOpts{
 			Summary:   fmt.Sprintf("add requirement to %s", args[0]),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate:  func(context.Context) error { return app.ValidateEnum("delivery status", reqDelivery, enums.RequirementDelivery) },
+			Validate: func(vctx context.Context) error {
+				if e := app.ValidateEnum("delivery status", reqDelivery, enums.RequirementDelivery); e != nil {
+					return e
+				}
+				resolver, e := app.LoadResolver(vctx, ws.DB())
+				if e != nil {
+					return e
+				}
+				resolved = app.ScanRefs(resolver, "requirement", "", args[1])
+				if !flagForce {
+					return app.DanglingError(resolved.Dangling)
+				}
+				return nil
+			},
 		}, func(ctx context.Context, w *app.Write) error {
 			res, e := store.AddRequirement(ctx, w.Tx, args[0], store.Requirement{
 				Statement:      args[1],
@@ -47,7 +61,7 @@ var reqAddCmd = &cobra.Command{
 			}
 			w.MarkDirty("requirement")
 			r = res
-			return nil
+			return app.ReconcileRefs(ctx, w, "requirement", r.ID, resolved.Targets)
 		})
 		if err != nil {
 			return err

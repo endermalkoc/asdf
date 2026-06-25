@@ -25,12 +25,12 @@ shapes:
 - **Junctions** (`requirement_test_case`, `test_run_configuration`, `capability_milestone`,
   `capability_deliverable`, `deliverable_view`, `deliverable_dependency`) — no surrogate; the
   **composite column pair *is* the PK**. Identical links converge automatically.
-- **`Edge` and `TestResult`** — keep a surrogate `id` (Edge is polymorphic; TestResult is
-  externally referenced and carries payload), but **derive it deterministically** from the
-  `UNIQUE` identity: `id = uuidv5(asdf-rel-namespace, identity-columns)` (a fixed namespace +
-  the identity columns joined by a separator that cannot occur in them). The derivation uses
-  only the immutable identity columns, **never** mutable payload (a `TestResult`'s `status`),
-  so editing payload never re-keys the row.
+- **`Edge`, `EntityRef`, and `TestResult`** — keep a surrogate `id` (`Edge`/`EntityRef` are
+  polymorphic; `TestResult` is externally referenced and carries payload), but **derive it
+  deterministically** from the `UNIQUE` identity: `id = uuidv5(asdf-rel-namespace, identity-columns)`
+  (a fixed namespace + the identity columns joined by a separator that cannot occur in them). The
+  derivation uses only the immutable identity columns, **never** mutable payload (a `TestResult`'s
+  `status`), so editing payload never re-keys the row.
 
 This is the lesson the [beads](https://github.com/steveyegge/beads) project paid for in its
 dependency table (a random per-clone UUID made `pull` fail or duplicate edges); we apply the
@@ -56,13 +56,16 @@ merges legible.
 | TestResult | `UNIQUE(run_id, test_case_id, configuration_id)` | — |
 | Configuration | `UNIQUE(group, name)` | `Browser:Chrome` |
 | Edge | `UNIQUE(from_type, from_id, to_type, to_id, kind)` | — |
+| EntityRef | `UNIQUE(owner_type, owner_id, target_type, target_id, kind)` | — |
+| GlossaryTerm | `UNIQUE(slug)` | `make-up-credit` |
+| GlossaryAlias | `UNIQUE(alias)` | `muc` |
 | ExternalRef | `UNIQUE(subject_type, subject_id, system)` | `jira:PROJ-123` |
 | Actor | `UNIQUE(handle)` | `ender`, `agent:claude` |
 | Changeset | `UNIQUE(branch)` | `agent/att-fr-012` (the branch name) |
 | Review | `UNIQUE(changeset_id, reviewer_id)` | — |
 | Comment | — (surrogate-only) | — |
 
-(Pure-relationship tables — `Edge`, `TestResult`, junctions — have no human-facing key; their
+(Pure-relationship tables — `Edge`, `EntityRef`, `TestResult`, junctions — have no human-facing key; their
 composite `UNIQUE` is also their *identity*, from which the PK is derived deterministically so
 duplicates converge on merge rather than collide — see the deterministic-PK rule above.)
 
@@ -75,7 +78,7 @@ renumbering changes the string while the ULID and every FK stay put.
 
 1. **Where a business key exists, it *is* the display ID** — `ATT-FR-012`, `M1`,
    `students:studio:view`, the route. Most of the model has one.
-2. **Keyless tables** (`TestRun`, `TestResult`, `Edge`, `Deliverable`, `AccessRule`,
+2. **Keyless tables** (`TestRun`, `TestResult`, `Edge`, `EntityRef`, `Deliverable`, `AccessRule`,
    `Comment`) display a **git-style id prefix** (e.g. `01JBX8Z`) and accept unambiguous prefixes on
    input — Docker/git ergonomics, free, always consistent with the PK (a ULID, or a
    deterministic UUID for `Edge` / `TestResult`).

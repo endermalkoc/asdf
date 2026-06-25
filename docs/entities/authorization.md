@@ -20,8 +20,23 @@ Usually has a documenting spec (`kind = entity`) that carries the prose.
 | `domain_id` | FK → Domain | | |
 | `spec_id` | FK → Spec | | The entity doc (full narrative); nullable |
 | `name` | varchar | **UK** | |
-| `description` | text | | Domain purpose / definition |
+| `description` | text | | Short domain definition (from the entity index) |
 | `status` | enum | | `draft`, `active`, `deprecated` |
+| `purpose` | text | | The doc's "Purpose" section; nullable |
+| `key_concepts` | text | | "Key Concepts" section; nullable |
+| `schema_reference` | text | | "Schema Reference" section; nullable |
+| `relationships` | text | | "Relationships" section (prose); nullable. The *structured* form is [`EntityRelationship`](#entityrelationship) rows. |
+| `business_rules` | text | | "Business Rules" section; nullable |
+| `validations` | text | | "Validations" section; nullable |
+| `row_level_access` | text | | "Row-Level Access Rules" section (prose); nullable. The *structured* form is [`AccessRule`](#accessrule) rows. |
+| `entity_notes` | text | | The doc's "Notes" section; nullable |
+| `spec_references` | text | | "Spec References" section; nullable |
+
+> Entity docs are rigidly templated, so their recurring sections are captured as the typed text
+> columns above (a regenerate is then information-complete). `EntityAttribute` / `EntityRelationship` /
+> `AccessRule` remain the **finer structured extraction** of that same prose — populated when a
+> command parses it, not a duplicate source of truth. Bespoke entity sections go to
+> [`DocSection`](structure.md#docsection).
 
 ## EntityAttribute
 A documented **domain property** of an entity — its business meaning, not a typed DB

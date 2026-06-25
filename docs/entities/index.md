@@ -15,12 +15,13 @@ files listed below; this index holds the layer overview and the master diagram.
 | File | Layer | Entities |
 |---|---|---|
 | [identifiers.md](identifiers.md) | Identifiers & keys | ULID PKs · business keys · display IDs |
-| [structure.md](structure.md) | Structure | `Domain`, `Spec` |
-| [requirements.md](requirements.md) | Requirements | `UserStory`, `AcceptanceScenario`, `Requirement`, `Milestone`, `Edge` |
+| [structure.md](structure.md) | Structure | `Domain`, `Spec`, `DocSection` |
+| [requirements.md](requirements.md) | Requirements | `UserStory`, `AcceptanceScenario`, `Requirement`, `RequirementGroup`, `Milestone`, `Edge`, `EntityRef` |
 | [testing.md](testing.md) | Testing (Qase-style) | `TestSuite`, `TestCase`, `TestStep`, `TestRun`, `TestResult`, `Configuration` |
 | [planning.md](planning.md) | Planning | `Capability`, `Deliverable`, `View` + junctions |
 | [authorization.md](authorization.md) | Authorization & entities | `Entity`, `EntityAttribute`, `EntityRelationship`, `Privilege`, `AccessRule` |
 | [interop.md](interop.md) | Interop | `ExternalRef` |
+| [glossary.md](glossary.md) | Glossary | `GlossaryTerm`, `GlossaryAlias` |
 | [review.md](review.md) | Review & collaboration | `Changeset`, `Review`, `Comment`, `Actor` |
 | [enums.md](enums.md) | Reference | all enum value sets |
 | [decisions.md](decisions.md) | Reference | resolved decisions / open questions |
@@ -28,7 +29,11 @@ files listed below; this index holds the layer overview and the master diagram.
 ## Layers
 
 - **Structure** — `Domain`, `Spec`: the document tree (directories derived from `Spec.path`).
-- **Requirements** — `UserStory`, `AcceptanceScenario`, `Requirement`, `Milestone`, `Edge`.
+  `Spec` also carries its template sections as typed text (overview, edge_cases, success_criteria,
+  clarifications, …); `DocSection` is the generic catch-all that preserves any non-templated section
+  (heading + body) so a regenerate is information-complete.
+- **Requirements** — `UserStory`, `AcceptanceScenario`, `Requirement`, `Milestone`, `Edge`
+  (hand-authored, structured relationships), `EntityRef` (prose-derived inline `[[TYPE:key]]` references).
 - **Testing (Qase-style)** — `TestSuite`, `TestCase`, `TestStep`, `TestRun`, `TestResult`,
   `Configuration`; cases cover requirements many-to-many.
 - **Planning** — `Capability`, `Deliverable`, `View`: *what to build*, joined to the corpus
@@ -36,6 +41,8 @@ files listed below; this index holds the layer overview and the master diagram.
 - **Authorization & entities** — `Entity`, `EntityAttribute`, `EntityRelationship`,
   `Privilege`, `AccessRule`.
 - **Interop** — `ExternalRef`: a node's id in an outside task system (Jira, Rally, beads, …).
+- **Glossary** — `GlossaryTerm`, `GlossaryAlias`: shared project vocabulary, defined once and
+  referenced everywhere via inline `[[TERM:slug]]` links; a first-class cross-reference target.
 - **Review & collaboration** — `Changeset`, `Review`, `Comment`, `Actor`: human review
   of agent changes (approve/deny/comment), bridged to Dolt branches/commits. History and diff
   are Dolt-native (`dolt_history_*` / `dolt_diff_*`), not modeled here.
@@ -43,7 +50,7 @@ files listed below; this index holds the layer overview and the master diagram.
 ## Master diagram
 
 > Attribute blocks show `id` generically as `bigint` — read every `id` as a ULID surrogate
-> PK, **except** the pure-relationship tables (`Edge`, `TestResult`, junctions), whose PK is
+> PK, **except** the pure-relationship tables (`Edge`, `EntityRef`, `TestResult`, junctions), whose PK is
 > derived deterministically from the row's identity (see [Identifiers & keys](identifiers.md)).
 
 ```mermaid
@@ -52,6 +59,10 @@ erDiagram
     SPEC            ||--o{ USER_STORY    : contains
     USER_STORY      ||--o{ ACCEPTANCE_SCENARIO : has
     SPEC            ||--o{ REQUIREMENT   : owns
+    SPEC            ||--o{ REQUIREMENT_GROUP : "FR groups"
+    REQUIREMENT_GROUP ||--o{ REQUIREMENT : groups
+    SPEC            ||--o{ DOC_SECTION   : "extra sections (polymorphic)"
+    ENTITY          ||--o{ DOC_SECTION   : "extra sections (polymorphic)"
     REQUIREMENT     ||--o{ REQUIREMENT   : "sub-requirement of"
     REQUIREMENT     }o--o{ TEST_CASE     : "covered by"
     MILESTONE       |o--o{ REQUIREMENT   : targets
@@ -70,7 +81,11 @@ erDiagram
     ENTITY          ||--o{ ENTITY_RELATIONSHIP  : "from"
     ENTITY          ||--o{ ACCESS_RULE   : "gated by"
     PRIVILEGE       ||--o{ ACCESS_RULE   : grants
-    EDGE            }o--o{ REQUIREMENT   : "links (polymorphic)"
+    EDGE            }o--o{ REQUIREMENT   : "links (polymorphic, hand-authored)"
+    ENTITY_REF      }o--o{ REQUIREMENT   : "cites (polymorphic, prose-derived)"
+    DOMAIN          ||--o{ GLOSSARY_TERM : scopes
+    GLOSSARY_TERM   ||--o{ GLOSSARY_ALIAS : "known as"
+    ENTITY_REF      }o--o{ GLOSSARY_TERM : "cites (polymorphic, prose-derived)"
 
     DOMAIN          ||--o{ CAPABILITY   : categorizes
     DOMAIN          ||--o{ VIEW         : categorizes
@@ -96,6 +111,7 @@ erDiagram
         bigint id PK
         string abbreviation UK
         string name
+        text   description "one-line summary, nullable"
         enum   kind "service|shared|infrastructure|entities|analysis"
         enum   status "draft|active|deprecated"
     }
@@ -107,7 +123,16 @@ erDiagram
         string path UK
         string title
         enum   kind "feature|entity|journey|analysis|index|meta|reference"
-        enum   status "draft|active|obsolete"
+        enum   status "draft|reviewed|active|obsolete"
+        text   heading "H1 line, verbatim"
+        text   preamble "H1 → first section (metadata block)"
+        text   overview
+        text   edge_cases
+        text   success_criteria
+        text   platform_scope
+        text   assumptions
+        text   clarifications
+        text   more_info
         date   created_at
         date   updated_at
     }
@@ -120,6 +145,9 @@ erDiagram
         string as_a
         text   i_want
         text   so_that
+        text   narrative "prose-style body, nullable"
+        text   why_priority
+        text   independent_test
     }
     ACCEPTANCE_SCENARIO {
         bigint id PK
@@ -135,6 +163,8 @@ erDiagram
         int      number "sequential within spec"
         char     suffix "optional sub-letter, nullable"
         bigint   parent_id FK "self, sub-requirements, nullable"
+        bigint   group_id FK "RequirementGroup, nullable"
+        int      position "document order within the FR list"
         text     statement "the MUST text"
         enum     content_status "draft|active|obsolete"
         enum     delivery_status "covered|test-pending|not-implemented|e2e-sufficient|shared|schema-only|deferred"
@@ -205,6 +235,13 @@ erDiagram
         string name "value, e.g. Chrome"
         text   description "nullable"
     }
+    REQUIREMENT_GROUP {
+        bigint id PK
+        bigint spec_id FK
+        int    position "order within the spec's FR list"
+        string header "sub-header, unique per spec"
+        text   note "interspersed prose, nullable"
+    }
     MILESTONE {
         bigint   id PK
         string   abbreviation UK "e.g. M0..M7, Future"
@@ -223,6 +260,29 @@ erDiagram
         bigint to_id FK
         enum   kind "references|refines|depends_on|supersedes|relates|defers_to"
     }
+    ENTITY_REF {
+        bigint id PK
+        enum   owner_type "domain|spec|requirement|user_story|entity|milestone|glossary_term"
+        bigint owner_id FK
+        enum   target_type "domain|spec|requirement|entity|milestone|glossary_term"
+        bigint target_id FK
+        enum   kind "references"
+    }
+    GLOSSARY_TERM {
+        bigint   id PK
+        string   slug UK "link key, e.g. make-up-credit"
+        string   term "display name"
+        text     definition "may contain inline [[..]] links"
+        bigint   domain_id FK "optional scoping, nullable"
+        enum     status "draft|active|deprecated"
+        datetime created_at
+        datetime updated_at
+    }
+    GLOSSARY_ALIAS {
+        bigint id PK
+        bigint term_id FK
+        string alias UK "alternate surface form, global unique"
+    }
     ENTITY {
         bigint id PK
         bigint domain_id FK
@@ -230,6 +290,15 @@ erDiagram
         string name UK
         text   description
         enum   status "draft|active|deprecated"
+        text   purpose
+        text   key_concepts
+        text   schema_reference
+        text   relationships "prose section; cf. ENTITY_RELATIONSHIP rows"
+        text   business_rules
+        text   validations
+        text   row_level_access
+        text   entity_notes
+        text   spec_references
     }
     ENTITY_ATTRIBUTE {
         bigint id PK
@@ -331,6 +400,15 @@ erDiagram
         bool     resolved
         datetime created_at
         datetime updated_at
+    }
+    DOC_SECTION {
+        bigint id PK
+        enum   owner_type "spec|entity"
+        bigint owner_id FK "polymorphic (owner_type + owner_id)"
+        int    ordinal "original position in the source doc"
+        int    level "heading depth: 2=##, 3=###"
+        text   heading
+        text   body
     }
 ```
 

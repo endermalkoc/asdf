@@ -16,6 +16,7 @@ var (
 	flagJSON      bool
 	flagActor     string
 	flagChangeset string
+	flagForce     bool
 )
 
 var rootCmd = &cobra.Command{
@@ -32,6 +33,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVar(&flagJSON, "json", false, "emit JSON instead of human-readable text")
 	rootCmd.PersistentFlags().StringVar(&flagActor, "actor", "", "actor handle for attribution (default: git user / $USER)")
 	rootCmd.PersistentFlags().StringVar(&flagChangeset, "changeset", "", "target this changeset branch (default: the active changeset, else commit to main)")
+	rootCmd.PersistentFlags().BoolVar(&flagForce, "force", false, "write even when an inline [[TYPE:key]] cross-reference is unresolved (dangling)")
 }
 
 // Execute runs the CLI.

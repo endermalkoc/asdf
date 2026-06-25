@@ -29,6 +29,7 @@ type Domain struct {
 	ID           string `json:"id"`
 	Abbreviation string `json:"abbreviation"`
 	Name         string `json:"name"`
+	Description  string `json:"description,omitempty"`
 	Kind         string `json:"kind"`
 	Status       string `json:"status"`
 }
@@ -42,6 +43,16 @@ type Spec struct {
 	Title    string `json:"title,omitempty"`
 	Kind     string `json:"kind"`
 	Status   string `json:"status"`
+	// Document sections (0003) — verbatim Markdown for round-trip fidelity.
+	Heading         string `json:"heading,omitempty"`
+	Preamble        string `json:"preamble,omitempty"`
+	Overview        string `json:"overview,omitempty"`
+	EdgeCases       string `json:"edge_cases,omitempty"`
+	SuccessCriteria string `json:"success_criteria,omitempty"`
+	PlatformScope   string `json:"platform_scope,omitempty"`
+	Assumptions     string `json:"assumptions,omitempty"`
+	Clarifications  string `json:"clarifications,omitempty"`
+	MoreInfo        string `json:"more_info,omitempty"`
 }
 
 type Requirement struct {
@@ -54,6 +65,12 @@ type Requirement struct {
 	ContentStatus  string `json:"content_status"`
 	DeliveryStatus string `json:"delivery_status,omitempty"`
 	MilestoneID    string `json:"milestone_id,omitempty"`
+	Owner          string `json:"owner,omitempty"`
+	Notes          string `json:"notes,omitempty"`
+	OptoutMarker   string `json:"optout_marker,omitempty"`
+	OptoutReason   string `json:"optout_reason,omitempty"`
+	GroupID        string `json:"group_id,omitempty"`
+	Position       int    `json:"position,omitempty"`
 }
 
 func nullIfEmpty(s string) any {
@@ -76,8 +93,8 @@ func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
 	}
 	d.ID = ids.New()
 	_, err := x.ExecContext(ctx,
-		"INSERT INTO `domain` (id,abbreviation,name,kind,status) VALUES (?,?,?,?,?)",
-		d.ID, d.Abbreviation, d.Name, d.Kind, d.Status)
+		"INSERT INTO `domain` (id,abbreviation,name,description,kind,status) VALUES (?,?,?,?,?,?)",
+		d.ID, d.Abbreviation, d.Name, nullIfEmpty(d.Description), d.Kind, d.Status)
 	if err != nil {
 		return Domain{}, fmt.Errorf("add domain %q: %w", d.Abbreviation, err)
 	}
@@ -86,7 +103,7 @@ func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
 
 func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 	rows, err := x.QueryContext(ctx,
-		"SELECT id,abbreviation,name,kind,status FROM `domain` ORDER BY abbreviation")
+		"SELECT id,abbreviation,name,COALESCE(description,''),kind,status FROM `domain` ORDER BY abbreviation")
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +111,7 @@ func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 	var out []Domain
 	for rows.Next() {
 		var d Domain
-		if err := rows.Scan(&d.ID, &d.Abbreviation, &d.Name, &d.Kind, &d.Status); err != nil {
+		if err := rows.Scan(&d.ID, &d.Abbreviation, &d.Name, &d.Description, &d.Kind, &d.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, d)

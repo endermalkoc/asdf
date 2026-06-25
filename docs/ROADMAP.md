@@ -13,8 +13,8 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
   helpers. Issue-domain dependency severed to a minimal shim; all pure-Go, building clean.
 - **Data model** ([docs/entities/](entities/index.md)) — authoritative, consistent, with the
   deterministic relationship-PK rule.
-- **Schema** — `0001_init` (26 entities + 6 junctions) + a migration runner
-  (`internal/storage/schema`); validated against real Dolt (FK/UNIQUE/deterministic-PK enforced).
+- **Schema** — `0001_init` (26 entities + 6 junctions) + `0002` (`domain.description`) + a migration
+  runner (`internal/storage/schema`); validated against real Dolt (FK/UNIQUE/deterministic-PK enforced).
 - **ID minting** (`internal/ids`) — ULID (authored rows) + deterministic `uuidv5` (relationships).
 - **`asdf init`** — creates `.asdf/`, starts a managed (owned) `dolt sql-server`, applies the
   schema, seeds the actor, records the initial Dolt commit.
@@ -25,6 +25,16 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 - **Changesets (the PR model)** — `asdf changeset start/diff/submit/merge/abandon/ls`: a changeset
   is a Dolt branch; edits route to the active changeset; `diff` is the combined PR view; edits stay
   isolated from `main` until merge; `Changeset`/`Review` rows live on `main`.
+- **Import pipeline + `tutor` source adapter** — a source-agnostic staging core (`internal/importer`:
+  a `Graph` of ASDF entity shapes + a drift/ER-gap `Report` + an idempotent `Apply` writer keyed on
+  business identifiers) and the deterministic, **no-LLM** `tutor` adapter (`internal/importer/tutor`).
+  `asdf import tutor <docs>` parses **Domain/Spec/Requirement/UserStory/AcceptanceScenario/Edge/
+  Milestone/Entity/Privilege** and reports counts + coverage + drift; `--apply` loads the graph
+  through `app.Mutate` (one changeset/`main` commit), idempotent on re-run. Validated against the
+  real corpus (~2.2k FRs, 119 specs, 18 entities, 43 privileges). The five ER refinements it
+  surfaced are resolved in [decisions.md](entities/decisions.md). Deferred: `EntityAttribute`/
+  `EntityRelationship` and `AccessRule` (they live in entity-doc prose / CASL code, not a structured
+  form) and `Test*` (no test-management export in the corpus).
 
 ## Next — finish the command contract
 
@@ -35,6 +45,11 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 - **Broaden CRUD** — `edit`/`delete`/`show` for existing entities, then the remaining entities
   (Milestone, Test*, Capability, Deliverable, View, Entity*, Privilege, AccessRule, ExternalRef).
 - **`asdf config get/set`** — `internal/config`/`configfile` are lifted but have no CLI yet.
+- **Reads must honor the active changeset** — read commands (`domain/req/... ls`) currently query the
+  pool, which sits on `main`, so they don't see edits staged in the active changeset (you must
+  `changeset diff`/`merge` to observe them). The read contract ([command-contract.md](command-contract.md)
+  step 2) says reads target the active/`--changeset` branch; wire `ls` to read on the pinned
+  changeset branch (revision-qualified connection or per-read checkout). Surfaced by `import --apply`.
 
 ## Core features
 
@@ -42,9 +57,11 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 |---|---|---|
 | **Remote sync** | `asdf dolt push/pull/remote/clone`, `asdf sync`, federation (peers) | **requested.** Infra lifted (`remotecache`, `doltutil` remotes, `versioncontrolops` remotes/`Push`/`Fetch`); wire the CLI. Sync of a versioned knowledge graph = `dolt push/pull`. |
 | **Generate** | `asdf generate`: DB → git-ignored **Markdown + HTML** (the canonical-derived read artifacts) | **requested. ASDF-original** — beads has no generate; it exports JSONL. This is core to ASDF's "generated, never edited" principle. |
+| **Cross-references** | inline **entity links** inside Markdown / description text fields — stored as canonical refs (e.g. `[[REQ:ATT-FR-012]]`), rendered by `generate` as **Obsidian-compatible Markdown links** and as **HTML `<a>`** | **in-progress (Markdown). ASDF-original.** Design ratified in [decisions.md](entities/decisions.md); the queryable form is [`EntityRef`](entities/requirements.md#entityref). Targets any keyed entity (Domain/Spec/Requirement/Milestone/Entity; Glossary deferred). Dangling ref → blocks an interactive write / warns on import / a `check` finding later. **Distinct from `Edge`**: `Edge` is the hand-authored structured graph; `EntityRef` holds all prose-derived references — **agents should prefer edges where a real relationship exists**; inline links are prose-readability sugar. **Deferred:** HTML render (needs an HTML generate path) and `[[TERM:…]]` (needs the glossary). |
+| **Glossary / terms** | a `GlossaryTerm` store (slug, term, definition, aliases, optional domain scope) — shared vocabulary so humans & agents define a concept **once** and reference it everywhere | **in-progress. ASDF-original.** Data model landed ([glossary.md](entities/glossary.md): `GlossaryTerm` + `GlossaryAlias`). Different from the business **Entity** layer (that models domain *documents*; a term is project *vocabulary*). A first-class `[[TERM:slug]]` **link target** (see Cross-references) and a generated artifact (`glossary.md`). Authored via `asdf term …`. |
 | **Batch add** | `asdf <entity> add --file <f>` and/or `asdf batch <f>` — bulk-create entities from a **JSON/CSV** file in ASDF's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
-| **Generic import** | `asdf import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | the source-agnostic core (distinct from batch add: external shape → field mapping → entities). Validates + routes through the contract. |
-| **Source adapters** | `asdf import <source>` — pluggable per-source adapters on top of the generic core; **first: `tutor`** | the `tutor` corpus: markdown specs + the FR-traceability registry + the former planning DBs + Qase test management → `Domain`/`Spec`/`Requirement`/`Test*`/… Adapters hold source quirks, keeping the core clean (ARCHITECTURE §Import). |
+| **Generic import** | `asdf import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
+| **Source adapters** | `asdf import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see Done — read-only report + `--apply`, Domain→Privilege). Remaining: `Test*` needs a Qase export (absent in the corpus); `EntityAttribute`/`AccessRule` need a non-prose source or an enrichment pass. Future adapters reuse `importer.Apply`. |
 | **Export** | `asdf export` — JSONL snapshot (git-friendly, diffable) | beads' model; useful for backups/interop alongside Dolt history. |
 | **Validation & analysis** | `asdf check` (traceability), `asdf impact <id>` (graph traversal), `asdf doctor` (health + auto-fix), drift detection | `check`/`impact` are core ASDF (README roadmap). `doctor`/`drift` adapt beads patterns (we have `schema.CheckForwardDrift`-style hooks). |
 | **Query / inspect** | `asdf sql` (raw passthrough), `query`, `search`, `stats`, `history`/`diff` (Dolt-native), `show` | `sql` is a cheap, high-value passthrough. History/diff/blame come free from `dolt_*` system tables. |
@@ -78,9 +95,10 @@ Cross-cutting beads features (not issue-domain), and ASDF's status:
 | `metrics`/telemetry | likely **skip / opt-in** |
 | `stats`, `count`, `info`, `history`, `where` | **roadmap (Query/inspect)** |
 
-**Generate (Markdown/HTML) is the one major feature ASDF has that beads does not** — beads is an
-issue tracker that snapshots to JSONL; ASDF is a spec/knowledge store whose human/agent views are
-generated from the canonical DB.
+**Generate (Markdown/HTML), cross-references, and the glossary are ASDF-originals beads has none
+of** — beads is an issue tracker that snapshots to JSONL; ASDF is a spec/knowledge store whose
+human/agent views are generated from the canonical DB, woven together by inline entity links and a
+shared glossary.
 
 ## Testing & CI
 
@@ -127,4 +145,14 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
   published binary name + config dir before release (branding flows from a few constants).
 - **Concurrency:** same-branch number allocation is safe (`FOR UPDATE` + retry); cross-branch
   FR-number convergence is the documented merge-renumber policy (identifiers.md).
+- **Cross-reference syntax — RESOLVED** ([decisions.md](entities/decisions.md)): token form is
+  `[[TYPE:key]]` (optional `|display`); the per-format render is an Obsidian-compatible relative `.md`
+  link now and an HTML `<a href>` once an HTML generate path exists; the **edge-vs-inline-link** policy
+  is settled — prose-derived references go to [`EntityRef`](entities/requirements.md#entityref), `Edge`
+  is hand-authored/structured. The data model (`EntityRef` + enums + identifiers) is landed; implementation
+  is in-progress (see the Cross-references core-feature row).
+- **Glossary schema — RESOLVED** ([glossary.md](entities/glossary.md), [decisions.md](entities/decisions.md)):
+  `GlossaryTerm`(slug, term, definition, optional `domain_id`, status) + `GlossaryAlias`(`UNIQUE(alias)`); the
+  `[[TERM:slug]]` link key is the slug, aliases resolve too. Data model landed; implementation in-progress
+  (see the Glossary core-feature row).
 - **`go mod tidy`** upkeep as imports change (currently 11 direct deps).

@@ -8,10 +8,11 @@ var (
 	DomainKind          = []string{"service", "shared", "infrastructure", "entities", "analysis"}
 	DomainStatus        = []string{"draft", "active", "deprecated"}
 	SpecKind            = []string{"feature", "entity", "journey", "analysis", "index", "meta", "reference"}
-	SpecStatus          = []string{"draft", "active", "obsolete"}
+	SpecStatus          = []string{"draft", "reviewed", "active", "obsolete"}
 	ContentStatus       = []string{"draft", "active", "obsolete"}
 	RequirementDelivery = []string{"covered", "test-pending", "not-implemented", "e2e-sufficient", "shared", "schema-only", "deferred"}
 	EdgeKind            = []string{"references", "refines", "depends_on", "supersedes", "relates", "defers_to"}
+	GlossaryStatus      = []string{"draft", "active", "deprecated"}
 )
 
 // Valid reports whether v is in allowed.

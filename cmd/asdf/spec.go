@@ -32,15 +32,27 @@ var specAddCmd = &cobra.Command{
 		}
 		defer ws.Close()
 		var sp store.Spec
+		var resolved app.ResolvedRefs
 		err = app.Mutate(ctx, ws, app.MutateOpts{
 			Summary:   fmt.Sprintf("add spec %s", args[0]),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate: func(context.Context) error {
+			Validate: func(vctx context.Context) error {
 				if err := app.ValidateRequired("domain", specDomain); err != nil {
 					return err
 				}
-				return app.ValidateEnum("spec kind", specKind, enums.SpecKind)
+				if err := app.ValidateEnum("spec kind", specKind, enums.SpecKind); err != nil {
+					return err
+				}
+				resolver, e := app.LoadResolver(vctx, ws.DB())
+				if e != nil {
+					return e
+				}
+				resolved = app.ScanRefs(resolver, "spec", "", specTitle)
+				if !flagForce {
+					return app.DanglingError(resolved.Dangling)
+				}
+				return nil
 			},
 		}, func(ctx context.Context, w *app.Write) error {
 			res, e := store.AddSpec(ctx, w.Tx, specDomain, store.Spec{
@@ -54,7 +66,7 @@ var specAddCmd = &cobra.Command{
 			}
 			w.MarkDirty("spec")
 			sp = res
-			return nil
+			return app.ReconcileRefs(ctx, w, "spec", sp.ID, resolved.Targets)
 		})
 		if err != nil {
 			return err

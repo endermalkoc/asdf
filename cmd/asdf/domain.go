@@ -12,7 +12,10 @@ import (
 	"github.com/endermalkoc/asdf/internal/store"
 )
 
-var domainKind string
+var (
+	domainKind        string
+	domainDescription string
+)
 
 var domainCmd = &cobra.Command{Use: "domain", Short: "Manage domains"}
 
@@ -34,7 +37,7 @@ var domainAddCmd = &cobra.Command{
 			Actor:     flagActor,
 			Validate:  func(context.Context) error { return app.ValidateEnum("domain kind", domainKind, enums.DomainKind) },
 		}, func(ctx context.Context, w *app.Write) error {
-			res, e := store.AddDomain(ctx, w.Tx, store.Domain{Abbreviation: args[0], Name: args[1], Kind: domainKind})
+			res, e := store.AddDomain(ctx, w.Tx, store.Domain{Abbreviation: args[0], Name: args[1], Description: domainDescription, Kind: domainKind})
 			if e != nil {
 				return e
 			}
@@ -80,6 +83,7 @@ var domainLsCmd = &cobra.Command{
 
 func init() {
 	domainAddCmd.Flags().StringVar(&domainKind, "kind", "service", "domain kind (service|shared|infrastructure|entities|analysis)")
+	domainAddCmd.Flags().StringVar(&domainDescription, "description", "", "one-line domain description")
 	domainCmd.AddCommand(domainAddCmd, domainLsCmd)
 	rootCmd.AddCommand(domainCmd)
 }

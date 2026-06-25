@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS `spec` (
     `path`       VARCHAR(1024) NOT NULL,                  -- source of the directory tree
     `title`      VARCHAR(512),
     `kind`       VARCHAR(32)   NOT NULL,                  -- values: feature|entity|journey|analysis|index|meta|reference
-    `status`     VARCHAR(32)   NOT NULL DEFAULT 'draft',  -- values: draft|active|obsolete
+    `status`     VARCHAR(32)   NOT NULL DEFAULT 'draft',  -- values: draft|reviewed|active|obsolete
     `created_at` DATETIME,
     `updated_at` DATETIME,
     PRIMARY KEY (`id`),

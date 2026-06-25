@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-
 )
 
 // DirtyTableTracker records which tables were modified during a transaction.
