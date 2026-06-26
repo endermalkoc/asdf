@@ -7,7 +7,7 @@ import (
 )
 
 // Actor identifies who is making a change — for the Dolt commit author and the
-// `actor` table.
+// `rev_actor` table.
 type Actor struct {
 	Handle string // stable identity, e.g. "ender" or "agent:claude"
 	Name   string // display name

@@ -39,7 +39,7 @@ var edgeAddCmd = &cobra.Command{
 			if e != nil {
 				return e
 			}
-			w.MarkDirty("edge")
+			w.MarkDirty("req_edge")
 			id = res
 			return nil
 		})

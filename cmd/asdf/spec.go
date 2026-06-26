@@ -41,8 +41,10 @@ var specAddCmd = &cobra.Command{
 				if err := app.ValidateRequired("domain", specDomain); err != nil {
 					return err
 				}
-				if err := app.ValidateEnum("spec kind", specKind, enums.SpecKind); err != nil {
+				if note, err := app.ValidateEnumSoft("spec kind", specKind, enums.SpecKind, flagStrict); err != nil {
 					return err
+				} else if note != "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), note)
 				}
 				resolver, e := app.LoadResolver(vctx, ws.DB())
 				if e != nil {
@@ -64,7 +66,7 @@ var specAddCmd = &cobra.Command{
 			if e != nil {
 				return e
 			}
-			w.MarkDirty("spec")
+			w.MarkDirty("req_spec")
 			sp = res
 			return app.ReconcileRefs(ctx, w, "spec", sp.ID, resolved.Targets)
 		})

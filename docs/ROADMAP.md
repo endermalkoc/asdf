@@ -29,12 +29,14 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
   a `Graph` of ASDF entity shapes + a drift/ER-gap `Report` + an idempotent `Apply` writer keyed on
   business identifiers) and the deterministic, **no-LLM** `tutor` adapter (`internal/importer/tutor`).
   `asdf import tutor <docs>` parses **Domain/Spec/Requirement/UserStory/AcceptanceScenario/Edge/
-  Milestone/Entity/Privilege** and reports counts + coverage + drift; `--apply` loads the graph
+  Milestone/Entity** and reports counts + coverage + drift; `--apply` loads the graph
   through `app.Mutate` (one changeset/`main` commit), idempotent on re-run. Validated against the
-  real corpus (~2.2k FRs, 119 specs, 18 entities, 43 privileges). The five ER refinements it
+  real corpus (~2.2k FRs, 123 specs, 23 entities). The five ER refinements it
   surfaced are resolved in [decisions.md](entities/decisions.md). Deferred: `EntityAttribute`/
-  `EntityRelationship` and `AccessRule` (they live in entity-doc prose / CASL code, not a structured
-  form) and `Test*` (no test-management export in the corpus).
+  `EntityRelationship` (they live in entity-doc prose, not a structured form) and `Test*` (no
+  test-management export in the corpus). The structured authorization layer (`Privilege`/`AccessRule`)
+  was **removed** — a tutor-specific, never-consumed paradigm; access rules stay as entity-doc prose
+  (migration `0012`, [decisions.md](entities/decisions.md)).
 
 ## Next — finish the command contract
 
@@ -43,7 +45,7 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 - **`--dry-run` flag** — `Mutate` already supports it; expose it on the CLI.
 - **Structured errors → exit codes** + a `--json` error envelope.
 - **Broaden CRUD** — `edit`/`delete`/`show` for existing entities, then the remaining entities
-  (Milestone, Test*, Capability, Deliverable, View, Entity*, Privilege, AccessRule, ExternalRef).
+  (Milestone, Test*, Capability, Deliverable, View, Entity*, ExternalRef).
 - **`asdf config get/set`** — `internal/config`/`configfile` are lifted but have no CLI yet.
 - **Reads must honor the active changeset** — read commands (`domain/req/... ls`) currently query the
   pool, which sits on `main`, so they don't see edits staged in the active changeset (you must
@@ -61,7 +63,7 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 | **Glossary / terms** | a `GlossaryTerm` store (slug, term, definition, aliases, optional domain scope) — shared vocabulary so humans & agents define a concept **once** and reference it everywhere | **in-progress. ASDF-original.** Data model landed ([glossary.md](entities/glossary.md): `GlossaryTerm` + `GlossaryAlias`). Different from the business **Entity** layer (that models domain *documents*; a term is project *vocabulary*). A first-class `[[TERM:slug]]` **link target** (see Cross-references) and a generated artifact (`glossary.md`). Authored via `asdf term …`. |
 | **Batch add** | `asdf <entity> add --file <f>` and/or `asdf batch <f>` — bulk-create entities from a **JSON/CSV** file in ASDF's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
 | **Generic import** | `asdf import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
-| **Source adapters** | `asdf import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see Done — read-only report + `--apply`, Domain→Privilege). Remaining: `Test*` needs a Qase export (absent in the corpus); `EntityAttribute`/`AccessRule` need a non-prose source or an enrichment pass. Future adapters reuse `importer.Apply`. |
+| **Source adapters** | `asdf import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see Done — read-only report + `--apply`, Domain→Entity). Remaining: `Test*` needs a Qase export (absent in the corpus); `EntityAttribute`/`EntityRelationship` need a non-prose source or an enrichment pass. Future adapters reuse `importer.Apply`. |
 | **Export** | `asdf export` — JSONL snapshot (git-friendly, diffable) | beads' model; useful for backups/interop alongside Dolt history. |
 | **Validation & analysis** | `asdf check` (traceability), `asdf impact <id>` (graph traversal), `asdf doctor` (health + auto-fix), drift detection | `check`/`impact` are core ASDF (README roadmap). `doctor`/`drift` adapt beads patterns (we have `schema.CheckForwardDrift`-style hooks). |
 | **Query / inspect** | `asdf sql` (raw passthrough), `query`, `search`, `stats`, `history`/`diff` (Dolt-native), `show` | `sql` is a cheap, high-value passthrough. History/diff/blame come free from `dolt_*` system tables. |
@@ -141,8 +143,12 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
   (schema runner). Still orphaned: `internal/timeparsing` (pull in when a command takes dates).
 - **`fr_key`** is an app-maintained column, not a SQL generated column (cross-table generation
   isn't possible in Dolt) — keep the store deriving it on write.
-- **Rebrand** — `.asdf/` dir + `ASDF_*` env collide with the asdf version manager; pick the
-  published binary name + config dir before release (branding flows from a few constants).
+- **Rename / rebrand (blocker before release)** — the **`asdf` binary/command name collides with the
+  [asdf version manager](https://asdf-vm.com/)**, a widely-installed CLI of the same name; a user who has
+  both on `PATH` gets whichever shadows the other, so `asdf <cmd>` is ambiguous on most dev machines. The
+  `.asdf/` dir + `ASDF_*` env vars collide for the same reason. Pick a new published binary name + config
+  dir + env prefix before release (branding flows from a few constants — `cmd/asdf` use string, the
+  `.asdf` path, the `ASDF_*` lookups). The module path and internal package names can stay.
 - **Concurrency:** same-branch number allocation is safe (`FOR UPDATE` + retry); cross-branch
   FR-number convergence is the documented merge-renumber policy (identifiers.md).
 - **Cross-reference syntax — RESOLVED** ([decisions.md](entities/decisions.md)): token form is

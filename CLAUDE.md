@@ -58,13 +58,16 @@ that:
 ## Known tutor-isms to genericize
 
 When implementing, generalize (don't hardcode) these corpus-specific bits — they are seed
-data or configurable policy, not core:
+data or configurable policy, not core. The **enum policy buckets** (closed / seed / table) in
+[docs/entities/decisions.md](docs/entities/decisions.md) are how this is operationalized:
 
-- `Privilege.scope = owned | studio` — "studio" is a tenant concept; make scope configurable.
+- `Privilege.scope = owned | studio` — **resolved**: `scope`/`action` are **seed** value-sets
+  (`studio` is a tenant value), validated leniently, not baked into core.
 - FR conventions (prefix rules, decade-block numbering, opt-out markers, tombstones) —
-  configurable policy, not fixed.
-- The `Domain` value set, milestone labels (`M0`–`M7`, `Future`), and Qase-specific enums —
-  seed/import data.
+  configurable policy, not fixed. `Requirement.optout_marker` is now a **seed** set (and the corpus
+  carries no markers — they were migrated to its registry; the parser is forward-looking).
+- The `Domain` value set / `Domain.kind`, `Spec.kind`, milestone labels (`M0`–`M7`, `Future`), and
+  Qase `TestCase.*` enums are **seed**; `Requirement.delivery_status` graduated to a **lookup table**.
 
 ## Repository layout
 

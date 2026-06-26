@@ -30,25 +30,30 @@ _None — all resolved (see below)._
 - **History & diff stay Dolt-native** — no revision/audit tables. Spec/requirement history
   and agent-change diffs come from `dolt_history_*` / `dolt_diff_*` / `dolt_log` /
   `dolt_blame_*`.
-- **Document sections are captured so a regenerate is information-complete** (migration `0003`).
-  Goal: `asdf generate` must reproduce the *information* of the source docs (format may differ).
-  A section inventory of the tutor corpus set the typed-vs-generic line: entity docs are rigidly
-  templated, and feature specs have ~7 recurring template sections — both become **typed columns**
-  (`Spec.overview/edge_cases/success_criteria/platform_scope/assumptions/heading/preamble`,
-  `Entity.purpose/key_concepts/…`); the per-story `why_priority`/`independent_test` and the FR group
-  the FR group are **promoted** from prose. The FR group is a first-class
-  [`RequirementGroup`](requirements.md#requirementgroup) (migration `0004`, replacing the earlier
-  denormalized `Requirement.section` string): it carries the group's `position`, `header`, and the
-  interspersed `note` (e.g. a `> See [shared/X]` blockquote), and requirements link to it with their
-  own document `position` — so the FR list regenerates in **source order** (not FR-number order),
-  with grouping and notes intact. **Clarifications** are stored verbatim in
-  `Spec.clarifications` (the corpus mixes `### Session` blocks, Q/A bullets, and tables — too
-  inconsistent for clean rows); **Key Entities** lists become `spec → entity` edges. The long tail
-  of ~92 bespoke one-off feature-spec sections (and bespoke entity sections)
-  can't each be a column, so they land in the generic [`DocSection`](structure.md#docsection)
-  catch-all (heading + body + ordinal). Generation emits a fixed canonical section order — order/format
-  may differ from the source, information does not. `EntityAttribute`/`EntityRelationship`/`AccessRule`
-  stay the optional finer structured extraction over the same prose, not a second source of truth.
+- **Document sections are captured so a regenerate is information-complete** (migration `0003`,
+  simplified by `0010`). Goal: `asdf generate` must reproduce the *information* of the source docs
+  (format may differ). **All prose sections live in [`DocSection`](structure.md#docsection)** — a
+  recognized template section (feature-spec `overview`/`edge_cases`/`success_criteria`/`platform_scope`/
+  `assumptions`/`clarifications`/`preamble`/`more_info`; entity `purpose`/`key_concepts`/…) carries a
+  normalized `section_key`; a bespoke one carries `section_key = NULL`. The per-story
+  `why_priority`/`independent_test` and the FR group are still **promoted** from prose. The FR group is a
+  first-class [`RequirementGroup`](requirements.md#requirementgroup) (migration `0004`, replacing the
+  earlier denormalized `Requirement.section`): it carries the group's `position`, `header`, and the
+  interspersed `note`, and requirements link to it by document `position` — so the FR list regenerates in
+  **source order**, with grouping and notes intact. **Key Entities** lists become `spec → entity`
+  references. `Spec.heading` (the H1 identity line) and `Entity.description` (the glossary one-liner)
+  stay columns — they are identity, not sections. Generation emits a fixed canonical section order —
+  order/format may differ from the source, information does not. `EntityAttribute`/`EntityRelationship`
+  stay the optional finer structured extraction over the same prose, not a second source of truth
+  (`row_level_access` has no structured table — see the authz-removal decision below).
+- **Migration `0010` collapses the per-section typed columns into `DocSection`** — the original `0003`
+  modeled recurring sections as ~17 typed `TEXT` columns on `Spec`/`Entity`, which **duplicated** the
+  generic `DocSection` model and baked one corpus's doc template into the **core** schema (against the
+  [CLAUDE.md](../../CLAUDE.md) "keep the core generic" invariant). `0010` drops those columns and adds a
+  nullable `DocSection.section_key` so every section is one model (keyed or bespoke). Output is **unchanged**
+  (the generator looks recognized sections up by key at the same canonical positions); it's a storage
+  simplification. Like the `0004` `Requirement.section`→`RequirementGroup` move, it is DDL-only — section
+  content is import-only (`AddSpec` writes none), so a re-import repopulates.
 - **ER refinements from the tutor import** (validated by `asdf import tutor`, the read-only
   parse-and-report adapter — `internal/importer/tutor`). Five pieces of source data had no clean
   home; the resolutions keep the core generic:
@@ -114,3 +119,40 @@ _None — all resolved (see below)._
   [cross-reference](requirements.md#entityref) target (`[[TERM:slug]]`, deferred until now) and a generated
   artifact (the `glossary.md` page, one anchor per term). Authored via the CLI (`asdf term …`), not imported
   from the tutor corpus (no structured glossary source there).
+- **Physical table names are prefixed by layer (migration `0011`).** MySQL/Dolt has no
+  schema-within-database namespace (`CREATE SCHEMA` == `CREATE DATABASE`, a separate version-control unit),
+  and ASDF must keep all tables in one database so a changeset is one atomic branch over the whole graph.
+  So tables are grouped by **name prefix** instead: `req_*` (structure + requirements + glossary),
+  `ent_*` (entity layer), `test_*` (testing), `plan_*` (planning, incl. `plan_milestone` /
+  `plan_delivery_status`), `pub_*` (interop / external refs), `rev_*` (review). Tables already named
+  `test_*` keep their name; `schema_migrations` (the migration runner's cursor) is left unprefixed. This is
+  the **logical entity name** (`Spec`, `Requirement`, …) staying as-is in this data model — only the
+  physical `CREATE TABLE` names carry the prefix. Pure rename; no data or generated-output change.
+- **The structured authorization layer was removed (migration `0012`).** Earlier revisions modeled
+  row-level access as `Privilege` (`(resource, scope, action)` triple) + `AccessRule` (entity↔privilege
+  binding with a `condition`). This baked **one corpus's CASL-style authorization paradigm** — row-level,
+  triple-based, "never role names" — into the core schema (against the [CLAUDE.md](../../CLAUDE.md)
+  "keep the core generic" invariant), and it was **never consumed**: nothing read `AccessRule`, and
+  `Privilege` was write-only (the tutor importer filled it; no command or generator read it). The access
+  content humans see is rendered from the `row_level_access` [`DocSection`](structure.md#docsection) prose,
+  so dropping both tables leaves **generated output byte-identical**. The tutor importer's privilege parser
+  and the `Privilege.scope`/`action` seed enums were removed with it. A *generic*, consumer-driven
+  authorization concept can return when there is a real reader for it — see [ROADMAP](../ROADMAP.md).
+- **Enum policy: three buckets — closed / seed / table** (the schema stores every enum as `VARCHAR`, so this is
+  a *validation-policy* decision, not a storage one; see [enums.md](enums.md)). The import-derived growth had
+  baked one corpus's value sets into the core; this draws the line:
+  - **closed** — fixed lifecycle/workflow + structural discriminators (`*.status`, `Edge.kind`, the polymorphic
+    `*_type`, `cardinality`, `verdict`, …). Validated hard; unknown rejected (`enums.Valid`).
+  - **seed** — open value-sets with documented defaults that are project-/tenant-/tooling-specific:
+    `Domain.kind`, `Spec.kind`, `UserStory.priority` (widened to P1–P5; the corpus already holds P4),
+    `Requirement.optout_marker` (corpus carries none; the FR-marker parser is forward-looking),
+    and the Qase `TestCase.*` taxonomies. Validated **leniently** — `app.ValidateEnumSoft` accepts an unknown
+    value with a warning; `--strict` restores hard rejection. Import never rejects (it warns), matching the
+    existing `unknown-delivery-status` finding.
+  - **table** — `Requirement.delivery_status`, the one value-set that carries policy, graduates to a
+    [`delivery_status`](requirements.md#deliverystatus) lookup table (seeded in migration `0009`). It is keyed
+    by its **business value** (not a ULID — a deliberate exception, like a classic reference table) and
+    referenced by `requirement.delivery_status` **with no FK**, on purpose: the lookup is *soft* so drift is
+    tolerated and surfaced by `check`, never rejected at write (record this rationale — a reviewer who sees the
+    schema's ~43 FKs should not "fix" it by adding the constraint). The coverage policy (e2e/shared/milestone
+    requirements) moves from prose into the table's boolean columns, enforced by the future `asdf check`.

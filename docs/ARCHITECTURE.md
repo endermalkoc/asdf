@@ -123,7 +123,7 @@ See [docs/entities/](entities/index.md) for the authoritative schema (entities, 
 identifiers, and resolved decisions). Layers: Structure · Requirements · Testing (Qase-style)
 · Planning · Authorization & entities · Interop.
 
-Note that the **entity/authorization layer holds authored business-domain documents**, not a
+Note that the **entity layer holds authored business-domain documents**, not a
 mirror of any database schema — a documented property need not correspond to a stored column.
 
 ## Genericity & tutor-isms to extract
@@ -131,7 +131,9 @@ mirror of any database schema — a documented property need not correspond to a
 The schema was modeled against the `tutor` corpus, so a few things are corpus-shaped and must
 be generalized (configurable policy or seed data, never hardcoded in the core):
 
-- `Privilege.scope = owned | studio` — generalize the tenant/ownership scope.
+- The structured authorization model (`Privilege`/`AccessRule`) — **removed** (migration `0012`): a
+  tutor-specific, never-consumed CASL paradigm. Access rules stay as entity-doc prose; a generic,
+  consumer-driven authorization concept can return later. See [decisions.md](entities/decisions.md).
 - FR conventions — prefix rules, decade-block numbering, opt-out markers, tombstones.
 - `Domain` values, milestone labels, Qase-specific enums — seed/import data.
 

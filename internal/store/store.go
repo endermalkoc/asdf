@@ -43,16 +43,9 @@ type Spec struct {
 	Title    string `json:"title,omitempty"`
 	Kind     string `json:"kind"`
 	Status   string `json:"status"`
-	// Document sections (0003) — verbatim Markdown for round-trip fidelity.
-	Heading         string `json:"heading,omitempty"`
-	Preamble        string `json:"preamble,omitempty"`
-	Overview        string `json:"overview,omitempty"`
-	EdgeCases       string `json:"edge_cases,omitempty"`
-	SuccessCriteria string `json:"success_criteria,omitempty"`
-	PlatformScope   string `json:"platform_scope,omitempty"`
-	Assumptions     string `json:"assumptions,omitempty"`
-	Clarifications  string `json:"clarifications,omitempty"`
-	MoreInfo        string `json:"more_info,omitempty"`
+	// Heading is the H1 identity line (kept on spec); all prose sections now live in
+	// doc_section keyed by section_key (migration 0010).
+	Heading string `json:"heading,omitempty"`
 }
 
 type Requirement struct {
@@ -93,7 +86,7 @@ func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
 	}
 	d.ID = ids.New()
 	_, err := x.ExecContext(ctx,
-		"INSERT INTO `domain` (id,abbreviation,name,description,kind,status) VALUES (?,?,?,?,?,?)",
+		"INSERT INTO `req_domain` (id,abbreviation,name,description,kind,status) VALUES (?,?,?,?,?,?)",
 		d.ID, d.Abbreviation, d.Name, nullIfEmpty(d.Description), d.Kind, d.Status)
 	if err != nil {
 		return Domain{}, fmt.Errorf("add domain %q: %w", d.Abbreviation, err)
@@ -103,7 +96,7 @@ func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
 
 func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 	rows, err := x.QueryContext(ctx,
-		"SELECT id,abbreviation,name,COALESCE(description,''),kind,status FROM `domain` ORDER BY abbreviation")
+		"SELECT id,abbreviation,name,COALESCE(description,''),kind,status FROM `req_domain` ORDER BY abbreviation")
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +114,7 @@ func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 
 func domainIDByAbbrev(ctx context.Context, x Execer, abbrev string) (string, error) {
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `domain` WHERE abbreviation=?", abbrev).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `req_domain` WHERE abbreviation=?", abbrev).Scan(&id)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("no domain with abbreviation %q", abbrev)
 	}
@@ -145,7 +138,7 @@ func AddSpec(ctx context.Context, x Execer, domainAbbrev string, sp Spec) (Spec,
 	}
 	sp.ID = ids.New()
 	_, err = x.ExecContext(ctx,
-		"INSERT INTO `spec` (id,domain_id,prefix,slug,path,title,kind,status) VALUES (?,?,?,?,?,?,?,?)",
+		"INSERT INTO `req_spec` (id,domain_id,prefix,slug,path,title,kind,status) VALUES (?,?,?,?,?,?,?,?)",
 		sp.ID, sp.DomainID, nullIfEmpty(sp.Prefix), nullIfEmpty(sp.Slug), sp.Path, nullIfEmpty(sp.Title), sp.Kind, sp.Status)
 	if err != nil {
 		return Spec{}, fmt.Errorf("add spec %q: %w", sp.Path, err)
@@ -155,7 +148,7 @@ func AddSpec(ctx context.Context, x Execer, domainAbbrev string, sp Spec) (Spec,
 
 func specIDByPrefix(ctx context.Context, x Execer, prefix string) (string, error) {
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `spec` WHERE prefix=?", prefix).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `req_spec` WHERE prefix=?", prefix).Scan(&id)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("no spec with prefix %q", prefix)
 	}
@@ -177,12 +170,12 @@ func AddRequirement(ctx context.Context, x Execer, specPrefix string, r Requirem
 		return Requirement{}, err
 	}
 	// Lock the spec row so concurrent number allocation serializes (no-op outside a tx).
-	if _, err := x.ExecContext(ctx, "SELECT id FROM `spec` WHERE id=? FOR UPDATE", specID); err != nil {
+	if _, err := x.ExecContext(ctx, "SELECT id FROM `req_spec` WHERE id=? FOR UPDATE", specID); err != nil {
 		return Requirement{}, err
 	}
 	var maxNum sql.NullInt64
 	if err := x.QueryRowContext(ctx,
-		"SELECT MAX(number) FROM `requirement` WHERE spec_id=?", specID).Scan(&maxNum); err != nil {
+		"SELECT MAX(number) FROM `req_requirement` WHERE spec_id=?", specID).Scan(&maxNum); err != nil {
 		return Requirement{}, err
 	}
 	r.SpecID = specID
@@ -194,7 +187,7 @@ func AddRequirement(ctx context.Context, x Execer, specPrefix string, r Requirem
 	r.ID = ids.New()
 	now := time.Now().UTC()
 	_, err = x.ExecContext(ctx,
-		"INSERT INTO `requirement` (id,spec_id,number,suffix,fr_key,statement,content_status,delivery_status,milestone_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+		"INSERT INTO `req_requirement` (id,spec_id,number,suffix,fr_key,statement,content_status,delivery_status,milestone_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)",
 		r.ID, r.SpecID, r.Number, nullIfEmpty(r.Suffix), r.FRKey, r.Statement, r.ContentStatus, nullIfEmpty(r.DeliveryStatus), nullIfEmpty(r.MilestoneID), now, now)
 	if err != nil {
 		return Requirement{}, fmt.Errorf("add requirement to %q: %w", specPrefix, err)
@@ -208,7 +201,7 @@ func ListRequirements(ctx context.Context, x Execer, specPrefix string) ([]Requi
 		return nil, err
 	}
 	rows, err := x.QueryContext(ctx,
-		"SELECT id,spec_id,number,COALESCE(suffix,''),fr_key,statement,content_status,COALESCE(delivery_status,''),COALESCE(milestone_id,'') FROM `requirement` WHERE spec_id=? ORDER BY number",
+		"SELECT id,spec_id,number,COALESCE(suffix,''),fr_key,statement,content_status,COALESCE(delivery_status,''),COALESCE(milestone_id,'') FROM `req_requirement` WHERE spec_id=? ORDER BY number",
 		specID)
 	if err != nil {
 		return nil, err
@@ -227,7 +220,7 @@ func ListRequirements(ctx context.Context, x Execer, specPrefix string) ([]Requi
 
 func reqIDByFRKey(ctx context.Context, x Execer, frKey string) (string, error) {
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `requirement` WHERE fr_key=?", frKey).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `req_requirement` WHERE fr_key=?", frKey).Scan(&id)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("no requirement with fr_key %q", frKey)
 	}
@@ -251,7 +244,7 @@ func AddEdge(ctx context.Context, x Execer, fromFRKey, kind, toFRKey string) (st
 	const fromType, toType = "requirement", "requirement"
 	id := ids.Rel(fromType, fromID, toType, toID, kind)
 	if _, err := x.ExecContext(ctx,
-		"INSERT IGNORE INTO `edge` (id,from_type,from_id,to_type,to_id,kind) VALUES (?,?,?,?,?,?)",
+		"INSERT IGNORE INTO `req_edge` (id,from_type,from_id,to_type,to_id,kind) VALUES (?,?,?,?,?,?)",
 		id, fromType, fromID, toType, toID, kind); err != nil {
 		return "", fmt.Errorf("add edge %s -%s-> %s: %w", fromFRKey, kind, toFRKey, err)
 	}
@@ -262,7 +255,7 @@ func AddEdge(ctx context.Context, x Execer, fromFRKey, kind, toFRKey string) (st
 // changeset.author_id has a row to reference.
 func SeedActor(ctx context.Context, x Execer, handle, name string) (string, error) {
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `actor` WHERE handle=?", handle).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `rev_actor` WHERE handle=?", handle).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
@@ -272,7 +265,7 @@ func SeedActor(ctx context.Context, x Execer, handle, name string) (string, erro
 	id = ids.New()
 	kind := "human"
 	_, err = x.ExecContext(ctx,
-		"INSERT INTO `actor` (id,kind,name,handle) VALUES (?,?,?,?)",
+		"INSERT INTO `rev_actor` (id,kind,name,handle) VALUES (?,?,?,?)",
 		id, kind, name, handle)
 	if err != nil {
 		return "", fmt.Errorf("seed actor %q: %w", handle, err)

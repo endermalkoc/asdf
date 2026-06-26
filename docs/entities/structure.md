@@ -38,23 +38,24 @@ journeys, analysis, index/meta) have `prefix = NULL` and a `kind` that classifie
 | `title` | varchar | | |
 | `kind` | enum | | `feature`, `entity`, `journey`, `analysis`, `index`, `meta`, `reference` |
 | `status` | enum | | `draft`, `reviewed`, `active`, `obsolete` (`reviewed` = under review, before active) |
-| `heading` | text | | The H1 line verbatim (may differ from `title`); nullable |
-| `preamble` | text | | Content between the H1 and the first `##` (e.g. the metadata block); nullable |
-| `overview` / `edge_cases` / `success_criteria` / `platform_scope` / `assumptions` / `clarifications` | text | | The recurring template sections, stored as verbatim Markdown; nullable. Bespoke sections go to `DocSection`. |
-| `more_info` | text | | FR-area content that is neither a requirement nor a real FR group — note-only bold sub-headers (e.g. "Column Configuration") and their config/table bodies; nullable |
+| `heading` | text | | The H1 line verbatim (may differ from `title`); nullable. **Not a section** — the document's identity line (the `#`) |
 | `created_at` / `updated_at` | date | | From spec header |
 
 > **Section capture.** A spec's structured content (user stories, acceptance scenarios,
-> requirements) is modeled in the [requirements layer](requirements.md). Its **recurring template
-> prose** — including the `clarifications` decision log — is the typed columns above (stored verbatim,
-> since the corpus's Clarifications mix `### Session` blocks, Q/A bullets, and tables); **any other
-> section** is preserved generically in [`DocSection`](#docsection) — together making a regenerate
-> information-complete. "Key Entities" lists are captured as `spec → entity` [`Edge`](requirements.md#edge)s.
+> requirements) is modeled in the [requirements layer](requirements.md). **All of its prose sections** —
+> the recurring template ones (`overview`, `edge_cases`, `success_criteria`, `platform_scope`,
+> `assumptions`, `clarifications`, `preamble`, the FR-area `more_info` tail) **and** the bespoke tail —
+> are captured as [`DocSection`](#docsection) rows: a recognized section carries a normalized `section_key`
+> (e.g. `overview`), a bespoke one carries `section_key = NULL`. This keeps the core generic (a different
+> corpus's sections just get keys or go bespoke — no schema change) while a regenerate stays
+> information-complete. "Key Entities" lists are also captured as `spec → entity`
+> [`EntityRef`](requirements.md#entityref)s.
 
 ## DocSection
-The **generic catch-all** for any document section not modeled as a typed field — the tail of
-bespoke per-spec sections (and per-entity sections) that keeps a regenerate information-complete.
-Its owner is **polymorphic** (`spec` or `entity`), so it is not an FK.
+The model for **every document section** — recurring template sections (addressed by `section_key`) and
+the bespoke tail (`section_key = NULL`) — keeping a regenerate information-complete. Replaced the former
+per-section typed columns on `Spec`/`Entity` (migration `0010`). Its owner is **polymorphic** (`spec` or
+`entity`), so it is not an FK.
 
 | Attribute | Type | Key | Notes |
 |---|---|---|---|
@@ -62,6 +63,10 @@ Its owner is **polymorphic** (`spec` or `entity`), so it is not an FK.
 | `owner_type` | enum | | `spec`, `entity` |
 | `owner_id` | bigint / uuid | | Polymorphic (type + id) |
 | `ordinal` | int | | Original position in the source doc (unique per owner) |
-| `level` | int | | Heading depth: `2` = `##`, `3` = `###` |
-| `heading` | text | | The section heading |
+| `section_key` | varchar | | Normalized id of a recognized section (`overview`, `edge_cases`, `purpose`, …); **`NULL` for a bespoke section** |
+| `level` | int | | Heading depth: `2` = `##`, `3` = `###` (a `0`/empty-heading row is bare intro prose, e.g. `preamble`) |
+| `heading` | text | | The section heading (don't-care for keyed sections — they render at a canonical spot) |
 | `body` | text | | The section's Markdown body, verbatim |
+
+> `UNIQUE(owner_type, owner_id, ordinal)` and `UNIQUE(owner_type, owner_id, section_key)` — the latter
+> permits many bespoke rows (NULLs are distinct), one row per recognized key.

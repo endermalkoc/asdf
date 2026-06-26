@@ -28,13 +28,13 @@ func UpsertGlossaryTerm(ctx context.Context, x Execer, t GlossaryTerm) (string, 
 		t.Status = "draft"
 	}
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `glossary_term` WHERE slug=?", t.Slug).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `req_glossary_term` WHERE slug=?", t.Slug).Scan(&id)
 	switch {
 	case err == sql.ErrNoRows:
 		id = ids.New()
 		now := time.Now().UTC()
 		_, err = x.ExecContext(ctx,
-			"INSERT INTO `glossary_term` (id,slug,term,definition,domain_id,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
+			"INSERT INTO `req_glossary_term` (id,slug,term,definition,domain_id,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?)",
 			id, t.Slug, nullIfEmpty(t.Term), nullIfEmpty(t.Definition), nullIfEmpty(t.DomainID), t.Status, now, now)
 		if err != nil {
 			return "", false, fmt.Errorf("insert glossary_term %q: %w", t.Slug, err)
@@ -44,7 +44,7 @@ func UpsertGlossaryTerm(ctx context.Context, x Execer, t GlossaryTerm) (string, 
 		return "", false, err
 	}
 	_, err = x.ExecContext(ctx,
-		"UPDATE `glossary_term` SET term=?, definition=?, domain_id=?, status=?, updated_at=? WHERE id=?",
+		"UPDATE `req_glossary_term` SET term=?, definition=?, domain_id=?, status=?, updated_at=? WHERE id=?",
 		nullIfEmpty(t.Term), nullIfEmpty(t.Definition), nullIfEmpty(t.DomainID), t.Status, time.Now().UTC(), id)
 	if err != nil {
 		return "", false, fmt.Errorf("update glossary_term %q: %w", t.Slug, err)
@@ -56,7 +56,7 @@ func UpsertGlossaryTerm(ctx context.Context, x Execer, t GlossaryTerm) (string, 
 // globally UNIQUE, so each is first detached from any other term (steal), then
 // re-pointed here — with a deterministic id so it converges on merge.
 func SetGlossaryAliases(ctx context.Context, x Execer, termID string, aliases []string) error {
-	if _, err := x.ExecContext(ctx, "DELETE FROM `glossary_alias` WHERE term_id=?", termID); err != nil {
+	if _, err := x.ExecContext(ctx, "DELETE FROM `req_glossary_alias` WHERE term_id=?", termID); err != nil {
 		return fmt.Errorf("clear glossary aliases: %w", err)
 	}
 	seen := map[string]bool{}
@@ -66,11 +66,11 @@ func SetGlossaryAliases(ctx context.Context, x Execer, termID string, aliases []
 			continue
 		}
 		seen[a] = true
-		if _, err := x.ExecContext(ctx, "DELETE FROM `glossary_alias` WHERE alias=?", a); err != nil {
+		if _, err := x.ExecContext(ctx, "DELETE FROM `req_glossary_alias` WHERE alias=?", a); err != nil {
 			return fmt.Errorf("detach alias %q: %w", a, err)
 		}
 		if _, err := x.ExecContext(ctx,
-			"INSERT INTO `glossary_alias` (id,term_id,alias) VALUES (?,?,?)",
+			"INSERT INTO `req_glossary_alias` (id,term_id,alias) VALUES (?,?,?)",
 			ids.Rel("glossary-alias", a), termID, a); err != nil {
 			return fmt.Errorf("insert alias %q: %w", a, err)
 		}
@@ -81,7 +81,7 @@ func SetGlossaryAliases(ctx context.Context, x Execer, termID string, aliases []
 // DomainIDByAbbrev looks up a domain's id by its abbreviation (ok=false if absent).
 func DomainIDByAbbrev(ctx context.Context, x Execer, abbrev string) (string, bool, error) {
 	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `domain` WHERE abbreviation=?", abbrev).Scan(&id)
+	err := x.QueryRowContext(ctx, "SELECT id FROM `req_domain` WHERE abbreviation=?", abbrev).Scan(&id)
 	if err == sql.ErrNoRows {
 		return "", false, nil
 	}
@@ -107,7 +107,7 @@ func ListGlossaryTerms(ctx context.Context, x Execer) ([]GlossaryTermRow, error)
 	rows, err := x.QueryContext(ctx, `
 		SELECT t.id, t.slug, COALESCE(t.term,''), COALESCE(t.definition,''),
 		       COALESCE(d.abbreviation,''), t.status
-		FROM `+"`glossary_term`"+` t LEFT JOIN `+"`domain`"+` d ON t.domain_id = d.id
+		FROM `+"`req_glossary_term`"+` t LEFT JOIN `+"`req_domain`"+` d ON t.domain_id = d.id
 		ORDER BY t.slug`)
 	if err != nil {
 		return nil, err
@@ -126,7 +126,7 @@ func ListGlossaryTerms(ctx context.Context, x Execer) ([]GlossaryTermRow, error)
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	arows, err := x.QueryContext(ctx, "SELECT term_id, alias FROM `glossary_alias` ORDER BY alias")
+	arows, err := x.QueryContext(ctx, "SELECT term_id, alias FROM `req_glossary_alias` ORDER BY alias")
 	if err != nil {
 		return nil, err
 	}

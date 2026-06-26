@@ -21,17 +21,12 @@ func buildReport(g *importer.Graph, stmtByKey map[string]frStatement, rep *impor
 	rep.Counts["entity_refs"] = len(g.Refs)
 	rep.Counts["milestones"] = len(g.Milestones)
 	rep.Counts["entities"] = len(g.Entities)
-	rep.Counts["privileges"] = len(g.Privileges)
 
-	// Entity layer: attributes/relationships and access rules stay deferred —
-	// they live in entity-doc prose and CASL code, not a structured form here.
+	// Entity layer: attributes/relationships stay deferred — they live in
+	// entity-doc prose, not a structured form here.
 	if len(g.Entities) > 0 {
 		rep.Add(importer.SevInfo, "entity-attributes-deferred",
 			"entity attributes/relationships are prose in the entity docs — not extracted (EntityAttribute = domain meaning, decisions.md)", "")
-	}
-	if len(g.Privileges) > 0 {
-		rep.Add(importer.SevInfo, "access-rules-deferred",
-			"privilege triples imported; AccessRule (entity↔privilege + conditions) lives in FR prose/CASL code — deferred", "")
 	}
 
 	// Delivery-status histogram + optout/tombstone tallies.

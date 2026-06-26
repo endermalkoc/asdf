@@ -35,13 +35,19 @@ var domainAddCmd = &cobra.Command{
 			Summary:   fmt.Sprintf("add domain %s", args[0]),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate:  func(context.Context) error { return app.ValidateEnum("domain kind", domainKind, enums.DomainKind) },
+			Validate: func(context.Context) error {
+				note, e := app.ValidateEnumSoft("domain kind", domainKind, enums.DomainKind, flagStrict)
+				if note != "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), note)
+				}
+				return e
+			},
 		}, func(ctx context.Context, w *app.Write) error {
 			res, e := store.AddDomain(ctx, w.Tx, store.Domain{Abbreviation: args[0], Name: args[1], Description: domainDescription, Kind: domainKind})
 			if e != nil {
 				return e
 			}
-			w.MarkDirty("domain")
+			w.MarkDirty("req_domain")
 			d = res
 			return nil
 		})

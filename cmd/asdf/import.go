@@ -92,7 +92,7 @@ var importTutorCmd = &cobra.Command{
 func printApplyStats(s *importer.ApplyStats) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "imported tutor corpus\n")
-	kinds := []string{"domains", "milestones", "specs", "requirement_groups", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "external_refs", "entities", "privileges", "doc_sections"}
+	kinds := []string{"domains", "milestones", "specs", "requirement_groups", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "external_refs", "entities", "doc_sections"}
 	fmt.Fprintf(&b, "  %-22s %8s %8s %8s\n", "", "inserted", "updated", "skipped")
 	for _, k := range kinds {
 		if s.Inserted[k] == 0 && s.Updated[k] == 0 && s.Skipped[k] == 0 {
@@ -108,7 +108,7 @@ func printTutorReport(path string, g *importer.Graph, rep *importer.Report) {
 	fmt.Fprintf(&b, "tutor corpus: %s\n", path)
 
 	fmt.Fprintf(&b, "\nparsed entities\n")
-	for _, k := range []string{"domains", "specs", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "milestones", "entities", "privileges"} {
+	for _, k := range []string{"domains", "specs", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "milestones", "entities"} {
 		fmt.Fprintf(&b, "  %-22s %d\n", k, rep.Counts[k])
 	}
 

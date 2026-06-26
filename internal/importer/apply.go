@@ -12,9 +12,9 @@ import (
 // TouchedTables lists every table Apply may write, so the caller (the Mutate
 // wrapper) can stage them for the Dolt commit.
 var TouchedTables = []string{
-	"domain", "milestone", "spec", "requirement", "requirement_group",
-	"user_story", "acceptance_scenario", "entity_ref", "external_ref",
-	"entity", "privilege", "doc_section",
+	"req_domain", "plan_milestone", "req_spec", "req_requirement", "req_requirement_group",
+	"req_user_story", "req_acceptance_scenario", "req_entity_ref", "pub_external_ref",
+	"ent_entity", "req_doc_section",
 }
 
 // ApplyStats tallies the write, per entity kind.
@@ -87,11 +87,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		}
 		id, ins, err := store.UpsertSpec(ctx, x, dID, store.Spec{
 			Prefix: sp.Prefix, Slug: slugFromPath(sp.Path), Path: sp.Path,
-			Title: sp.Title, Kind: sp.Kind, Status: sp.Status,
-			Heading: sp.Heading, Preamble: sp.Preamble, Overview: sp.Overview,
-			EdgeCases: sp.EdgeCases, SuccessCriteria: sp.SuccessCriteria,
-			PlatformScope: sp.PlatformScope, Assumptions: sp.Assumptions, Clarifications: sp.Clarifications,
-			MoreInfo: sp.MoreInfo,
+			Title: sp.Title, Kind: sp.Kind, Status: sp.Status, Heading: sp.Heading,
 		})
 		if err != nil {
 			return st, err
@@ -101,8 +97,13 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		}
 		specByPath[sp.Path] = id
 		st.bump("specs", ins)
+		// Reconcile the owner's sections (delete-then-insert) so a changed parse
+		// leaves no orphans, then write keyed + bespoke sections.
+		if e := store.DeleteDocSectionsByOwner(ctx, x, "spec", id); e != nil {
+			return st, e
+		}
 		for _, ds := range sp.Sections {
-			_, dins, e := store.UpsertDocSection(ctx, x, "spec", id, ds.Ordinal, ds.Level, ds.Heading, ds.Body)
+			_, dins, e := store.UpsertDocSection(ctx, x, "spec", id, ds.Ordinal, ds.Level, ds.Heading, ds.Body, ds.Key)
 			if e != nil {
 				return st, e
 			}
@@ -212,17 +213,17 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		}
 		id, ins, err := store.UpsertEntity(ctx, x, entitiesDomainID, specByPath[e.DocPath], store.Entity{
 			Name: e.Name, Description: e.Description, Status: e.Status,
-			Purpose: e.Purpose, KeyConcepts: e.KeyConcepts, SchemaReference: e.SchemaReference,
-			Relationships: e.Relationships, BusinessRules: e.BusinessRules, Validations: e.Validations,
-			RowLevelAccess: e.RowLevelAccess, Notes: e.Notes, SpecReferences: e.SpecReferences,
 		})
 		if err != nil {
 			return st, err
 		}
 		entityID[e.Name] = id
 		st.bump("entities", ins)
+		if e2 := store.DeleteDocSectionsByOwner(ctx, x, "entity", id); e2 != nil {
+			return st, e2
+		}
 		for _, ds := range e.Sections {
-			_, dins, err := store.UpsertDocSection(ctx, x, "entity", id, ds.Ordinal, ds.Level, ds.Heading, ds.Body)
+			_, dins, err := store.UpsertDocSection(ctx, x, "entity", id, ds.Ordinal, ds.Level, ds.Heading, ds.Body, ds.Key)
 			if err != nil {
 				return st, err
 			}
@@ -273,15 +274,6 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 			return st, err
 		}
 		st.bump("external_refs", ins)
-	}
-
-	// Privileges (resource, scope, action) triples.
-	for _, p := range g.Privileges {
-		_, ins, err := store.UpsertPrivilege(ctx, x, p.Resource, p.Scope, p.Action)
-		if err != nil {
-			return st, err
-		}
-		st.bump("privileges", ins)
 	}
 
 	return st, nil

@@ -86,11 +86,11 @@ var changesetStartCmd = &cobra.Command{
 		now := time.Now().UTC()
 		id := ids.New()
 		if _, err := conn.ExecContext(ctx,
-			"INSERT INTO `changeset` (id,title,description,author_id,status,branch,base_commit,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+			"INSERT INTO `rev_changeset` (id,title,description,author_id,status,branch,base_commit,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
 			id, title, "", authorID, "draft", branch, base, now, now); err != nil {
 			return fmt.Errorf("recording changeset: %w", err)
 		}
-		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"changeset": true},
+		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"rev_changeset": true},
 			"open changeset "+branch, actor.CommitAuthorString()); err != nil {
 			return err
 		}
@@ -124,7 +124,7 @@ var changesetDiffCmd = &cobra.Command{
 		}
 		defer conn.Close()
 		var base string
-		if err := conn.QueryRowContext(ctx, "SELECT base_commit FROM `changeset` WHERE branch=?", branch).Scan(&base); err != nil {
+		if err := conn.QueryRowContext(ctx, "SELECT base_commit FROM `rev_changeset` WHERE branch=?", branch).Scan(&base); err != nil {
 			return fmt.Errorf("unknown changeset %q: %w", branch, err)
 		}
 		diffs, err := workspace.Diff(ctx, conn, base, branch)
@@ -182,12 +182,12 @@ var changesetSubmitCmd = &cobra.Command{
 		}
 		now := time.Now().UTC()
 		if _, err := conn.ExecContext(ctx,
-			"UPDATE `changeset` SET status='open', head_commit=?, updated_at=? WHERE branch=?",
+			"UPDATE `rev_changeset` SET status='open', head_commit=?, updated_at=? WHERE branch=?",
 			head, now, branch); err != nil {
 			return err
 		}
 		actor := workspace.ResolveActor(flagActor)
-		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"changeset": true},
+		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"rev_changeset": true},
 			"submit changeset "+branch, actor.CommitAuthorString()); err != nil {
 			return err
 		}
@@ -238,11 +238,11 @@ var changesetMergeCmd = &cobra.Command{
 		}
 		now := time.Now().UTC()
 		if _, err := conn.ExecContext(ctx,
-			"UPDATE `changeset` SET status='merged', merge_commit=?, updated_at=? WHERE branch=?",
+			"UPDATE `rev_changeset` SET status='merged', merge_commit=?, updated_at=? WHERE branch=?",
 			mergeCommit, now, branch); err != nil {
 			return err
 		}
-		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"changeset": true},
+		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"rev_changeset": true},
 			"merge changeset "+branch, actor.CommitAuthorString()); err != nil {
 			return err
 		}
@@ -280,10 +280,10 @@ var changesetAbandonCmd = &cobra.Command{
 			return err
 		}
 		if _, err := conn.ExecContext(ctx,
-			"UPDATE `changeset` SET status='closed', updated_at=? WHERE branch=?", time.Now().UTC(), branch); err != nil {
+			"UPDATE `rev_changeset` SET status='closed', updated_at=? WHERE branch=?", time.Now().UTC(), branch); err != nil {
 			return err
 		}
-		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"changeset": true},
+		if err := versioncontrolops.StageAndCommit(ctx, conn, map[string]bool{"rev_changeset": true},
 			"abandon changeset "+branch, actor.CommitAuthorString()); err != nil {
 			return err
 		}
@@ -311,7 +311,7 @@ var changesetLsCmd = &cobra.Command{
 		}
 		defer ws.Close()
 		rows, err := ws.DB().QueryContext(ctx,
-			"SELECT branch,COALESCE(title,''),status FROM `changeset` ORDER BY updated_at DESC")
+			"SELECT branch,COALESCE(title,''),status FROM `rev_changeset` ORDER BY updated_at DESC")
 		if err != nil {
 			return err
 		}

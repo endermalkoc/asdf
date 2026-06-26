@@ -49,19 +49,40 @@ self-reference to the base FR. Delivery metadata is inline. See
 | `position` | int | | Document order within the spec's FR list (preserves source order, which is not FR-number order) |
 | `statement` | text | | The MUST statement |
 | `content_status` | enum | | `draft`, `active`, `obsolete` (the requirement's own lifecycle) |
-| `delivery_status` | enum | | `covered`, `test-pending`, `not-implemented`, `e2e-sufficient`, `shared`, `schema-only`, `deferred` |
+| `delivery_status` | varchar | | a `delivery_status.key` (`covered`, `test-pending`, `not-implemented`, `e2e-sufficient`, `shared`, `schema-only`, `deferred`). A **business-key reference** to the [`delivery_status`](#deliverystatus) lookup table — not an FK, so unknown values are tolerated and surfaced, not rejected |
 | `milestone_id` | FK → Milestone | | Nullable |
 | `owner` | varchar | | e.g. `backend` |
 | `notes` | text | | |
-| `optout_marker` | enum | | `none`, `visual`, `ops`, `untestable` |
+| `optout_marker` | varchar | | `none`, `visual`, `ops`, `untestable` (**seed**; corpus carries none — forward-looking parser) |
 | `optout_reason` | varchar | | Required when `optout_marker != none` |
 | `tombstoned_at` | date | | Set when the FR is deleted (tombstone) |
 | `created_at` / `updated_at` | datetime | | |
 
-> Constraints worth enforcing: `UNIQUE(spec_id, number, suffix)`; ≥1 linked
-> [`TestCase`](testing.md#testcase) of `layer = e2e` when `delivery_status = e2e-sufficient`
-> and of `layer = shared` when `= shared`; `milestone_id` required when
-> `delivery_status = not-implemented`.
+> Constraints worth enforcing: `UNIQUE(spec_id, number, suffix)`. The delivery-coverage rules
+> (≥1 `layer = e2e` [`TestCase`](testing.md#testcase) when `delivery_status = e2e-sufficient`; ≥1
+> `layer = shared` when `= shared`; `milestone_id` required when `= not-implemented`) are now **data,
+> not prose** — they live in the [`delivery_status`](#deliverystatus) table's policy columns
+> (`requires_e2e_test` / `requires_shared_test` / `requires_milestone`) and are enforced by the future
+> `asdf check`.
+
+## DeliveryStatus
+A **lookup table** for `Requirement.delivery_status` — the one enum that earned its own table because it
+carries policy. Keyed by its business value (e.g. `e2e-sufficient`), like a classic reference table (a
+deliberate exception to the ULID-PK rule — see [identifiers.md](identifiers.md)). Requirements reference it
+**by key, with no FK**, so a novel status is tolerated and surfaced by `check`, never rejected at write
+(consistent with the seed-value leniency). Seeded by migration `0009`; configurable by adding rows.
+
+| Attribute | Type | Key | Notes |
+|---|---|---|---|
+| `key` | varchar | **PK** | the business value, matches `requirement.delivery_status` |
+| `label` | varchar | | display name |
+| `description` | text | | what the status means |
+| `sequence` | int | | sort/coverage order |
+| `counts_as_covered` | bool | | rolls up as "done" in coverage stats |
+| `requires_e2e_test` | bool | | needs ≥1 `layer = e2e` TestCase (`e2e-sufficient`) |
+| `requires_shared_test` | bool | | needs ≥1 `layer = shared` TestCase (`shared`) |
+| `requires_milestone` | bool | | needs `milestone_id` (`not-implemented`) |
+| `created_at` / `updated_at` | datetime | | |
 
 ## RequirementGroup
 A bold **sub-header** that organizes a spec's FR list ("Student Section", "Family Section

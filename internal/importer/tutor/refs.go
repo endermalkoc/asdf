@@ -30,19 +30,12 @@ func convertRefs(g *importer.Graph, rep *importer.Report) []importer.EntityRef {
 		}
 	}
 
-	// Spec-owned text fields (incl. doc sections + FR-group notes).
+	// Spec-owned text: every section (keyed + bespoke) lives in sp.Sections now,
+	// plus the FR-group notes.
 	for i := range g.Specs {
 		sp := &g.Specs[i]
 		dir := path.Dir(sp.Path)
 		conv := func(s string) string { return c.convert(s, "spec", sp.Path, dir) }
-		sp.Preamble = conv(sp.Preamble)
-		sp.Overview = conv(sp.Overview)
-		sp.EdgeCases = conv(sp.EdgeCases)
-		sp.SuccessCriteria = conv(sp.SuccessCriteria)
-		sp.PlatformScope = conv(sp.PlatformScope)
-		sp.Assumptions = conv(sp.Assumptions)
-		sp.Clarifications = conv(sp.Clarifications)
-		sp.MoreInfo = conv(sp.MoreInfo)
 		for j := range sp.Sections {
 			sp.Sections[j].Body = conv(sp.Sections[j].Body)
 		}
@@ -78,20 +71,11 @@ func convertRefs(g *importer.Graph, rep *importer.Report) []importer.EntityRef {
 		sc.Then = c.convert(sc.Then, "spec", ownerPath, dir)
 	}
 
-	// Entity-owned text fields.
+	// Entity-owned text: every section (keyed + bespoke) lives in e.Sections now.
 	for i := range g.Entities {
 		e := &g.Entities[i]
 		dir := path.Dir(e.DocPath)
 		conv := func(s string) string { return c.convert(s, "entity", e.Name, dir) }
-		e.Purpose = conv(e.Purpose)
-		e.KeyConcepts = conv(e.KeyConcepts)
-		e.SchemaReference = conv(e.SchemaReference)
-		e.Relationships = conv(e.Relationships)
-		e.BusinessRules = conv(e.BusinessRules)
-		e.Validations = conv(e.Validations)
-		e.RowLevelAccess = conv(e.RowLevelAccess)
-		e.Notes = conv(e.Notes)
-		e.SpecReferences = conv(e.SpecReferences)
 		for j := range e.Sections {
 			e.Sections[j].Body = conv(e.Sections[j].Body)
 		}

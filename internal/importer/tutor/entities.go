@@ -51,8 +51,7 @@ func parseEntities(specsDir string, rep *importer.Report) ([]importer.Entity, []
 		if body, ok := readSpecBody(specsDir, rel); ok {
 			h1, preamble, secs := splitDoc(body)
 			sp.Heading = h1
-			sp.Preamble = preamble
-			routeEntitySections(&ent, secs)
+			routeEntitySections(&ent, preamble, secs)
 		}
 		entities = append(entities, ent)
 		specs = append(specs, sp)
@@ -81,11 +80,11 @@ func parseEntities(specsDir string, rep *importer.Report) ([]importer.Entity, []
 		name := entityNameFromHeading(h1, e.Name())
 		mapped := mapSpecStatus("", rep, rel)
 		ent := importer.Entity{Name: name, Status: mapped, DocPath: rel}
-		routeEntitySections(&ent, secs)
+		routeEntitySections(&ent, preamble, secs)
 		entities = append(entities, ent)
 		specs = append(specs, importer.Spec{
 			Prefix: "", Path: rel, Title: name, Domain: "entities", Kind: "entity",
-			Status: mapped, Heading: h1, Preamble: preamble,
+			Status: mapped, Heading: h1,
 		})
 	}
 	if unlisted > 0 {
@@ -112,37 +111,6 @@ func entityNameFromHeading(h1, filename string) string {
 		}
 	}
 	return strings.Join(parts, " ")
-}
-
-// privilegeBulletRe matches a preset privilege bullet:
-//
-//   - (transactions, owned, manage) — Record transactions at own events
-var privilegeBulletRe = regexp.MustCompile(
-	`^\s*[-*]\s*\(([a-z_]+),\s*([a-z_]+),\s*([a-z_]+)\)\s*[\x{2014}\x{2013}-]\s*(.+?)\s*$`)
-
-// parsePrivileges reads the (resource, scope, action) preset bullets out of the
-// authorization spec and dedups them by the triple — the Privilege table.
-func parsePrivileges(specsDir string, rep *importer.Report) []importer.Privilege {
-	b, err := os.ReadFile(filepath.Join(specsDir, "platform", "authorization.md"))
-	if err != nil {
-		return nil
-	}
-	seen := map[string]bool{}
-	var out []importer.Privilege
-	for _, line := range strings.Split(string(b), "\n") {
-		m := privilegeBulletRe.FindStringSubmatch(line)
-		if m == nil {
-			continue
-		}
-		resource, scope, action, desc := m[1], m[2], m[3], strings.TrimSpace(m[4])
-		key := resource + "\x1f" + scope + "\x1f" + action
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		out = append(out, importer.Privilege{Resource: resource, Scope: scope, Action: action, Description: desc})
-	}
-	return out
 }
 
 var linkHrefRe = regexp.MustCompile(`\[[^\]]+\]\(([^)]*)\)`)

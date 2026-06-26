@@ -290,7 +290,7 @@ func parseRegistry(registryDir string, stmtByKey map[string]frStatement, rep *im
 	}
 	for s := range unknownStatus {
 		rep.Add(importer.SevWarn, "unknown-delivery-status",
-			"registry status "+s+" is not in enums.RequirementDelivery", "")
+			"registry status "+s+" is outside the delivery_status seed set — tolerated and stored (add a row to the delivery_status table to make it first-class)", "")
 	}
 
 	return reqs, milestones, nil

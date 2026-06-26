@@ -75,11 +75,11 @@ var termAddCmd = &cobra.Command{
 			if e != nil {
 				return e
 			}
-			w.MarkDirty("glossary_term")
+			w.MarkDirty("req_glossary_term")
 			if e := store.SetGlossaryAliases(ctx, w.Tx, id, termAliases); e != nil {
 				return e
 			}
-			w.MarkDirty("glossary_alias")
+			w.MarkDirty("req_glossary_alias")
 			t = store.GlossaryTerm{ID: id, Slug: slug, Term: name, Definition: definition, DomainID: domainID, Status: termStatus, Aliases: termAliases}
 			return app.ReconcileRefs(ctx, w, "glossary_term", id, resolved.Targets)
 		})

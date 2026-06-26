@@ -1,6 +1,13 @@
-# Authorization & entity layer
+# Entity layer
 
 [← index](index.md) · see the [master diagram](index.md#master-diagram).
+
+> **No structured authorization model.** Earlier revisions modeled row-level access as a
+> `Privilege` (`(resource, scope, action)` triple) + `AccessRule` (entity↔privilege binding) pair.
+> That baked one corpus's CASL-style authorization paradigm into the core schema and was never
+> consumed (nothing read it; `Privilege` was write-only), so migration `0012` removed both. An
+> entity's access rules live as **prose** in its `row_level_access` [`DocSection`](structure.md#docsection);
+> a generic, consumer-driven authorization concept can return later (see [ROADMAP](../ROADMAP.md)).
 
 > These are **authored business-domain documents**, not a projection of the technical
 > schema. They describe what an entity *means* — purpose, domain properties, relationships,
@@ -20,23 +27,17 @@ Usually has a documenting spec (`kind = entity`) that carries the prose.
 | `domain_id` | FK → Domain | | |
 | `spec_id` | FK → Spec | | The entity doc (full narrative); nullable |
 | `name` | varchar | **UK** | |
-| `description` | text | | Short domain definition (from the entity index) |
+| `description` | text | | Short domain definition (from the entity index); nullable. **Not a doc section** |
 | `status` | enum | | `draft`, `active`, `deprecated` |
-| `purpose` | text | | The doc's "Purpose" section; nullable |
-| `key_concepts` | text | | "Key Concepts" section; nullable |
-| `schema_reference` | text | | "Schema Reference" section; nullable |
-| `relationships` | text | | "Relationships" section (prose); nullable. The *structured* form is [`EntityRelationship`](#entityrelationship) rows. |
-| `business_rules` | text | | "Business Rules" section; nullable |
-| `validations` | text | | "Validations" section; nullable |
-| `row_level_access` | text | | "Row-Level Access Rules" section (prose); nullable. The *structured* form is [`AccessRule`](#accessrule) rows. |
-| `entity_notes` | text | | The doc's "Notes" section; nullable |
-| `spec_references` | text | | "Spec References" section; nullable |
 
-> Entity docs are rigidly templated, so their recurring sections are captured as the typed text
-> columns above (a regenerate is then information-complete). `EntityAttribute` / `EntityRelationship` /
-> `AccessRule` remain the **finer structured extraction** of that same prose — populated when a
-> command parses it, not a duplicate source of truth. Bespoke entity sections go to
-> [`DocSection`](structure.md#docsection).
+> Entity docs are rigidly templated; their recurring sections (`purpose`, `key_concepts`,
+> `schema_reference`, `relationships`, `business_rules`, `validations`, `row_level_access`, `notes`,
+> `spec_references`) are captured as [`DocSection`](structure.md#docsection) rows keyed by `section_key`
+> (migration `0010` replaced the former per-section typed columns), with bespoke sections as
+> `section_key = NULL` — a regenerate is then information-complete. `EntityAttribute` /
+> `EntityRelationship` remain the **finer structured extraction** of that same prose —
+> populated when a command parses it, not a duplicate source of truth. (`row_level_access` has
+> no structured counterpart — it stays prose-only; see the note at the top of this page.)
 
 ## EntityAttribute
 A documented **domain property** of an entity — its business meaning, not a typed DB
@@ -64,28 +65,3 @@ A relationship between two entities (the "Relationships" section of an entity do
 | `cardinality` | enum | | `one_to_one`, `one_to_many`, `many_to_many` |
 | `junction_table` | varchar | | Nullable (for m2m) |
 | `notes` | text | | |
-
-## Privilege
-A `(resource, scope, action)` triple — the authorization vocabulary used by entity
-Row-Level Access Rules. Authorization is always expressed as triples, never role names.
-
-| Attribute | Type | Key | Notes |
-|---|---|---|---|
-| `id` | bigint / uuid | **PK** | |
-| `resource` | varchar | | e.g. `students`, `tutor_compensation` |
-| `scope` | enum | | `owned`, `studio` |
-| `action` | enum | | `view`, `manage` |
-
-> `UNIQUE(resource, scope, action)`.
-
-## AccessRule
-A row-level access rule on an entity: "IF I have `(resource, scope, action)` [AND
-condition] THEN \<description\>".
-
-| Attribute | Type | Key | Notes |
-|---|---|---|---|
-| `id` | bigint / uuid | **PK** | |
-| `entity_id` | FK → Entity | | |
-| `privilege_id` | FK → Privilege | | The required triple |
-| `condition` | text | | e.g. "created by me OR assigned to me"; nullable |
-| `description` | text | | What the rule grants |

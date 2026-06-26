@@ -72,7 +72,15 @@ func Parse(docsRoot string) (*importer.Graph, *importer.Report, error) {
 		}
 		h1, preamble, secs := splitDoc(body)
 		routeSpecSections(sp, h1, preamble, secs)
-		sp.ReqGroups, sp.MoreInfo = collectStatements(sp.Prefix, body, stmtByKey, rep)
+		var moreInfo string
+		sp.ReqGroups, moreInfo = collectStatements(sp.Prefix, body, stmtByKey, rep)
+		// FR-area trailing prose (note-only headers, config, tables) → a keyed
+		// doc_section, rendered after the FR list (the generator looks it up by key).
+		if strings.TrimSpace(moreInfo) != "" {
+			sp.Sections = append(sp.Sections, importer.DocSection{
+				Ordinal: len(sp.Sections) + 1, Level: 2, Body: moreInfo, Key: "more_info",
+			})
+		}
 		stories, scenarios, ru := parseStories(sp.Prefix, body)
 		roleUnparsed += ru
 		g.Stories = append(g.Stories, stories...)
@@ -84,9 +92,6 @@ func Parse(docsRoot string) (*importer.Graph, *importer.Report, error) {
 	g.Entities = entities
 	g.Specs = append(g.Specs, entitySpecs...)
 	g.Specs = dedupeSpecsByPath(g.Specs) // an entity doc may also be a registry spec (e.g. attachable)
-
-	// 3c. Privilege triples from the authorization spec.
-	g.Privileges = parsePrivileges(specsDir, rep)
 
 	// 4. Requirements (fr-registry/**.yml), joined to statements.
 	reqs, milestones, err := parseRegistry(registryDir, stmtByKey, rep)

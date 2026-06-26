@@ -20,7 +20,6 @@ type Graph struct {
 	Refs       []EntityRef   `json:"entity_refs"`
 	Milestones []Milestone   `json:"milestones"`
 	Entities   []Entity      `json:"entities"`
-	Privileges []Privilege   `json:"privileges"`
 }
 
 // Entity ← a row of specs/entities/index.md (the entity glossary). Its DocPath
@@ -31,27 +30,9 @@ type Entity struct {
 	Status      string `json:"status"`   // mapped to entity.status (draft|active|deprecated)
 	DocPath     string `json:"doc_path"` // entities/<file>.md
 
-	// Entity-doc template sections (verbatim Markdown).
-	Purpose         string       `json:"purpose,omitempty"`
-	KeyConcepts     string       `json:"key_concepts,omitempty"`
-	SchemaReference string       `json:"schema_reference,omitempty"`
-	Relationships   string       `json:"relationships,omitempty"`
-	BusinessRules   string       `json:"business_rules,omitempty"`
-	Validations     string       `json:"validations,omitempty"`
-	RowLevelAccess  string       `json:"row_level_access,omitempty"`
-	Notes           string       `json:"notes,omitempty"`
-	SpecReferences  string       `json:"spec_references,omitempty"`
-	Sections        []DocSection `json:"sections,omitempty"` // bespoke tail → doc_section
-}
-
-// Privilege ← a "(resource, scope, action) — description" preset bullet in the
-// authorization spec. Identity is the (resource, scope, action) triple; the
-// description is contextual and not stored (privilege has no description column).
-type Privilege struct {
-	Resource    string `json:"resource"`
-	Scope       string `json:"scope"`
-	Action      string `json:"action"`
-	Description string `json:"description,omitempty"`
+	// All entity-doc sections (verbatim Markdown) → doc_section: recognized ones
+	// (purpose, key_concepts, …) carry a section_key; bespoke ones carry "".
+	Sections []DocSection `json:"sections,omitempty"`
 }
 
 // Domain ← a top-level directory under specs/, described in specs/index.md.
@@ -73,19 +54,14 @@ type Spec struct {
 	RawStatus string `json:"raw_status"` // source status verbatim: Draft|Reviewed|Active
 	Status    string `json:"status"`     // mapped to ASDF spec.status (draft|active|obsolete)
 
-	// Document sections (verbatim Markdown) for round-trip fidelity.
-	Heading         string       `json:"heading,omitempty"`
-	Preamble        string       `json:"preamble,omitempty"`
-	Overview        string       `json:"overview,omitempty"`
-	EdgeCases       string       `json:"edge_cases,omitempty"`
-	SuccessCriteria string       `json:"success_criteria,omitempty"`
-	PlatformScope   string       `json:"platform_scope,omitempty"`
-	Assumptions     string       `json:"assumptions,omitempty"`
-	Clarifications  string       `json:"clarifications,omitempty"`
-	KeyEntities     []string     `json:"key_entities,omitempty"` // entity names → spec→entity edges
-	Sections        []DocSection `json:"sections,omitempty"`     // bespoke tail → doc_section
-	ReqGroups       []ReqGroup   `json:"req_groups,omitempty"`   // FR group sub-headers + notes
-	MoreInfo        string       `json:"more_info,omitempty"`    // FR-area content that isn't an FR/group (note-only headers, config, tables)
+	// Heading is the H1 identity line (kept on spec). All prose sections →
+	// doc_section: recognized ones (overview, edge_cases, success_criteria,
+	// platform_scope, assumptions, clarifications, preamble, more_info) carry a
+	// section_key; bespoke ones carry "".
+	Heading     string       `json:"heading,omitempty"`
+	KeyEntities []string     `json:"key_entities,omitempty"` // entity names → spec→entity refs
+	Sections    []DocSection `json:"sections,omitempty"`
+	ReqGroups   []ReqGroup   `json:"req_groups,omitempty"` // FR group sub-headers + notes
 }
 
 // ReqGroup is a bold FR sub-header that organizes a spec's FR list, with the
@@ -96,12 +72,16 @@ type ReqGroup struct {
 	Note     string `json:"note,omitempty"`
 }
 
-// DocSection is a non-templated document section preserved verbatim.
+// DocSection is a document section preserved verbatim. Key is the normalized
+// section id for a recognized section (overview, edge_cases, purpose, …) or "" for
+// a bespoke one. For keyed sections only Body is load-bearing (the generator renders
+// them at a canonical position); Level/Heading matter only for bespoke sections.
 type DocSection struct {
 	Ordinal int    `json:"ordinal"`
 	Level   int    `json:"level"`
 	Heading string `json:"heading"`
 	Body    string `json:"body"`
+	Key     string `json:"key,omitempty"`
 }
 
 // Requirement ← an fr-registry/**.yml entry (authoritative existence + status),

@@ -85,6 +85,6 @@ func ReconcileRefs(ctx context.Context, w *Write, ownerType, ownerID string, tar
 			return err
 		}
 	}
-	w.MarkDirty("entity_ref")
+	w.MarkDirty("req_entity_ref")
 	return nil
 }

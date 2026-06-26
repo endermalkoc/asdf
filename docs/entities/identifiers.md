@@ -12,7 +12,9 @@ time-ordering preserves index locality (unlike random UUIDv4). All foreign keys 
 the ULID, so renames/renumbers never cascade.
 *(For brevity the tables and diagram show `id` generically as `bigint / uuid` — read it as a
 ULID everywhere **except** the pure-relationship tables below, where the PK is derived from
-the row's identity.)*
+the row's identity, and small **reference/lookup tables** keyed directly by their business value —
+e.g. [`delivery_status`](requirements.md#deliverystatus), whose `key` (`covered`, `e2e-sufficient`, …)
+**is** the PK, like a classic enum table.)*
 
 **Deterministic PK for pure-relationship tables.** A relationship row's identity is entirely
 its foreign keys (plus an enum), and two agents on divergent branches routinely create the
@@ -50,7 +52,6 @@ merges legible.
 | Milestone | `UNIQUE(abbreviation)` | `M1`, `Future` |
 | Entity | `UNIQUE(name)` | `Student` |
 | EntityAttribute | `UNIQUE(entity_id, name)` | `Student.birthday` |
-| Privilege | `UNIQUE(resource, scope, action)` | `students:studio:view` |
 | View | `UNIQUE(route)` | `/students/[studentId]?tab=messages` |
 | TestCase | `UNIQUE(suite_id, title)` *(or an optional `code`)* | often surrogate-only |
 | TestResult | `UNIQUE(run_id, test_case_id, configuration_id)` | — |
@@ -59,6 +60,7 @@ merges legible.
 | EntityRef | `UNIQUE(owner_type, owner_id, target_type, target_id, kind)` | — |
 | GlossaryTerm | `UNIQUE(slug)` | `make-up-credit` |
 | GlossaryAlias | `UNIQUE(alias)` | `muc` |
+| DeliveryStatus | `PRIMARY KEY(key)` — the business value **is** the PK | `e2e-sufficient` |
 | ExternalRef | `UNIQUE(subject_type, subject_id, system)` | `jira:PROJ-123` |
 | Actor | `UNIQUE(handle)` | `ender`, `agent:claude` |
 | Changeset | `UNIQUE(branch)` | `agent/att-fr-012` (the branch name) |
@@ -76,9 +78,9 @@ renumbering changes the string while the ULID and every FK stay put.
 
 **Display IDs — tiered (no single style):**
 
-1. **Where a business key exists, it *is* the display ID** — `ATT-FR-012`, `M1`,
-   `students:studio:view`, the route. Most of the model has one.
-2. **Keyless tables** (`TestRun`, `TestResult`, `Edge`, `EntityRef`, `Deliverable`, `AccessRule`,
+1. **Where a business key exists, it *is* the display ID** — `ATT-FR-012`, `M1`, the route.
+   Most of the model has one.
+2. **Keyless tables** (`TestRun`, `TestResult`, `Edge`, `EntityRef`, `Deliverable`,
    `Comment`) display a **git-style id prefix** (e.g. `01JBX8Z`) and accept unambiguous prefixes on
    input — Docker/git ergonomics, free, always consistent with the PK (a ULID, or a
    deterministic UUID for `Edge` / `TestResult`).

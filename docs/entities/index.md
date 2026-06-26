@@ -16,10 +16,10 @@ files listed below; this index holds the layer overview and the master diagram.
 |---|---|---|
 | [identifiers.md](identifiers.md) | Identifiers & keys | ULID PKs · business keys · display IDs |
 | [structure.md](structure.md) | Structure | `Domain`, `Spec`, `DocSection` |
-| [requirements.md](requirements.md) | Requirements | `UserStory`, `AcceptanceScenario`, `Requirement`, `RequirementGroup`, `Milestone`, `Edge`, `EntityRef` |
+| [requirements.md](requirements.md) | Requirements | `UserStory`, `AcceptanceScenario`, `Requirement`, `RequirementGroup`, `Milestone`, `Edge`, `EntityRef`, `DeliveryStatus` |
 | [testing.md](testing.md) | Testing (Qase-style) | `TestSuite`, `TestCase`, `TestStep`, `TestRun`, `TestResult`, `Configuration` |
 | [planning.md](planning.md) | Planning | `Capability`, `Deliverable`, `View` + junctions |
-| [authorization.md](authorization.md) | Authorization & entities | `Entity`, `EntityAttribute`, `EntityRelationship`, `Privilege`, `AccessRule` |
+| [authorization.md](authorization.md) | Entity layer | `Entity`, `EntityAttribute`, `EntityRelationship` |
 | [interop.md](interop.md) | Interop | `ExternalRef` |
 | [glossary.md](glossary.md) | Glossary | `GlossaryTerm`, `GlossaryAlias` |
 | [review.md](review.md) | Review & collaboration | `Changeset`, `Review`, `Comment`, `Actor` |
@@ -38,8 +38,10 @@ files listed below; this index holds the layer overview and the master diagram.
   `Configuration`; cases cover requirements many-to-many.
 - **Planning** — `Capability`, `Deliverable`, `View`: *what to build*, joined to the corpus
   through shared `Domain` + `Milestone` and a `View → Spec` link.
-- **Authorization & entities** — `Entity`, `EntityAttribute`, `EntityRelationship`,
-  `Privilege`, `AccessRule`.
+- **Entity layer** — `Entity`, `EntityAttribute`, `EntityRelationship`: the business-domain
+  entity glossary. Row-level access is documented as entity-doc prose (a `row_level_access`
+  `DocSection`), not a structured authorization table (the `Privilege`/`AccessRule` model was
+  removed in migration `0012` — see [decisions.md](decisions.md)).
 - **Interop** — `ExternalRef`: a node's id in an outside task system (Jira, Rally, beads, …).
 - **Glossary** — `GlossaryTerm`, `GlossaryAlias`: shared project vocabulary, defined once and
   referenced everywhere via inline `[[TERM:slug]]` links; a first-class cross-reference target.
@@ -66,6 +68,7 @@ erDiagram
     REQUIREMENT     ||--o{ REQUIREMENT   : "sub-requirement of"
     REQUIREMENT     }o--o{ TEST_CASE     : "covered by"
     MILESTONE       |o--o{ REQUIREMENT   : targets
+    DELIVERY_STATUS ||--o{ REQUIREMENT   : "classifies (by key, not FK)"
     SPEC            ||--o| ENTITY        : documents
 
     TESTSUITE       ||--o{ TESTSUITE     : "parent of"
@@ -79,8 +82,6 @@ erDiagram
     DOMAIN          ||--o{ ENTITY        : groups
     ENTITY          ||--o{ ENTITY_ATTRIBUTE     : has
     ENTITY          ||--o{ ENTITY_RELATIONSHIP  : "from"
-    ENTITY          ||--o{ ACCESS_RULE   : "gated by"
-    PRIVILEGE       ||--o{ ACCESS_RULE   : grants
     EDGE            }o--o{ REQUIREMENT   : "links (polymorphic, hand-authored)"
     ENTITY_REF      }o--o{ REQUIREMENT   : "cites (polymorphic, prose-derived)"
     DOMAIN          ||--o{ GLOSSARY_TERM : scopes
@@ -125,14 +126,6 @@ erDiagram
         enum   kind "feature|entity|journey|analysis|index|meta|reference"
         enum   status "draft|reviewed|active|obsolete"
         text   heading "H1 line, verbatim"
-        text   preamble "H1 → first section (metadata block)"
-        text   overview
-        text   edge_cases
-        text   success_criteria
-        text   platform_scope
-        text   assumptions
-        text   clarifications
-        text   more_info
         date   created_at
         date   updated_at
     }
@@ -141,7 +134,7 @@ erDiagram
         bigint spec_id FK
         int    ordinal "per-spec, no global id"
         string title
-        enum   priority "P1|P2|P3"
+        enum   priority "P1|P2|P3|P4|P5 (seed)"
         string as_a
         text   i_want
         text   so_that
@@ -171,9 +164,21 @@ erDiagram
         bigint   milestone_id FK "nullable"
         string   owner
         text     notes
-        enum     optout_marker "none|visual|ops|untestable"
+        enum     optout_marker "none|visual|ops|untestable (seed)"
         string   optout_reason
         date     tombstoned_at "nullable"
+        datetime created_at
+        datetime updated_at
+    }
+    DELIVERY_STATUS {
+        string   key PK "business value, = requirement.delivery_status"
+        string   label
+        text     description
+        int      sequence
+        bool     counts_as_covered
+        bool     requires_e2e_test
+        bool     requires_shared_test
+        bool     requires_milestone
         datetime created_at
         datetime updated_at
     }
@@ -288,17 +293,8 @@ erDiagram
         bigint domain_id FK
         bigint spec_id FK "the entity doc, nullable"
         string name UK
-        text   description
+        text   description "glossary one-liner (not a doc section)"
         enum   status "draft|active|deprecated"
-        text   purpose
-        text   key_concepts
-        text   schema_reference
-        text   relationships "prose section; cf. ENTITY_RELATIONSHIP rows"
-        text   business_rules
-        text   validations
-        text   row_level_access
-        text   entity_notes
-        text   spec_references
     }
     ENTITY_ATTRIBUTE {
         bigint id PK
@@ -316,19 +312,6 @@ erDiagram
         enum   cardinality "one_to_one|one_to_many|many_to_many"
         string junction_table "nullable"
         text   notes
-    }
-    PRIVILEGE {
-        bigint id PK
-        string resource "e.g. students, tutor_compensation"
-        enum   scope "owned|studio"
-        enum   action "view|manage"
-    }
-    ACCESS_RULE {
-        bigint id PK
-        bigint entity_id FK
-        bigint privilege_id FK
-        text   condition "nullable, e.g. created-by-me OR assigned-to-me"
-        text   description
     }
     CAPABILITY {
         bigint id PK
@@ -407,6 +390,7 @@ erDiagram
         bigint owner_id FK "polymorphic (owner_type + owner_id)"
         int    ordinal "original position in the source doc"
         int    level "heading depth: 2=##, 3=###"
+        string section_key "known section id (overview, edge_cases, purpose, …); NULL = bespoke"
         text   heading
         text   body
     }

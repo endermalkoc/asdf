@@ -25,3 +25,18 @@ func ValidateRequired(field, value string) error {
 	}
 	return nil
 }
+
+// ValidateEnumSoft validates a SEED value-set leniently: an empty or known value
+// passes silently; an unknown value is ACCEPTED but returns a human-readable note
+// (so the caller can warn without blocking). When strict is true it behaves like
+// ValidateEnum — an unknown value is a hard error. Used for the open seed sets
+// (Domain.kind, Spec.kind, delivery_status, …) vs the hard ValidateEnum.
+func ValidateEnumSoft(field, value string, allowed []string, strict bool) (note string, err error) {
+	if value == "" || enums.Valid(allowed, value) {
+		return "", nil
+	}
+	if strict {
+		return "", fmt.Errorf("invalid %s %q (allowed: %v; omit --strict to accept)", field, value, allowed)
+	}
+	return fmt.Sprintf("note: %s %q is outside the known set %v (accepted; --strict would reject)", field, value, allowed), nil
+}

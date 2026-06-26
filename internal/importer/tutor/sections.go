@@ -132,54 +132,70 @@ func parseKeyEntities(body string) []string {
 	return out
 }
 
-// routeSpecSections fills a feature spec's typed section fields from its parsed
-// sections; User Scenarios / Requirements are left to the FR & story parsers
-// (their Edge Cases / Key Entities subsections are extracted here), and every
-// other section becomes a DocSection.
+// routeSpecSections captures a feature spec's sections into sp.Sections in source
+// order: recognized template sections get a normalized section key (overview,
+// edge_cases, …); User Scenarios / Requirements are reconstructed elsewhere from the
+// FR & story parsers (their Edge Cases / Key Entities subsections are extracted here),
+// and every other section is bespoke (empty key). Ordinals are source order; the
+// generator renders keyed sections at canonical positions and bespoke ones by ordinal.
+// (more_info is appended later by the FR parser — see Parse.)
 func routeSpecSections(sp *importer.Spec, h1, preamble string, sections []rawSection) {
 	sp.Heading = h1
-	sp.Preamble = preamble
+	push := sectionPusher(&sp.Sections)
+	if strings.TrimSpace(preamble) != "" {
+		push(0, "", preamble, "preamble")
+	}
 	for _, s := range sections {
 		switch normHeading(s.heading) {
 		case "overview":
-			sp.Overview = s.body
+			push(s.level, s.heading, s.body, "overview")
 		case "success criteria":
-			sp.SuccessCriteria = s.body
+			push(s.level, s.heading, s.body, "success_criteria")
 		case "platform scope":
-			sp.PlatformScope = s.body
+			push(s.level, s.heading, s.body, "platform_scope")
 		case "assumptions":
-			sp.Assumptions = s.body
+			push(s.level, s.heading, s.body, "assumptions")
 		case "clarifications":
-			sp.Clarifications = s.body
+			push(s.level, s.heading, s.body, "clarifications")
 		case "key entities":
-			sp.KeyEntities = parseKeyEntities(s.body) // → edges (queryable)
-			// Keep the section verbatim too (heading + entity descriptions), as the
-			// Key Entities subsection under Requirements is preserved — so a
-			// top-level "## Key Entities" section round-trips its prose, not just edges.
-			sp.Sections = append(sp.Sections, importer.DocSection{Level: s.level, Heading: s.heading, Body: s.body})
+			sp.KeyEntities = parseKeyEntities(s.body) // → refs (queryable)
+			// Keep the section verbatim too (bespoke), so a top-level "## Key Entities"
+			// round-trips its prose, not just the refs.
+			push(s.level, s.heading, s.body, "")
 		case "user scenarios & testing", "user scenarios and testing":
 			if ec := subsection(s.body, "edge cases"); ec != "" {
-				sp.EdgeCases = ec
+				push(3, "Edge Cases", ec, "edge_cases")
 			}
-			// Preserve any intro prose / non-story, non-edge-case subsections.
-			sp.Sections = append(sp.Sections, sectionExtras(s.body, func(h string) bool {
+			// Preserve any intro prose / non-story, non-edge-case subsections (bespoke).
+			for _, ex := range sectionExtras(s.body, func(h string) bool {
 				return strings.HasPrefix(h, "user story") || h == "edge cases"
-			})...)
+			}) {
+				push(ex.Level, ex.Heading, ex.Body, "")
+			}
 		case "requirements":
 			if ke := subsection(s.body, "key entities"); ke != "" {
-				sp.KeyEntities = parseKeyEntities(ke) // → edges (queryable)
+				sp.KeyEntities = parseKeyEntities(ke) // → refs (queryable)
 			}
-			// Preserve intro prose + the Key Entities subsection verbatim (with
-			// descriptions); only the FR list is reconstructed from rows.
-			sp.Sections = append(sp.Sections, sectionExtras(s.body, func(h string) bool {
+			// Preserve intro prose + the Key Entities subsection verbatim (bespoke);
+			// only the FR list is reconstructed from rows.
+			for _, ex := range sectionExtras(s.body, func(h string) bool {
 				return h == "functional requirements"
-			})...)
+			}) {
+				push(ex.Level, ex.Heading, ex.Body, "")
+			}
 		default:
-			sp.Sections = append(sp.Sections, importer.DocSection{Level: s.level, Heading: s.heading, Body: s.body})
+			push(s.level, s.heading, s.body, "")
 		}
 	}
-	for i := range sp.Sections {
-		sp.Sections[i].Ordinal = i + 1
+}
+
+// sectionPusher returns a closure that appends a DocSection to *out with the next
+// source-order ordinal. A recognized section passes its key; a bespoke one passes "".
+func sectionPusher(out *[]importer.DocSection) func(level int, heading, body, key string) {
+	return func(level int, heading, body, key string) {
+		*out = append(*out, importer.DocSection{
+			Ordinal: len(*out) + 1, Level: level, Heading: heading, Body: body, Key: key,
+		})
 	}
 }
 
@@ -220,34 +236,36 @@ func sectionExtras(body string, skip func(normalized string) bool) []importer.Do
 	return out
 }
 
-// routeEntitySections fills an entity doc's typed section fields; bespoke sections
-// become DocSections owned by the entity.
-func routeEntitySections(e *importer.Entity, sections []rawSection) {
+// routeEntitySections captures an entity doc's sections into e.Sections in source
+// order: the preamble (key "preamble") then recognized template sections with a
+// normalized key (purpose, key_concepts, …); bespoke sections carry an empty key.
+func routeEntitySections(e *importer.Entity, preamble string, sections []rawSection) {
+	push := sectionPusher(&e.Sections)
+	if strings.TrimSpace(preamble) != "" {
+		push(0, "", preamble, "preamble")
+	}
 	for _, s := range sections {
 		switch normHeading(s.heading) {
 		case "purpose":
-			e.Purpose = s.body
+			push(s.level, s.heading, s.body, "purpose")
 		case "key concepts":
-			e.KeyConcepts = s.body
+			push(s.level, s.heading, s.body, "key_concepts")
 		case "schema reference":
-			e.SchemaReference = s.body
+			push(s.level, s.heading, s.body, "schema_reference")
 		case "relationships":
-			e.Relationships = s.body
+			push(s.level, s.heading, s.body, "relationships")
 		case "business rules":
-			e.BusinessRules = s.body
+			push(s.level, s.heading, s.body, "business_rules")
 		case "validations":
-			e.Validations = s.body
+			push(s.level, s.heading, s.body, "validations")
 		case "row-level access rules":
-			e.RowLevelAccess = s.body
+			push(s.level, s.heading, s.body, "row_level_access")
 		case "notes":
-			e.Notes = s.body
+			push(s.level, s.heading, s.body, "notes")
 		case "spec references":
-			e.SpecReferences = s.body
+			push(s.level, s.heading, s.body, "spec_references")
 		default:
-			e.Sections = append(e.Sections, importer.DocSection{Level: s.level, Heading: s.heading, Body: s.body})
+			push(s.level, s.heading, s.body, "")
 		}
-	}
-	for i := range e.Sections {
-		e.Sections[i].Ordinal = i + 1
 	}
 }

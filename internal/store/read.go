@@ -1,37 +1,31 @@
 package store
 
-import "context"
+import (
+	"context"
+	"database/sql"
+)
 
 // This file holds read queries used by the generator (internal/generate) to
 // reconstruct documents from the canonical database. Plain reads, no transaction.
 
-// SpecRow is a spec joined to its domain abbreviation, with its section text.
+// SpecRow is a spec joined to its domain abbreviation. Prose sections live in
+// doc_section (keyed by section_key); only the H1 heading stays on the spec.
 type SpecRow struct {
-	ID              string `json:"id"`
-	DomainAbbrev    string `json:"domain"`
-	Prefix          string `json:"prefix,omitempty"`
-	Path            string `json:"path"`
-	Title           string `json:"title,omitempty"`
-	Kind            string `json:"kind"`
-	Status          string `json:"status"`
-	Heading         string `json:"heading,omitempty"`
-	Preamble        string `json:"preamble,omitempty"`
-	Overview        string `json:"overview,omitempty"`
-	EdgeCases       string `json:"edge_cases,omitempty"`
-	SuccessCriteria string `json:"success_criteria,omitempty"`
-	PlatformScope   string `json:"platform_scope,omitempty"`
-	Assumptions     string `json:"assumptions,omitempty"`
-	Clarifications  string `json:"clarifications,omitempty"`
-	MoreInfo        string `json:"more_info,omitempty"`
+	ID           string `json:"id"`
+	DomainAbbrev string `json:"domain"`
+	Prefix       string `json:"prefix,omitempty"`
+	Path         string `json:"path"`
+	Title        string `json:"title,omitempty"`
+	Kind         string `json:"kind"`
+	Status       string `json:"status"`
+	Heading      string `json:"heading,omitempty"`
 }
 
-// ListSpecs returns every spec with its domain abbreviation and sections, by path.
+// ListSpecs returns every spec with its domain abbreviation, by path.
 func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT s.id, d.abbreviation, COALESCE(s.prefix,''), s.path, COALESCE(s.title,''), s.kind, s.status,
-		       COALESCE(s.heading,''), COALESCE(s.preamble,''), COALESCE(s.overview,''), COALESCE(s.edge_cases,''),
-		       COALESCE(s.success_criteria,''), COALESCE(s.platform_scope,''), COALESCE(s.assumptions,''), COALESCE(s.clarifications,''), COALESCE(s.more_info,'')
-		FROM `+"`spec`"+` s JOIN `+"`domain`"+` d ON s.domain_id = d.id
+		SELECT s.id, d.abbreviation, COALESCE(s.prefix,''), s.path, COALESCE(s.title,''), s.kind, s.status, COALESCE(s.heading,'')
+		FROM `+"`req_spec`"+` s JOIN `+"`req_domain`"+` d ON s.domain_id = d.id
 		ORDER BY s.path`)
 	if err != nil {
 		return nil, err
@@ -40,8 +34,7 @@ func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	var out []SpecRow
 	for rows.Next() {
 		var s SpecRow
-		if err := rows.Scan(&s.ID, &s.DomainAbbrev, &s.Prefix, &s.Path, &s.Title, &s.Kind, &s.Status,
-			&s.Heading, &s.Preamble, &s.Overview, &s.EdgeCases, &s.SuccessCriteria, &s.PlatformScope, &s.Assumptions, &s.Clarifications, &s.MoreInfo); err != nil {
+		if err := rows.Scan(&s.ID, &s.DomainAbbrev, &s.Prefix, &s.Path, &s.Title, &s.Kind, &s.Status, &s.Heading); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -68,7 +61,7 @@ func ListStoriesBySpec(ctx context.Context, x Execer, specID string) ([]StoryRow
 	rows, err := x.QueryContext(ctx, `
 		SELECT id, ordinal, COALESCE(title,''), COALESCE(priority,''), COALESCE(as_a,''), COALESCE(i_want,''),
 		       COALESCE(so_that,''), COALESCE(narrative,''), COALESCE(why_priority,''), COALESCE(independent_test,'')
-		FROM `+"`user_story`"+` WHERE spec_id=? ORDER BY ordinal`, specID)
+		FROM `+"`req_user_story`"+` WHERE spec_id=? ORDER BY ordinal`, specID)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +89,7 @@ type ScenarioRow struct {
 func ListScenariosByStory(ctx context.Context, x Execer, storyID string) ([]ScenarioRow, error) {
 	rows, err := x.QueryContext(ctx, `
 		SELECT ordinal, COALESCE(`+"`given`"+`,''), COALESCE(`+"`when`"+`,''), COALESCE(`+"`then`"+`,'')
-		FROM `+"`acceptance_scenario`"+` WHERE user_story_id=? ORDER BY ordinal`, storyID)
+		FROM `+"`req_acceptance_scenario`"+` WHERE user_story_id=? ORDER BY ordinal`, storyID)
 	if err != nil {
 		return nil, err
 	}
@@ -131,8 +124,8 @@ func ListReqsBySpecID(ctx context.Context, x Execer, specID string) ([]ReqRow, e
 	rows, err := x.QueryContext(ctx, `
 		SELECT r.fr_key, r.number, COALESCE(r.suffix,''), COALESCE(r.group_id,''), COALESCE(r.position,0), COALESCE(r.statement,''),
 		       COALESCE(r.delivery_status,''), COALESCE(m.abbreviation,'')
-		FROM `+"`requirement`"+` r
-		LEFT JOIN `+"`milestone`"+` m ON r.milestone_id = m.id
+		FROM `+"`req_requirement`"+` r
+		LEFT JOIN `+"`plan_milestone`"+` m ON r.milestone_id = m.id
 		WHERE r.spec_id=? ORDER BY (r.position = 0 OR r.position IS NULL), r.position, r.number, r.suffix`, specID)
 	if err != nil {
 		return nil, err
@@ -160,7 +153,7 @@ type ReqGroupRow struct {
 // ListReqGroups returns a spec's FR groups ordered by position.
 func ListReqGroups(ctx context.Context, x Execer, specID string) ([]ReqGroupRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT id, position, header, COALESCE(note,'') FROM `+"`requirement_group`"+`
+		SELECT id, position, header, COALESCE(note,'') FROM `+"`req_requirement_group`"+`
 		WHERE spec_id=? ORDER BY position`, specID)
 	if err != nil {
 		return nil, err
@@ -180,29 +173,18 @@ func ListReqGroups(ctx context.Context, x Execer, specID string) ([]ReqGroupRow,
 // EntityRow is the renderable subset of an entity, with its documenting spec path
 // and template sections.
 type EntityRow struct {
-	ID              string
-	Name            string
-	Description     string
-	Status          string
-	DocPath         string
-	Purpose         string
-	KeyConcepts     string
-	SchemaReference string
-	Relationships   string
-	BusinessRules   string
-	Validations     string
-	RowLevelAccess  string
-	Notes           string
-	SpecReferences  string
+	ID          string
+	Name        string
+	Description string
+	Status      string
+	DocPath     string
 }
 
 // ListEntities returns entities ordered by name, with the path of their entity doc.
 func ListEntities(ctx context.Context, x Execer) ([]EntityRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT e.id, e.name, COALESCE(e.description,''), e.status, COALESCE(s.path,''),
-		       COALESCE(e.purpose,''), COALESCE(e.key_concepts,''), COALESCE(e.schema_reference,''), COALESCE(e.relationships,''),
-		       COALESCE(e.business_rules,''), COALESCE(e.validations,''), COALESCE(e.row_level_access,''), COALESCE(e.entity_notes,''), COALESCE(e.spec_references,'')
-		FROM `+"`entity`"+` e LEFT JOIN `+"`spec`"+` s ON e.spec_id = s.id
+		SELECT e.id, e.name, COALESCE(e.description,''), e.status, COALESCE(s.path,'')
+		FROM `+"`ent_entity`"+` e LEFT JOIN `+"`req_spec`"+` s ON e.spec_id = s.id
 		ORDER BY e.name`)
 	if err != nil {
 		return nil, err
@@ -211,9 +193,7 @@ func ListEntities(ctx context.Context, x Execer) ([]EntityRow, error) {
 	var out []EntityRow
 	for rows.Next() {
 		var e EntityRow
-		if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Status, &e.DocPath,
-			&e.Purpose, &e.KeyConcepts, &e.SchemaReference, &e.Relationships,
-			&e.BusinessRules, &e.Validations, &e.RowLevelAccess, &e.Notes, &e.SpecReferences); err != nil {
+		if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Status, &e.DocPath); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -221,19 +201,21 @@ func ListEntities(ctx context.Context, x Execer) ([]EntityRow, error) {
 	return out, rows.Err()
 }
 
-// DocSectionRow is a generic catch-all section.
+// DocSectionRow is one document section: a recognized one carries SectionKey
+// (overview, edge_cases, …); a bespoke one has SectionKey == "".
 type DocSectionRow struct {
-	Ordinal int
-	Level   int
-	Heading string
-	Body    string
+	Ordinal    int
+	Level      int
+	Heading    string
+	Body       string
+	SectionKey string
 }
 
-// ListDocSections returns an owner's catch-all sections in original order.
+// ListDocSections returns an owner's sections in original order.
 func ListDocSections(ctx context.Context, x Execer, ownerType, ownerID string) ([]DocSectionRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT ordinal, level, COALESCE(heading,''), COALESCE(body,'')
-		FROM `+"`doc_section`"+` WHERE owner_type=? AND owner_id=? ORDER BY ordinal`, ownerType, ownerID)
+		SELECT ordinal, level, COALESCE(heading,''), COALESCE(body,''), COALESCE(section_key,'')
+		FROM `+"`req_doc_section`"+` WHERE owner_type=? AND owner_id=? ORDER BY ordinal`, ownerType, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +223,7 @@ func ListDocSections(ctx context.Context, x Execer, ownerType, ownerID string) (
 	var out []DocSectionRow
 	for rows.Next() {
 		var d DocSectionRow
-		if err := rows.Scan(&d.Ordinal, &d.Level, &d.Heading, &d.Body); err != nil {
+		if err := rows.Scan(&d.Ordinal, &d.Level, &d.Heading, &d.Body, &d.SectionKey); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
@@ -252,7 +234,7 @@ func ListDocSections(ctx context.Context, x Execer, ownerType, ownerID string) (
 // ListKeyEntities returns the names of entities a spec links to via spec→entity refs.
 func ListKeyEntities(ctx context.Context, x Execer, specID string) ([]string, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT e.name FROM `+"`entity_ref`"+` g JOIN `+"`entity`"+` e ON g.target_id = e.id
+		SELECT e.name FROM `+"`req_entity_ref`"+` g JOIN `+"`ent_entity`"+` e ON g.target_id = e.id
 		WHERE g.owner_type='spec' AND g.owner_id=? AND g.target_type='entity'
 		ORDER BY e.name`, specID)
 	if err != nil {
@@ -272,7 +254,7 @@ func ListKeyEntities(ctx context.Context, x Execer, specID string) ([]string, er
 
 // RefTargetRow is one resolvable cross-reference target: a (type, key) the resolver
 // maps to an entity id and — when the entity has a generated page — its doc path and
-// in-page anchor. `domain`/`milestone` resolve (so an entity_ref can be recorded) but
+// in-page anchor. `req_domain`/`plan_milestone` resolve (so an entity_ref can be recorded) but
 // have no page yet, so DocPath is empty and they render label-only.
 type RefTargetRow struct {
 	Type    string // domain|spec|requirement|entity|milestone
@@ -288,18 +270,18 @@ type RefTargetRow struct {
 func ListRefTargets(ctx context.Context, x Execer) ([]RefTargetRow, error) {
 	var out []RefTargetRow
 	queries := []string{
-		"SELECT 'domain', abbreviation, id, '', '' FROM `domain`",
-		"SELECT 'spec', prefix, id, path, '' FROM `spec` WHERE prefix IS NOT NULL AND prefix<>''",
-		"SELECT 'spec', path, id, path, '' FROM `spec`",
+		"SELECT 'domain', abbreviation, id, '', '' FROM `req_domain`",
+		"SELECT 'spec', prefix, id, path, '' FROM `req_spec` WHERE prefix IS NOT NULL AND prefix<>''",
+		"SELECT 'spec', path, id, path, '' FROM `req_spec`",
 		"SELECT 'requirement', r.fr_key, r.id, COALESCE(s.path,''), LOWER(r.fr_key) " +
-			"FROM `requirement` r JOIN `spec` s ON r.spec_id = s.id WHERE r.fr_key IS NOT NULL AND r.fr_key<>''",
+			"FROM `req_requirement` r JOIN `req_spec` s ON r.spec_id = s.id WHERE r.fr_key IS NOT NULL AND r.fr_key<>''",
 		"SELECT 'entity', e.name, e.id, COALESCE(s.path,''), '' " +
-			"FROM `entity` e LEFT JOIN `spec` s ON e.spec_id = s.id",
-		"SELECT 'milestone', abbreviation, id, '', '' FROM `milestone`",
+			"FROM `ent_entity` e LEFT JOIN `req_spec` s ON e.spec_id = s.id",
+		"SELECT 'milestone', abbreviation, id, '', '' FROM `plan_milestone`",
 		// Glossary terms resolve by slug and by alias; both link to glossary.md#slug.
-		"SELECT 'glossary_term', slug, id, 'glossary.md', slug FROM `glossary_term`",
+		"SELECT 'glossary_term', slug, id, 'glossary.md', slug FROM `req_glossary_term`",
 		"SELECT 'glossary_term', a.alias, t.id, 'glossary.md', t.slug " +
-			"FROM `glossary_alias` a JOIN `glossary_term` t ON a.term_id = t.id",
+			"FROM `req_glossary_alias` a JOIN `req_glossary_term` t ON a.term_id = t.id",
 	}
 	for _, q := range queries {
 		if err := scanRefTargets(ctx, x, &out, q); err != nil {
@@ -325,6 +307,60 @@ func scanRefTargets(ctx context.Context, x Execer, out *[]RefTargetRow, query st
 	return rows.Err()
 }
 
+// DeliveryStatusRow is one delivery_status lookup row — a status value plus the
+// coverage policy it carries (read by a future check / coverage rollup).
+type DeliveryStatusRow struct {
+	Key                string
+	Label              string
+	Description        string
+	Sequence           int
+	CountsAsCovered    bool
+	RequiresE2ETest    bool
+	RequiresSharedTest bool
+	RequiresMilestone  bool
+}
+
+const deliveryStatusCols = "`key`, COALESCE(label,''), COALESCE(description,''), sequence, " +
+	"counts_as_covered, requires_e2e_test, requires_shared_test, requires_milestone"
+
+func scanDeliveryStatus(s interface{ Scan(...any) error }, d *DeliveryStatusRow) error {
+	return s.Scan(&d.Key, &d.Label, &d.Description, &d.Sequence,
+		&d.CountsAsCovered, &d.RequiresE2ETest, &d.RequiresSharedTest, &d.RequiresMilestone)
+}
+
+// ListDeliveryStatuses returns the delivery_status lookup rows in sequence order.
+func ListDeliveryStatuses(ctx context.Context, x Execer) ([]DeliveryStatusRow, error) {
+	rows, err := x.QueryContext(ctx,
+		"SELECT "+deliveryStatusCols+" FROM `plan_delivery_status` ORDER BY sequence, `key`")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []DeliveryStatusRow
+	for rows.Next() {
+		var d DeliveryStatusRow
+		if err := scanDeliveryStatus(rows, &d); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+// DeliveryStatusByKey returns one lookup row by its key (ok=false if absent).
+func DeliveryStatusByKey(ctx context.Context, x Execer, key string) (DeliveryStatusRow, bool, error) {
+	var d DeliveryStatusRow
+	err := scanDeliveryStatus(
+		x.QueryRowContext(ctx, "SELECT "+deliveryStatusCols+" FROM `plan_delivery_status` WHERE `key`=?", key), &d)
+	if err == sql.ErrNoRows {
+		return DeliveryStatusRow{}, false, nil
+	}
+	if err != nil {
+		return DeliveryStatusRow{}, false, err
+	}
+	return d, true, nil
+}
+
 // EntityRefRow is one prose-derived cross-reference owned by a node.
 type EntityRefRow struct {
 	ID         string
@@ -336,7 +372,7 @@ type EntityRefRow struct {
 // ListEntityRefsByOwner returns an owner's entity_ref rows, ordered by target.
 func ListEntityRefsByOwner(ctx context.Context, x Execer, ownerType, ownerID string) ([]EntityRefRow, error) {
 	rows, err := x.QueryContext(ctx,
-		"SELECT id, target_type, target_id, kind FROM `entity_ref` WHERE owner_type=? AND owner_id=? ORDER BY target_type, target_id",
+		"SELECT id, target_type, target_id, kind FROM `req_entity_ref` WHERE owner_type=? AND owner_id=? ORDER BY target_type, target_id",
 		ownerType, ownerID)
 	if err != nil {
 		return nil, err

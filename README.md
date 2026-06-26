@@ -92,7 +92,7 @@ The full entity-relationship model lives in **[docs/entities/](docs/entities/ind
 - **Requirements** — `UserStory`, `AcceptanceScenario`, `Requirement` (FR), `Milestone`, `Edge` (the cross-reference graph)
 - **Testing** (Qase-style) — `TestSuite`, `TestCase`, `TestStep`, `TestRun`, `TestResult`, `Configuration`
 - **Planning** — `Capability`, `Deliverable`, `View`
-- **Authorization & entities** — `Entity`, `EntityAttribute`, `EntityRelationship`, `Privilege`, `AccessRule` (authored *business-domain* documents, **not** a DB-schema mirror)
+- **Entity layer** — `Entity`, `EntityAttribute`, `EntityRelationship` (authored *business-domain* documents, **not** a DB-schema mirror)
 - **Interop** — `ExternalRef` (a node's id in an outside tracker: Jira, Rally, beads, …)
 
 Identifiers use ULID surrogate keys plus human-readable unique business keys (e.g.

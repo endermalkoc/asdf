@@ -37,8 +37,10 @@ var reqAddCmd = &cobra.Command{
 			Changeset: flagChangeset,
 			Actor:     flagActor,
 			Validate: func(vctx context.Context) error {
-				if e := app.ValidateEnum("delivery status", reqDelivery, enums.RequirementDelivery); e != nil {
+				if note, e := app.ValidateEnumSoft("delivery status", reqDelivery, enums.RequirementDelivery, flagStrict); e != nil {
 					return e
+				} else if note != "" {
+					fmt.Fprintln(cmd.ErrOrStderr(), note)
 				}
 				resolver, e := app.LoadResolver(vctx, ws.DB())
 				if e != nil {
@@ -59,7 +61,7 @@ var reqAddCmd = &cobra.Command{
 			if e != nil {
 				return e
 			}
-			w.MarkDirty("requirement")
+			w.MarkDirty("req_requirement")
 			r = res
 			return app.ReconcileRefs(ctx, w, "requirement", r.ID, resolved.Targets)
 		})
