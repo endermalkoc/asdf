@@ -47,18 +47,18 @@ merges legible.
 | Entity | Business `UNIQUE` constraint | Human / cite form (example) |
 |---|---|---|
 | Domain | `UNIQUE(slug)` | `scheduling` |
-| Spec | `UNIQUE(prefix)` (when not null) + `UNIQUE(path)` | `ATT` · `scheduling/events/take-attendance.md` |
+| Spec | `UNIQUE(prefix)` (when not null) + `UNIQUE(domain_id, path, slug)` | `ATT` · `scheduling/events/take-attendance.md` (= `scheduling` / `events` / `take-attendance`) |
 | Requirement | `UNIQUE(spec_id, number, suffix)` | `ATT-FR-012`, `ATT-FR-038a` |
 | UserStory | `UNIQUE(spec_id, position)` | `ATT#US3` (not globally citable) |
 | Milestone | `UNIQUE(slug)` | `M1`, `Future` |
-| Entity | `UNIQUE(name)` | `Student` |
+| Entity | `UNIQUE(name)` | `Student` (→ `entities/student.md`) |
 | EntityAttribute | `UNIQUE(entity_id, name)` | `Student.birthday` |
 | View | `UNIQUE(route)` | `/students/[studentId]?tab=messages` |
 | TestCase | `UNIQUE(suite_id, title)` *(or an optional `code`)* | often surrogate-only |
 | TestResult | `UNIQUE(run_id, test_case_id, configuration_id)` | — |
 | Configuration | `UNIQUE(group, name)` | `Browser:Chrome` |
 | Edge | `UNIQUE(from_type, from_id, to_type, to_id, kind)` | — |
-| EntityRef | `UNIQUE(owner_type, owner_id, target_type, target_id, kind)` | — |
+| EntityRef | `UNIQUE(owner_type, owner_id, target_type, target_id)` | — |
 | GlossaryTerm | `UNIQUE(slug)` | `make-up-credit` |
 | GlossaryAlias | `UNIQUE(alias)` | `muc` |
 | DeliveryStatus | `PRIMARY KEY(key)` — the business value **is** the PK | `e2e-sufficient` |

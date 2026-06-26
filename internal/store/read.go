@@ -3,10 +3,46 @@ package store
 import (
 	"context"
 	"database/sql"
+	"regexp"
+	"strings"
 )
 
 // This file holds read queries used by the generator (internal/generate) to
 // reconstruct documents from the canonical database. Plain reads, no transaction.
+
+// ---- doc-path reconstruction ----------------------------------------------
+// Neither req_spec nor ent_entity stores its full doc path: req_spec stores a
+// directory (`path`) + filename stem (`slug`); ent_entity stores an optional
+// sub-directory (`path`) and derives its filename from `name`.
+
+var camelBoundary = regexp.MustCompile(`([a-z0-9])([A-Z])`)
+var nonKebab = regexp.MustCompile(`[^a-z0-9]+`)
+
+// kebabName is an entity name's doc filename stem: CamelCase boundaries and spaces
+// become dashes, lowercased ("EventAttendance" → "event-attendance", "Group Tag" →
+// "group-tag").
+func kebabName(name string) string {
+	s := camelBoundary.ReplaceAllString(name, "$1-$2")
+	return strings.Trim(nonKebab.ReplaceAllString(strings.ToLower(s), "-"), "-")
+}
+
+// dirPrefix returns "" for an empty dir, else "dir/".
+func dirPrefix(dir string) string {
+	if dir == "" {
+		return ""
+	}
+	return dir + "/"
+}
+
+// SpecDocPath reconstructs a spec's full docs path: <domain>/[path/]<slug>.md.
+func SpecDocPath(domainSlug, path, slug string) string {
+	return domainSlug + "/" + dirPrefix(path) + slug + ".md"
+}
+
+// EntityDocPath reconstructs an entity's full docs path: entities/[path/]<kebab-name>.md.
+func EntityDocPath(path, name string) string {
+	return "entities/" + dirPrefix(path) + kebabName(name) + ".md"
+}
 
 // SpecRow is a spec joined to its domain slug. Prose sections live in
 // req_spec_section (typed by req_spec_section_type); the H1 is rendered from `title`.
@@ -14,18 +50,18 @@ type SpecRow struct {
 	ID         string `json:"id"`
 	DomainSlug string `json:"domain"`
 	Prefix     string `json:"prefix,omitempty"`
-	Path       string `json:"path"`
+	Path       string `json:"path"` // directory only (no filename); full = SpecDocPath(domain,path,slug)
+	Slug       string `json:"slug"` // filename stem
 	Title      string `json:"title,omitempty"`
-	Kind       string `json:"kind"`
 	Status     string `json:"status"`
 }
 
 // ListSpecs returns every spec with its domain slug, by path.
 func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT s.id, d.slug, COALESCE(s.prefix,''), s.path, COALESCE(s.title,''), s.kind, s.status
+		SELECT s.id, d.slug, COALESCE(s.prefix,''), COALESCE(s.path,''), COALESCE(s.slug,''), COALESCE(s.title,''), s.status
 		FROM `+"`req_spec`"+` s JOIN `+"`req_domain`"+` d ON s.domain_id = d.id
-		ORDER BY s.path`)
+		ORDER BY s.path, s.slug`)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +69,7 @@ func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	var out []SpecRow
 	for rows.Next() {
 		var s SpecRow
-		if err := rows.Scan(&s.ID, &s.DomainSlug, &s.Prefix, &s.Path, &s.Title, &s.Kind, &s.Status); err != nil {
+		if err := rows.Scan(&s.ID, &s.DomainSlug, &s.Prefix, &s.Path, &s.Slug, &s.Title, &s.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -181,18 +217,18 @@ func ListReqsBySpecID(ctx context.Context, x Execer, specID string) ([]ReqRow, e
 	return out, rows.Err()
 }
 
-// ReqGroupRow is an FR group header + note.
+// ReqGroupRow is an FR group title + notes.
 type ReqGroupRow struct {
 	ID       string
 	Position int
-	Header   string
-	Note     string
+	Title    string
+	Notes    string
 }
 
 // ListReqGroups returns a spec's FR groups ordered by position.
 func ListReqGroups(ctx context.Context, x Execer, specID string) ([]ReqGroupRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT id, position, header, COALESCE(note,'') FROM `+"`req_requirement_group`"+`
+		SELECT id, position, title, COALESCE(notes,'') FROM `+"`req_requirement_group`"+`
 		WHERE spec_id=? ORDER BY position`, specID)
 	if err != nil {
 		return nil, err
@@ -201,7 +237,7 @@ func ListReqGroups(ctx context.Context, x Execer, specID string) ([]ReqGroupRow,
 	var out []ReqGroupRow
 	for rows.Next() {
 		var g ReqGroupRow
-		if err := rows.Scan(&g.ID, &g.Position, &g.Header, &g.Note); err != nil {
+		if err := rows.Scan(&g.ID, &g.Position, &g.Title, &g.Notes); err != nil {
 			return nil, err
 		}
 		out = append(out, g)
@@ -219,11 +255,12 @@ type EntityRow struct {
 	DocPath     string
 }
 
-// ListEntities returns entities ordered by name, with the path of their entity doc.
+// ListEntities returns entities ordered by name, with their full doc path
+// reconstructed (entities/[path/]<kebab-name>.md).
 func ListEntities(ctx context.Context, x Execer) ([]EntityRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT e.id, e.name, COALESCE(e.description,''), e.status, COALESCE(s.path,'')
-		FROM `+"`ent_entity`"+` e LEFT JOIN `+"`req_spec`"+` s ON e.spec_id = s.id
+		SELECT e.id, e.name, COALESCE(e.description,''), e.status, COALESCE(e.path,'')
+		FROM `+"`ent_entity`"+` e
 		ORDER BY e.name`)
 	if err != nil {
 		return nil, err
@@ -232,9 +269,11 @@ func ListEntities(ctx context.Context, x Execer) ([]EntityRow, error) {
 	var out []EntityRow
 	for rows.Next() {
 		var e EntityRow
-		if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Status, &e.DocPath); err != nil {
+		var subdir string
+		if err := rows.Scan(&e.ID, &e.Name, &e.Description, &e.Status, &subdir); err != nil {
 			return nil, err
 		}
+		e.DocPath = EntityDocPath(subdir, e.Name)
 		out = append(out, e)
 	}
 	return out, rows.Err()
@@ -404,17 +443,15 @@ type RefTargetRow struct {
 // `[[SPEC:scheduling/events/take-attendance.md]]` both resolve.
 func ListRefTargets(ctx context.Context, x Execer) ([]RefTargetRow, error) {
 	var out []RefTargetRow
-	// fullPath reconstructs a spec's full docs path from its domain-relative path
-	// (req_spec.path is stored without the leading domain segment; migration 0017).
-	const fullPath = "CONCAT(d.slug,'/',s.path)"
+	// fullPath reconstructs a spec's full docs path: <domain>/[path/]<slug>.md (path is
+	// the directory only; the filename is slug.md — migration 0017).
+	const fullPath = "CONCAT(d.slug,'/',IF(COALESCE(s.path,'')='','',CONCAT(s.path,'/')),COALESCE(s.slug,''),'.md')"
 	queries := []string{
 		"SELECT 'domain', slug, id, '', '' FROM `req_domain`",
 		"SELECT 'spec', s.prefix, s.id, " + fullPath + ", '' FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id WHERE s.prefix IS NOT NULL AND s.prefix<>''",
 		"SELECT 'spec', " + fullPath + ", s.id, " + fullPath + ", '' FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id",
-		"SELECT 'requirement', r.fr_key, r.id, COALESCE(" + fullPath + ",''), LOWER(r.fr_key) " +
+		"SELECT 'requirement', r.fr_key, r.id, " + fullPath + ", LOWER(r.fr_key) " +
 			"FROM `req_requirement` r JOIN `req_spec` s ON r.spec_id = s.id JOIN `req_domain` d ON s.domain_id=d.id WHERE r.fr_key IS NOT NULL AND r.fr_key<>''",
-		"SELECT 'entity', e.name, e.id, COALESCE(" + fullPath + ",''), '' " +
-			"FROM `ent_entity` e LEFT JOIN `req_spec` s ON e.spec_id = s.id LEFT JOIN `req_domain` d ON s.domain_id=d.id",
 		"SELECT 'milestone', slug, id, '', '' FROM `plan_milestone`",
 		// Glossary terms resolve by slug and by alias; both link to glossary.md#slug.
 		"SELECT 'glossary_term', slug, id, 'glossary.md', slug FROM `req_glossary_term`",
@@ -426,7 +463,21 @@ func ListRefTargets(ctx context.Context, x Execer) ([]RefTargetRow, error) {
 			return nil, err
 		}
 	}
-	return out, nil
+	// Entity targets: the doc filename is derived from the name (kebab), which SQL can't
+	// build, so reconstruct the path in Go.
+	rows, err := x.QueryContext(ctx, "SELECT name, id, COALESCE(path,'') FROM `ent_entity`")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var name, id, subdir string
+		if err := rows.Scan(&name, &id, &subdir); err != nil {
+			return nil, err
+		}
+		out = append(out, RefTargetRow{Type: "entity", Key: name, ID: id, DocPath: EntityDocPath(subdir, name)})
+	}
+	return out, rows.Err()
 }
 
 func scanRefTargets(ctx context.Context, x Execer, out *[]RefTargetRow, query string) error {
@@ -443,6 +494,30 @@ func scanRefTargets(ctx context.Context, x Execer, out *[]RefTargetRow, query st
 		*out = append(*out, t)
 	}
 	return rows.Err()
+}
+
+// EdgeEndpoint is one edge's resolved polymorphic endpoints (no kind/id) — enough to walk
+// the graph for cycle detection.
+type EdgeEndpoint struct{ FromType, FromID, ToType, ToID string }
+
+// ListEdgesOfKind returns every edge of one kind on the current branch, for the acyclicity
+// check before adding a new edge of that kind.
+func ListEdgesOfKind(ctx context.Context, x Execer, kind string) ([]EdgeEndpoint, error) {
+	rows, err := x.QueryContext(ctx,
+		"SELECT from_type, from_id, to_type, to_id FROM `req_edge` WHERE kind=?", kind)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []EdgeEndpoint
+	for rows.Next() {
+		var e EdgeEndpoint
+		if err := rows.Scan(&e.FromType, &e.FromID, &e.ToType, &e.ToID); err != nil {
+			return nil, err
+		}
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // DeliveryStatusRow is one delivery_status lookup row — a status value plus the
@@ -505,13 +580,12 @@ type EntityRefRow struct {
 	ID         string
 	TargetType string
 	TargetID   string
-	Kind       string
 }
 
 // ListEntityRefsByOwner returns an owner's entity_ref rows, ordered by target.
 func ListEntityRefsByOwner(ctx context.Context, x Execer, ownerType, ownerID string) ([]EntityRefRow, error) {
 	rows, err := x.QueryContext(ctx,
-		"SELECT id, target_type, target_id, kind FROM `req_entity_ref` WHERE owner_type=? AND owner_id=? ORDER BY target_type, target_id",
+		"SELECT id, target_type, target_id FROM `req_entity_ref` WHERE owner_type=? AND owner_id=? ORDER BY target_type, target_id",
 		ownerType, ownerID)
 	if err != nil {
 		return nil, err
@@ -520,7 +594,7 @@ func ListEntityRefsByOwner(ctx context.Context, x Execer, ownerType, ownerID str
 	var out []EntityRefRow
 	for rows.Next() {
 		var r EntityRefRow
-		if err := rows.Scan(&r.ID, &r.TargetType, &r.TargetID, &r.Kind); err != nil {
+		if err := rows.Scan(&r.ID, &r.TargetType, &r.TargetID); err != nil {
 			return nil, err
 		}
 		out = append(out, r)

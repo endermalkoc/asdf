@@ -26,30 +26,23 @@ func buildReport(g *importer.Graph, stmtByKey map[string]frStatement, rep *impor
 	// entity-doc prose, not a structured form here.
 	if len(g.Entities) > 0 {
 		rep.Add(importer.SevInfo, "entity-attributes-deferred",
-			"entity attributes/relationships are prose in the entity docs — not extracted (EntityAttribute = domain meaning, decisions.md)", "")
+			"entity attributes are prose in the entity docs — not extracted (EntityAttribute = domain meaning, decisions.md). Relationships now come from the Drizzle schema (see drizzle-relationships)", "")
 	}
 
-	// Delivery-status histogram + optout/tombstone tallies.
-	optout, tombstoned, noStmt := 0, 0, 0
+	// Delivery-status histogram + tombstone/no-statement tallies.
+	tombstoned, noStmt := 0, 0
 	for _, r := range g.Reqs {
 		status := r.DeliveryStatus
 		if status == "" {
 			status = "(unset)"
 		}
 		rep.Coverage[status]++
-		if r.OptoutMarker != "" {
-			optout++
-		}
 		if r.Tombstoned {
 			tombstoned++
 		}
 		if r.Statement == "" {
 			noStmt++
 		}
-	}
-	if optout > 0 {
-		rep.Add(importer.SevInfo, "optout-marker",
-			itoa(optout)+" requirements carry a [visual]/[operational]/[untestable] marker (operational→ops mapping)", "")
 	}
 	if tombstoned > 0 {
 		rep.Add(importer.SevInfo, "tombstoned-fr",

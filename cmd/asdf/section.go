@@ -90,8 +90,8 @@ func (ns sectionNS) sectionCmd() *cobra.Command {
 				Summary:   fmt.Sprintf("set %s section %s/%s", ns.noun, args[0], flagSectionType),
 				Changeset: flagChangeset,
 				Actor:     flagActor,
-				Validate: func(vctx context.Context) error {
-					id, ok, e := ns.resolveOwner(vctx, ws.DB(), args[0])
+				Validate: func(vctx context.Context, r store.Execer) error {
+					id, ok, e := ns.resolveOwner(vctx, r, args[0])
 					if e != nil {
 						return e
 					}
@@ -101,7 +101,7 @@ func (ns sectionNS) sectionCmd() *cobra.Command {
 					ownerID = id
 					// Friction: the section type must already exist; there is no inline
 					// create flag. An unknown type points the author at section-type add.
-					if _, ok, e := ns.typeByKey(vctx, ws.DB(), flagSectionType); e != nil {
+					if _, ok, e := ns.typeByKey(vctx, r, flagSectionType); e != nil {
 						return e
 					} else if !ok {
 						return fmt.Errorf("unknown section type %q — create it first:\n  asdf %s section-type add %s --title <t> --position <n>",
@@ -133,19 +133,19 @@ func (ns sectionNS) sectionCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			ws, err := connect(ctx)
+			r, done, err := connectRead(ctx)
 			if err != nil {
 				return err
 			}
-			defer ws.Close()
-			id, ok, err := ns.resolveOwner(ctx, ws.DB(), args[0])
+			defer done()
+			id, ok, err := ns.resolveOwner(ctx, r, args[0])
 			if err != nil {
 				return err
 			}
 			if !ok {
 				return fmt.Errorf("unknown %s %q", ns.noun, args[0])
 			}
-			secs, err := ns.listSections(ctx, ws.DB(), id)
+			secs, err := ns.listSections(ctx, r, id)
 			if err != nil {
 				return err
 			}
@@ -214,12 +214,12 @@ func (ns sectionNS) sectionTypeCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
-			ws, err := connect(ctx)
+			r, done, err := connectRead(ctx)
 			if err != nil {
 				return err
 			}
-			defer ws.Close()
-			types, err := ns.listTypes(ctx, ws.DB())
+			defer done()
+			types, err := ns.listTypes(ctx, r)
 			if err != nil {
 				return err
 			}

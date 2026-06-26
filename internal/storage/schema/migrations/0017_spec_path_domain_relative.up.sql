@@ -9,6 +9,8 @@
 -- `index.md`), so the UNIQUE key moves from (path) to (domain_id, path). The path VALUES
 -- are import-populated, so a re-import rewrites them to the relative form (like every
 -- prior section/path migration — DDL + re-import).
+-- path holds only the DIRECTORY (no filename); the filename is `slug`.md. So the full
+-- location identity is (domain_id, path, slug), not (domain_id, path).
 ALTER TABLE `req_spec`
     DROP INDEX `uk_spec_path`,
-    ADD UNIQUE KEY `uk_spec_domain_path` (`domain_id`, `path`);
+    ADD UNIQUE KEY `uk_spec_location` (`domain_id`, `path`, `slug`);

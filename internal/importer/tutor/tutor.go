@@ -29,7 +29,26 @@ import (
 
 // Parse reads the tutor corpus rooted at docsRoot (the directory that contains
 // specs/ and fr-registry/) and returns the staging graph and a parse report.
-func Parse(docsRoot string) (*importer.Graph, *importer.Report, error) {
+// resolveDrizzleDir returns the Drizzle schema directory: the explicit override (if it
+// exists), else the conventional tutor location relative to the docs root, else "".
+func resolveDrizzleDir(docsRoot, override string) string {
+	if override != "" {
+		if fi, err := os.Stat(override); err == nil && fi.IsDir() {
+			return override
+		}
+		return ""
+	}
+	auto := filepath.Join(docsRoot, "..", "src", "packages", "database", "src", "schema")
+	if fi, err := os.Stat(auto); err == nil && fi.IsDir() {
+		return auto
+	}
+	return ""
+}
+
+// Parse builds the staging graph from the tutor docs corpus. drizzleDir is an optional
+// override for the Drizzle schema (entity relationships); "" auto-detects the tutor
+// location relative to docsRoot.
+func Parse(docsRoot, drizzleDir string) (*importer.Graph, *importer.Report, error) {
 	specsDir := filepath.Join(docsRoot, "specs")
 	registryDir := filepath.Join(docsRoot, "fr-registry")
 	if _, err := os.Stat(specsDir); err != nil {
@@ -85,11 +104,21 @@ func Parse(docsRoot string) (*importer.Graph, *importer.Report, error) {
 		g.Scenarios = append(g.Scenarios, scenarios...)
 	}
 
-	// 3b. Entity glossary (entities/index.md) → Entity rows + kind=entity Specs.
-	entities, entitySpecs := parseEntities(specsDir, rep)
-	g.Entities = entities
-	g.Specs = append(g.Specs, entitySpecs...)
-	g.Specs = dedupeSpecsByPath(g.Specs) // an entity doc may also be a registry spec (e.g. attachable)
+	// 3b. Entity glossary (entities/index.md) → first-class Entity rows (not specs).
+	g.Entities = parseEntities(specsDir, rep)
+	g.Specs = dedupeSpecsByPath(g.Specs) // defensive: registry spec paths should be unique
+
+	// 3c. Entity relationships from the Drizzle schema (optional source).
+	if dir := resolveDrizzleDir(docsRoot, drizzleDir); dir != "" {
+		names := make([]string, len(g.Entities))
+		for i, e := range g.Entities {
+			names[i] = e.Name
+		}
+		g.Relationships = parseDrizzle(dir, names, rep)
+		rep.Counts["entity_relationships"] = len(g.Relationships)
+	} else if drizzleDir != "" {
+		rep.Add(importer.SevWarn, "drizzle-not-found", "--drizzle schema dir not found: "+drizzleDir, "")
+	}
 
 	// 4. Requirements (fr-registry/**.yml), joined to statements.
 	reqs, milestones, err := parseRegistry(registryDir, stmtByKey, rep)
@@ -188,20 +217,6 @@ func readSpecBody(specsDir, relPath string) (string, bool) {
 		return "", false
 	}
 	return string(b), true
-}
-
-// markerToOptout maps a tutor optional marker to ASDF's optout_marker enum.
-func markerToOptout(marker string) string {
-	switch marker {
-	case "visual":
-		return "visual"
-	case "operational":
-		return "ops"
-	case "untestable":
-		return "untestable"
-	default:
-		return ""
-	}
 }
 
 // trimMarkdown strips trailing whitespace and a trailing period from a fragment.

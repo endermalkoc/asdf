@@ -33,23 +33,29 @@ var reqAddCmd = &cobra.Command{
 		defer ws.Close()
 		var r store.Requirement
 		var resolved app.ResolvedRefs
+		var statement string
 		err = app.Mutate(ctx, ws, app.MutateOpts{
 			Summary:   fmt.Sprintf("add requirement to %s", args[0]),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate: func(vctx context.Context) error {
+			Validate: func(vctx context.Context, r store.Execer) error {
 				if note, e := app.ValidateEnumSoft("delivery status", reqDelivery, enums.RequirementDelivery, flagStrict); e != nil {
 					return e
 				} else if note != "" {
 					fmt.Fprintln(cmd.ErrOrStderr(), note)
 				}
-				resolver, e := app.LoadResolver(vctx, ws.DB())
+				resolver, e := app.LoadResolver(vctx, r)
 				if e != nil {
 					return e
 				}
-				resolved = app.ScanRefs(resolver, "requirement", "", args[1])
+				// Canonicalize bare FR mentions in the statement into [[REQ:..]] tokens and
+				// resolve them — the same ingestion the importer runs, so a CLI-authored
+				// requirement carries (and validates) the same links as an imported one.
+				var rw []string
+				rw, resolved = app.IngestRefs(resolver, "requirement", "", args[1])
+				statement = rw[0]
 				if cmd.Flags().Changed("priority") {
-					if _, ok, e := store.PriorityByLevel(vctx, ws.DB(), reqPriority); e != nil {
+					if _, ok, e := store.PriorityByLevel(vctx, r, reqPriority); e != nil {
 						return e
 					} else if !ok {
 						return fmt.Errorf("invalid priority %d (see `asdf priority ls`)", reqPriority)
@@ -66,7 +72,7 @@ var reqAddCmd = &cobra.Command{
 				prio = &reqPriority
 			}
 			res, e := store.AddRequirement(ctx, w.Tx, args[0], store.Requirement{
-				Statement:      args[1],
+				Statement:      statement,
 				DeliveryStatus: reqDelivery,
 				MilestoneID:    reqMilestone,
 				Priority:       prio,
@@ -92,12 +98,12 @@ var reqLsCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		ws, err := connect(ctx)
+		rd, done, err := connectRead(ctx)
 		if err != nil {
 			return err
 		}
-		defer ws.Close()
-		reqs, err := store.ListRequirements(ctx, ws.DB(), args[0])
+		defer done()
+		reqs, err := store.ListRequirements(ctx, rd, args[0])
 		if err != nil {
 			return err
 		}
@@ -127,12 +133,12 @@ var priorityLsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		ws, err := connect(ctx)
+		r, done, err := connectRead(ctx)
 		if err != nil {
 			return err
 		}
-		defer ws.Close()
-		ps, err := store.ListPriorities(ctx, ws.DB())
+		defer done()
+		ps, err := store.ListPriorities(ctx, r)
 		if err != nil {
 			return err
 		}

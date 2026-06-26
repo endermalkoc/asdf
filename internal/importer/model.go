@@ -12,18 +12,30 @@ package importer
 // business identifiers (domain slug, spec prefix, fr_key, …) because at
 // parse time no ULIDs or foreign keys exist yet.
 type Graph struct {
-	Domains    []Domain      `json:"domains"`
-	Specs      []Spec        `json:"specs"`
-	Reqs       []Requirement `json:"requirements"`
-	Stories    []UserStory   `json:"user_stories"`
-	Scenarios  []Scenario    `json:"acceptance_scenarios"`
-	Refs       []EntityRef   `json:"entity_refs"`
-	Milestones []Milestone   `json:"milestones"`
-	Entities   []Entity      `json:"entities"`
+	Domains       []Domain             `json:"domains"`
+	Specs         []Spec               `json:"specs"`
+	Reqs          []Requirement        `json:"requirements"`
+	Stories       []UserStory          `json:"user_stories"`
+	Scenarios     []Scenario           `json:"acceptance_scenarios"`
+	Refs          []EntityRef          `json:"entity_refs"`
+	Milestones    []Milestone          `json:"milestones"`
+	Entities      []Entity             `json:"entities"`
+	Relationships []EntityRelationship `json:"entity_relationships,omitempty"`
 }
 
-// Entity ← a row of specs/entities/index.md (the entity glossary). Its DocPath
-// points at the kind=entity Spec that documents it.
+// EntityRelationship ← a foreign-key / junction relationship extracted from the
+// Drizzle schema. From/To are entity names (resolved to ids at apply time);
+// Cardinality is one_to_one | one_to_many | many_to_many; JunctionTable is the
+// join table for a many-to-many.
+type EntityRelationship struct {
+	FromName      string `json:"from_name"`
+	ToName        string `json:"to_name"`
+	Cardinality   string `json:"cardinality"`
+	JunctionTable string `json:"junction_table,omitempty"`
+}
+
+// Entity ← a row of specs/entities/index.md (the entity glossary). A first-class,
+// domain-less document; DocPath is its full doc location (stored as ent_entity.path).
 type Entity struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -39,7 +51,6 @@ type Entity struct {
 type Domain struct {
 	Slug        string `json:"slug"`        // directory name, e.g. "enrollment"
 	Name        string `json:"name"`        // title-cased label
-	Kind        string `json:"kind"`        // service|shared|entities|infrastructure
 	Description string `json:"description"` // from index.md → domain.description (added in 0002)
 }
 
@@ -50,7 +61,6 @@ type Spec struct {
 	Path      string `json:"path"`       // relative to specs/, e.g. enrollment/add-student.md
 	Title     string `json:"title"`      // frontmatter title
 	Domain    string `json:"domain"`     // domain slug (registry column)
-	Kind      string `json:"kind"`       // feature|entity|journey|index|meta|reference
 	RawStatus string `json:"raw_status"` // source status verbatim: Draft|Reviewed|Active
 	Status    string `json:"status"`     // mapped to ASDF spec.status (draft|active|obsolete)
 
@@ -64,11 +74,12 @@ type Spec struct {
 }
 
 // ReqGroup is a bold FR sub-header that organizes a spec's FR list, with the
-// interspersed prose (e.g. a "> See [shared/X]" blockquote) under it.
+// interspersed prose (e.g. a "> See [shared/X]" blockquote) under it. Title is the
+// sub-header text (stored as requirement_group.title).
 type ReqGroup struct {
 	Position int    `json:"position"`
-	Header   string `json:"header"`
-	Note     string `json:"note,omitempty"`
+	Title    string `json:"title"`
+	Notes    string `json:"notes,omitempty"`
 }
 
 // DocSection is one prose section bound for the curated section model: Key is its
@@ -91,8 +102,6 @@ type Requirement struct {
 	Statement      string `json:"statement"`          // from the spec bold line ("" => drift)
 	DeliveryStatus string `json:"delivery_status"`    // registry status (covered|not-implemented|…)
 	Milestone      string `json:"milestone"`          // registry milestone (M1.., backlog, tut-…)
-	OptoutMarker   string `json:"optout_marker"`      // none|visual|ops|untestable (from [..] tag)
-	Owner          string `json:"owner,omitempty"`    // registry owner → requirement.owner
 	E2ERef         string `json:"e2e_ref,omitempty"`  // registry e2e_ref → folded into notes (test linkage)
 	Section        string `json:"section,omitempty"`  // FR group header it belongs to (link key)
 	Position       int    `json:"position,omitempty"` // document order within the spec's FR list
@@ -120,8 +129,8 @@ type Scenario struct {
 	StoryPosition int    `json:"story_position"`
 	Position      int    `json:"position"`
 	Given         string `json:"given"`
-	When         string `json:"when"`
-	Then         string `json:"then"`
+	When          string `json:"when"`
+	Then          string `json:"then"`
 }
 
 // EntityRef ← a prose-derived cross-reference: an inline `[[TYPE:key]]` token, a
@@ -134,7 +143,6 @@ type EntityRef struct {
 	OwnerKey   string `json:"owner_key"`   // business key (path|fr_key|name|slug)
 	TargetType string `json:"target_type"` // domain|spec|requirement|entity|milestone
 	TargetKey  string `json:"target_key"`  // business key of the target
-	Kind       string `json:"kind"`        // references
 }
 
 // Milestone ← a distinct milestone value referenced by the registry.

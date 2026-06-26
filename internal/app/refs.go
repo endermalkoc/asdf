@@ -35,29 +35,26 @@ type ResolvedRefs struct {
 // ScanRefs scans every field for `[[TYPE:key]]` tokens, resolving each against
 // resolver. A self-reference (target == owner) is dropped; distinct targets are
 // de-duplicated. ownerID may be empty when the owner row does not exist yet (e.g.
-// validating a create before the id is minted).
+// validating a create before the id is minted). Thin wrapper over refs.ScanResolved —
+// the same scan the importer uses against its staging-graph resolver.
 func ScanRefs(resolver *refs.Resolver, ownerType, ownerID string, fields ...string) ResolvedRefs {
-	var out ResolvedRefs
-	seen := map[string]bool{}
-	for _, f := range fields {
-		for _, t := range refs.Scan(f) {
-			tg, ok := resolver.Resolve(t)
-			if !ok {
-				out.Dangling = append(out.Dangling, t)
-				continue
-			}
-			if tg.Type == ownerType && tg.ID == ownerID {
-				continue // self-reference
-			}
-			k := tg.Type + "\x00" + tg.ID
-			if seen[k] {
-				continue
-			}
-			seen[k] = true
-			out.Targets = append(out.Targets, tg)
-		}
+	targets, dangling := refs.ScanResolved(resolver, ownerType, ownerID, fields...)
+	return ResolvedRefs{Targets: targets, Dangling: dangling}
+}
+
+// IngestRefs is the text-ingestion entry point for the write commands: it rewrites each
+// field's raw inline references into canonical `[[TYPE:key]]` tokens (refs.Canonicalize)
+// and resolves them. It returns the rewritten fields, in the same order, to be STORED —
+// so a value created from the CLI carries the same canonical links as an imported one —
+// and the resolved refs (targets to reconcile, danglers to block or report). The
+// importer applies the same two steps (refs.Canonicalize + refs.ScanResolved) against
+// its graph resolver, so both paths generate and validate links identically.
+func IngestRefs(resolver *refs.Resolver, ownerType, ownerID string, fields ...string) ([]string, ResolvedRefs) {
+	rewritten := make([]string, len(fields))
+	for i, f := range fields {
+		rewritten[i] = refs.Canonicalize(f, resolver, ownerType, ownerID)
 	}
-	return out
+	return rewritten, ScanRefs(resolver, ownerType, ownerID, rewritten...)
 }
 
 // DanglingError formats dangling tokens as a blocking validation error (nil when
@@ -81,7 +78,7 @@ func ReconcileRefs(ctx context.Context, w *Write, ownerType, ownerID string, tar
 		return err
 	}
 	for _, tg := range targets {
-		if _, err := store.UpsertEntityRef(ctx, w.Tx, ownerType, ownerID, tg.Type, tg.ID, "references"); err != nil {
+		if _, err := store.UpsertEntityRef(ctx, w.Tx, ownerType, ownerID, tg.Type, tg.ID); err != nil {
 			return err
 		}
 	}

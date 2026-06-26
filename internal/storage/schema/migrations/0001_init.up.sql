@@ -22,7 +22,6 @@ CREATE TABLE IF NOT EXISTS `domain` (
     `id`           VARCHAR(36) NOT NULL,
     `abbreviation` VARCHAR(64)  NOT NULL,
     `name`         VARCHAR(255) NOT NULL,
-    `kind`         VARCHAR(32)  NOT NULL,                 -- values: service|shared|infrastructure|entities|analysis
     `status`       VARCHAR(32)  NOT NULL DEFAULT 'draft', -- values: draft|active|deprecated
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_domain_abbreviation` (`abbreviation`)
@@ -33,9 +32,8 @@ CREATE TABLE IF NOT EXISTS `spec` (
     `domain_id`  VARCHAR(36)  NOT NULL,
     `prefix`     VARCHAR(6),                              -- nullable for FR-exempt docs
     `slug`       VARCHAR(255),
-    `path`       VARCHAR(1024) NOT NULL,                  -- source of the directory tree
+    `path`       VARCHAR(1024),                            -- directory only (domain-relative, no filename); NULL = top-level. Filename = slug + ".md"
     `title`      VARCHAR(512),
-    `kind`       VARCHAR(32)   NOT NULL,                  -- values: feature|entity|journey|analysis|index|meta|reference
     `status`     VARCHAR(32)   NOT NULL DEFAULT 'draft',  -- values: draft|reviewed|active|obsolete
     `created_at` DATETIME,
     `updated_at` DATETIME,
@@ -101,10 +99,7 @@ CREATE TABLE IF NOT EXISTS `requirement` (
     `content_status`  VARCHAR(32)  NOT NULL DEFAULT 'draft', -- values: draft|active|obsolete
     `delivery_status` VARCHAR(32),                         -- values: covered|test-pending|not-implemented|e2e-sufficient|shared|schema-only|deferred
     `milestone_id`    VARCHAR(36),
-    `owner`           VARCHAR(255),
     `notes`           TEXT,
-    `optout_marker`   VARCHAR(32)  NOT NULL DEFAULT 'none', -- values: none|visual|ops|untestable
-    `optout_reason`   VARCHAR(512),                        -- required when optout_marker != none (app-enforced)
     `tombstoned_at`   DATE,
     `created_at`     DATETIME,
     `updated_at`     DATETIME,
@@ -261,19 +256,19 @@ CREATE TABLE IF NOT EXISTS `view` (
 -- Authorization & entity layer
 -- ============================================================================
 
+-- Entity is a first-class document (not a spec, not in a domain): its prose lives in
+-- ent_entity_section, its structure in ent_attribute/ent_relationship. The doc lives at
+-- entities/[path/]<kebab-name>.md — `path` is just the optional sub-directory under
+-- entities/ (NULL = directly under entities/, the common case); the filename is derived
+-- from `name` (lower-kebab). See docs/entities/decisions.md.
 CREATE TABLE IF NOT EXISTS `entity` (
     `id`          VARCHAR(36) NOT NULL,
-    `domain_id`   VARCHAR(36) NOT NULL,
-    `spec_id`     VARCHAR(36),                            -- the entity doc; nullable
+    `path`        VARCHAR(1024),                           -- sub-directory under entities/ (NULL = top-level)
     `name`        VARCHAR(255) NOT NULL,
     `description` TEXT,
     `status`      VARCHAR(32)  NOT NULL DEFAULT 'draft',   -- values: draft|active|deprecated
     PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_entity_name` (`name`),
-    INDEX `idx_entity_domain` (`domain_id`),
-    INDEX `idx_entity_spec` (`spec_id`),
-    CONSTRAINT `fk_entity_domain` FOREIGN KEY (`domain_id`) REFERENCES `domain` (`id`),
-    CONSTRAINT `fk_entity_spec` FOREIGN KEY (`spec_id`) REFERENCES `spec` (`id`) ON DELETE SET NULL
+    UNIQUE KEY `uk_entity_name` (`name`)
 );
 
 CREATE TABLE IF NOT EXISTS `entity_attribute` (

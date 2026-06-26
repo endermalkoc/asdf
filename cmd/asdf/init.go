@@ -41,7 +41,19 @@ var initCmd = &cobra.Command{
 		}
 		asdfDir := filepath.Join(root, ".asdf")
 		if _, statErr := os.Stat(configfile.ConfigPath(asdfDir)); statErr == nil {
-			return fmt.Errorf("ASDF workspace already exists at %s", asdfDir)
+			if !initForce {
+				return fmt.Errorf("ASDF workspace already exists at %s (pass --force to delete and reinitialize)", asdfDir)
+			}
+			// --force: tear down the existing workspace so we can rebuild from scratch.
+			// Stop the managed server (idempotent — ErrServerNotRunning is fine), then
+			// remove .asdf entirely. The DB is reproducible (re-import), so this is the
+			// fast reset loop while the schema is still churning.
+			if err := doltserver.IgnoreNotRunning(doltserver.Stop(asdfDir)); err != nil {
+				return fmt.Errorf("stopping existing dolt server: %w", err)
+			}
+			if err := os.RemoveAll(asdfDir); err != nil {
+				return fmt.Errorf("removing existing workspace %s: %w", asdfDir, err)
+			}
 		}
 		if err := os.MkdirAll(asdfDir, 0o700); err != nil {
 			return err
@@ -115,6 +127,10 @@ var initCmd = &cobra.Command{
 	},
 }
 
+var initForce bool
+
 func init() {
+	initCmd.Flags().BoolVar(&initForce, "force", false,
+		"if a workspace already exists, stop its server, delete .asdf, and reinitialize from scratch")
 	rootCmd.AddCommand(initCmd)
 }

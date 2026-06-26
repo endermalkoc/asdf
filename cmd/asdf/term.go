@@ -43,11 +43,11 @@ var termAddCmd = &cobra.Command{
 			Summary:   fmt.Sprintf("add glossary term %s", slug),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate: func(vctx context.Context) error {
+			Validate: func(vctx context.Context, r store.Execer) error {
 				if e := app.ValidateEnum("status", termStatus, enums.GlossaryStatus); e != nil {
 					return e
 				}
-				resolver, e := app.LoadResolver(vctx, ws.DB())
+				resolver, e := app.LoadResolver(vctx, r)
 				if e != nil {
 					return e
 				}
@@ -97,12 +97,12 @@ var termLsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		ws, err := connect(ctx)
+		r, done, err := connectRead(ctx)
 		if err != nil {
 			return err
 		}
-		defer ws.Close()
-		terms, err := store.ListGlossaryTerms(ctx, ws.DB())
+		defer done()
+		terms, err := store.ListGlossaryTerms(ctx, r)
 		if err != nil {
 			return err
 		}

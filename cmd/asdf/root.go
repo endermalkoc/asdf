@@ -8,6 +8,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/endermalkoc/asdf/internal/app"
+	"github.com/endermalkoc/asdf/internal/store"
 	"github.com/endermalkoc/asdf/internal/workspace"
 )
 
@@ -50,6 +52,24 @@ func Execute() {
 // external server at --dsn / $ASDF_DSN when set.
 func connect(ctx context.Context) (*workspace.Workspace, error) {
 	return workspace.Connect(ctx, flagDSN)
+}
+
+// connectRead opens the workspace and returns a read handle pinned to the active
+// changeset / --changeset branch (else main), so a read sees edits staged in the
+// changeset (command-contract step 2). done releases the read connection and closes
+// the workspace. Use this for content reads (`ls`/`show`); reads of rows that always
+// live on main (e.g. `changeset ls`) use connect + ws.DB() directly.
+func connectRead(ctx context.Context) (r store.Execer, done func(), err error) {
+	ws, err := connect(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	r, release, err := app.Reader(ctx, ws, flagChangeset)
+	if err != nil {
+		_ = ws.Close()
+		return nil, nil, err
+	}
+	return r, func() { _ = release(); _ = ws.Close() }, nil
 }
 
 // emit prints v as JSON when --json is set, otherwise prints the human string.

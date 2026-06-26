@@ -13,9 +13,10 @@ var (
 	// level may exceed P3 in a few specs.
 	storyHeadingRe = regexp.MustCompile(`^###\s+User Story\s+(\d+)\s*[-\x{2013}\x{2014}]\s*(.+?)\s*\((?:Priority:\s*)?(P[1-9])[^)]*\)\s*$`)
 
-	// asA matches the story narrative: "As <role>, I want X so that Y." The role
-	// keeps its article ("a tutor", "the studio", "a studio admin"); the connector
-	// is "so that" or a bare "so" (… so I can …, … so they …).
+	// asA matches the story narrative: "As <role>, I want X so that Y." The capture
+	// keeps the article ("a tutor", "the studio"); a leading "a " is stripped at the
+	// assignment below ("a tutor" → "tutor"). The connector is "so that" or a bare
+	// "so" (… so I can …, … so they …).
 	asARe      = regexp.MustCompile(`(?i)\bas (\w.+?),?\s+i want\s+(.+?)\s+so (?:that )?(.+?)\.?\s*$`)
 	asAStartRe = regexp.MustCompile(`(?i)^\s*as\s+\w`)
 
@@ -83,7 +84,14 @@ func parseStories(prefix, body string) (stories []importer.UserStory, scenarios 
 					joined += " " + cont
 				}
 				if am := asARe.FindStringSubmatch(joined); am != nil {
-					story.AsA = strings.TrimSpace(am[1])
+					// The "As a …" narrative leaves the indefinite article on the captured
+					// role; strip a leading "a " so as_a holds the bare role ("a tutor" →
+					// "tutor"). "an …"/"the …" don't start with "a " and are left untouched.
+					asA := strings.TrimSpace(am[1])
+					if len(asA) >= 2 && strings.EqualFold(asA[:2], "a ") {
+						asA = asA[2:]
+					}
+					story.AsA = asA
 					story.IWant = strings.TrimSpace(am[2])
 					story.SoThat = strings.TrimSpace(am[3])
 					if cont != "" {

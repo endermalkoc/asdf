@@ -14,7 +14,7 @@ import (
 var TouchedTables = []string{
 	"req_domain", "plan_milestone", "req_spec", "req_requirement", "req_requirement_group",
 	"req_user_story", "req_acceptance_scenario", "req_entity_ref", "pub_external_ref",
-	"ent_entity", "req_spec_section", "ent_entity_section",
+	"ent_entity", "req_spec_section", "ent_entity_section", "ent_relationship",
 }
 
 // ApplyStats tallies the write, per entity kind.
@@ -78,7 +78,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 	domainID := map[string]string{}
 	for _, d := range g.Domains {
 		id, ins, err := store.UpsertDomain(ctx, x, store.Domain{
-			Slug: d.Slug, Name: d.Name, Description: d.Description, Kind: d.Kind,
+			Slug: d.Slug, Name: d.Name, Description: d.Description,
 		})
 		if err != nil {
 			return st, err
@@ -114,8 +114,8 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		// "/" + path, migration 0017). specByPath stays keyed by the full source path,
 		// which is how the importer's cross-references address specs.
 		id, ins, err := store.UpsertSpec(ctx, x, dID, store.Spec{
-			Prefix: sp.Prefix, Slug: slugFromPath(sp.Path), Path: domainRelPath(sp.Path),
-			Title: sp.Title, Kind: sp.Kind, Status: sp.Status,
+			Prefix: sp.Prefix, Slug: slugFromPath(sp.Path), Path: domainRelDir(sp.Path),
+			Title: sp.Title, Status: sp.Status,
 		})
 		if err != nil {
 			return st, err
@@ -143,7 +143,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		}
 	}
 
-	// FR groups (before requirements, so group_id resolves). Keyed (specID, header).
+	// FR groups (before requirements, so group_id resolves). Keyed (specID, title).
 	groupID := map[string]string{}
 	for _, sp := range g.Specs {
 		sid, ok := specID[sp.Prefix]
@@ -151,11 +151,11 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 			continue
 		}
 		for _, gr := range sp.ReqGroups {
-			id, ins, err := store.UpsertRequirementGroup(ctx, x, sid, gr.Position, gr.Header, gr.Note)
+			id, ins, err := store.UpsertRequirementGroup(ctx, x, sid, gr.Position, gr.Title, gr.Notes)
 			if err != nil {
 				return st, err
 			}
-			groupID[sid+"\x1f"+gr.Header] = id
+			groupID[sid+"\x1f"+gr.Title] = id
 			st.bump("requirement_groups", ins)
 		}
 	}
@@ -185,7 +185,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		id, ins, err := store.UpsertRequirement(ctx, x, sid, store.Requirement{
 			Number: r.Number, Suffix: r.Suffix, FRKey: r.FRKey, Statement: r.Statement,
 			ContentStatus: contentStatus, DeliveryStatus: r.DeliveryStatus, MilestoneID: msID,
-			Owner: r.Owner, Notes: foldE2E(r.Notes, r.E2ERef), OptoutMarker: r.OptoutMarker,
+			Notes:   foldE2E(r.Notes, r.E2ERef),
 			GroupID: gid, Position: r.Position,
 		})
 		if err != nil {
@@ -235,16 +235,12 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 	}
 
 	// Entities (glossary) → entity rows + their doc sections. Done before edges so
-	// "Key Entities" spec→entity edges can resolve the entity ids.
-	entitiesDomainID := domainID["entities"]
+	// "Key Entities" spec→entity edges can resolve the entity ids. Entities are
+	// domain-less first-class documents; path is the full doc path.
 	entityID := map[string]string{} // name → id
 	for _, e := range g.Entities {
-		if entitiesDomainID == "" {
-			st.Skipped["entities"]++
-			continue
-		}
-		id, ins, err := store.UpsertEntity(ctx, x, entitiesDomainID, specByPath[e.DocPath], store.Entity{
-			Name: e.Name, Description: e.Description, Status: e.Status,
+		id, ins, err := store.UpsertEntity(ctx, x, store.Entity{
+			Name: e.Name, Path: domainRelDir(e.DocPath), Description: e.Description, Status: e.Status,
 		})
 		if err != nil {
 			return st, err
@@ -265,6 +261,20 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 			}
 			st.bump("sections", dins)
 		}
+	}
+
+	// Entity relationships (from the Drizzle schema). Resolve both endpoints by name.
+	for _, r := range g.Relationships {
+		fromID, ok1 := entityID[r.FromName]
+		toID, ok2 := entityID[r.ToName]
+		if !ok1 || !ok2 {
+			st.Skipped["relationships"]++
+			continue
+		}
+		if _, err := store.UpsertEntityRelationship(ctx, x, fromID, toID, r.Cardinality, r.JunctionTable); err != nil {
+			return st, err
+		}
+		st.Inserted["relationships"]++ // INSERT IGNORE: counted as processed
 	}
 
 	// EntityRefs (prose-derived cross-references). Resolve each endpoint by its type:
@@ -297,7 +307,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 			st.Skipped["entity_refs"]++
 			continue
 		}
-		if _, err := store.UpsertEntityRef(ctx, x, r.OwnerType, ownerID, r.TargetType, targetID, r.Kind); err != nil {
+		if _, err := store.UpsertEntityRef(ctx, x, r.OwnerType, ownerID, r.TargetType, targetID); err != nil {
 			return st, err
 		}
 		st.Inserted["entity_refs"]++ // INSERT IGNORE: counted as processed
@@ -347,6 +357,16 @@ func domainRelPath(p string) string {
 		return p[i+1:]
 	}
 	return p
+}
+
+// domainRelDir is the DIRECTORY portion of the domain-relative path (no leading domain
+// segment, no filename); "" for a top-level doc. req_spec/ent_entity store this, and
+// reconstruct the filename from slug / kebab(name).
+func domainRelDir(p string) string {
+	if d := filepath.Dir(domainRelPath(p)); d != "." {
+		return d
+	}
+	return ""
 }
 
 func storyKey(prefix string, position int) string {

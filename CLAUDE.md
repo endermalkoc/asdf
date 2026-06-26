@@ -63,9 +63,9 @@ data or configurable policy, not core. The **enum policy buckets** (closed / see
 
 - `Privilege.scope = owned | studio` — **resolved**: `scope`/`action` are **seed** value-sets
   (`studio` is a tenant value), validated leniently, not baked into core.
-- FR conventions (prefix rules, decade-block numbering, opt-out markers, tombstones) —
-  configurable policy, not fixed. `Requirement.optout_marker` is now a **seed** set (and the corpus
-  carries no markers — they were migrated to its registry; the parser is forward-looking).
+- FR conventions (prefix rules, decade-block numbering, tombstones) — configurable policy, not
+  fixed. (Opt-out markers — `optout_marker`/`optout_reason` — and `Requirement.owner` were modeled
+  from the corpus but **dropped**: the corpus carried no data for them and nothing consumed them.)
 - The `Domain` value set / `Domain.kind`, `Spec.kind`, milestone labels (`M0`–`M7`, `Future`), and
   Qase `TestCase.*` enums are **seed**; `Requirement.delivery_status` graduated to a **lookup table**.
 

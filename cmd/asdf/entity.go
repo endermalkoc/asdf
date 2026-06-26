@@ -19,12 +19,12 @@ var entityLsCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		ws, err := connect(ctx)
+		r, done, err := connectRead(ctx)
 		if err != nil {
 			return err
 		}
-		defer ws.Close()
-		ents, err := store.ListEntities(ctx, ws.DB())
+		defer done()
+		ents, err := store.ListEntities(ctx, r)
 		if err != nil {
 			return err
 		}

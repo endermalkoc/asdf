@@ -40,18 +40,24 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 
 ## Next — finish the command contract
 
-- **Graph integrity** — `edge add` needs cycle detection, polymorphic-endpoint existence/type
-  validation, and generalization beyond `requirement→requirement`.
+- **Graph integrity — DONE.** `edge add` now takes `TYPE:key` endpoints (any keyed entity —
+  domain/spec/requirement/entity/milestone/glossary_term; a bare value stays a requirement fr_key),
+  resolves each through the shared resolver (so a non-existent endpoint is rejected and its real type
+  is recorded), and rejects self-loops and cycles for the acyclic kinds (refines/depends_on/
+  supersedes/defers_to) while permitting them for references/relates (`app.ResolveRef` +
+  `app.CheckEdgeAcyclic` + `store.ListEdgesOfKind`). **Deferred:** per-kind *type* policy (which
+  endpoint types a given kind may link) — left generic for now.
 - **`--dry-run` flag** — `Mutate` already supports it; expose it on the CLI.
 - **Structured errors → exit codes** + a `--json` error envelope.
 - **Broaden CRUD** — `edit`/`delete`/`show` for existing entities, then the remaining entities
   (Milestone, Test*, Capability, Deliverable, View, Entity*, ExternalRef).
 - **`asdf config get/set`** — `internal/config`/`configfile` are lifted but have no CLI yet.
-- **Reads must honor the active changeset** — read commands (`domain/req/... ls`) currently query the
-  pool, which sits on `main`, so they don't see edits staged in the active changeset (you must
-  `changeset diff`/`merge` to observe them). The read contract ([command-contract.md](command-contract.md)
-  step 2) says reads target the active/`--changeset` branch; wire `ls` to read on the pinned
-  changeset branch (revision-qualified connection or per-read checkout). Surfaced by `import --apply`.
+- **Reads honor the active changeset — DONE.** `ls`/`show` reads (and the `Mutate` validation hook's
+  existence/ref checks) now run on the resolved target branch (`--changeset` → active changeset →
+  `main`) via `app.Reader`/`app.ResolveBranch`, since branch state is connection-scoped. So you see
+  edits staged in the active changeset, and validation resolves rows created earlier in the same
+  changeset. `changeset ls` still reads `main` (changeset metadata lives there). `generate` still
+  reads `main` (the canonical build) — make it branch-aware if a changeset-preview render is wanted.
 
 ## Core features
 
@@ -59,7 +65,7 @@ What's built and what's next. A living document — pairs with [ARCHITECTURE.md]
 |---|---|---|
 | **Remote sync** | `asdf dolt push/pull/remote/clone`, `asdf sync`, federation (peers) | **requested.** Infra lifted (`remotecache`, `doltutil` remotes, `versioncontrolops` remotes/`Push`/`Fetch`); wire the CLI. Sync of a versioned knowledge graph = `dolt push/pull`. |
 | **Generate** | `asdf generate`: DB → git-ignored **Markdown + HTML** (the canonical-derived read artifacts) | **requested. ASDF-original** — beads has no generate; it exports JSONL. This is core to ASDF's "generated, never edited" principle. |
-| **Cross-references** | inline **entity links** inside Markdown / description text fields — stored as canonical refs (e.g. `[[REQ:ATT-FR-012]]`), rendered by `generate` as **Obsidian-compatible Markdown links** and as **HTML `<a>`** | **in-progress (Markdown). ASDF-original.** Design ratified in [decisions.md](entities/decisions.md); the queryable form is [`EntityRef`](entities/requirements.md#entityref). Targets any keyed entity (Domain/Spec/Requirement/Milestone/Entity; Glossary deferred). Dangling ref → blocks an interactive write / warns on import / a `check` finding later. **Distinct from `Edge`**: `Edge` is the hand-authored structured graph; `EntityRef` holds all prose-derived references — **agents should prefer edges where a real relationship exists**; inline links are prose-readability sugar. **Deferred:** HTML render (needs an HTML generate path) and `[[TERM:…]]` (needs the glossary). |
+| **Cross-references** | inline **entity links** inside Markdown / description text fields — stored as canonical refs (e.g. `[[REQ:ATT-FR-012]]`), rendered by `generate` as **Obsidian wikilinks + block references** (`[[path#^fr-key|label]]`); **HTML `<a>` reserved for the future HTML path** | **in-progress (Markdown). ASDF-original.** Design ratified in [decisions.md](entities/decisions.md); the queryable form is [`EntityRef`](entities/requirements.md#entityref). Targets any keyed entity (Domain/Spec/Requirement/Milestone/Entity; Glossary deferred). Dangling ref → blocks an interactive write / warns on import / a `check` finding later. **Distinct from `Edge`**: `Edge` is the hand-authored structured graph; `EntityRef` holds all prose-derived references — **agents should prefer edges where a real relationship exists**; inline links are prose-readability sugar. **Deferred:** HTML render (needs an HTML generate path) and `[[TERM:…]]` (needs the glossary). |
 | **Glossary / terms** | a `GlossaryTerm` store (slug, term, definition, aliases, optional domain scope) — shared vocabulary so humans & agents define a concept **once** and reference it everywhere | **in-progress. ASDF-original.** Data model landed ([glossary.md](entities/glossary.md): `GlossaryTerm` + `GlossaryAlias`). Different from the business **Entity** layer (that models domain *documents*; a term is project *vocabulary*). A first-class `[[TERM:slug]]` **link target** (see Cross-references) and a generated artifact (`glossary.md`). Authored via `asdf term …`. |
 | **Batch add** | `asdf <entity> add --file <f>` and/or `asdf batch <f>` — bulk-create entities from a **JSON/CSV** file in ASDF's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
 | **Generic import** | `asdf import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
@@ -152,8 +158,8 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
 - **Concurrency:** same-branch number allocation is safe (`FOR UPDATE` + retry); cross-branch
   FR-number convergence is the documented merge-renumber policy (identifiers.md).
 - **Cross-reference syntax — RESOLVED** ([decisions.md](entities/decisions.md)): token form is
-  `[[TYPE:key]]` (optional `|display`); the per-format render is an Obsidian-compatible relative `.md`
-  link now and an HTML `<a href>` once an HTML generate path exists; the **edge-vs-inline-link** policy
+  `[[TYPE:key]]` (optional `|display`); the Markdown render is an Obsidian wikilink with a `^block`
+  reference anchor now, and an HTML `<a href>` once an HTML generate path exists; the **edge-vs-inline-link** policy
   is settled — prose-derived references go to [`EntityRef`](entities/requirements.md#entityref), `Edge`
   is hand-authored/structured. The data model (`EntityRef` + enums + identifiers) is landed; implementation
   is in-progress (see the Cross-references core-feature row).

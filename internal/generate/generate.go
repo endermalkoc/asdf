@@ -51,12 +51,6 @@ func Generate(ctx context.Context, x store.Execer, outDir string) (*Stats, error
 	if err != nil {
 		return nil, err
 	}
-	entityByPath := map[string]store.EntityRow{}
-	for _, e := range entities {
-		if e.DocPath != "" {
-			entityByPath[e.DocPath] = e
-		}
-	}
 
 	// Resolver for inline [[TYPE:key]] cross-references, built once over all targets.
 	targets, err := store.ListRefTargets(ctx, x)
@@ -70,19 +64,33 @@ func Generate(ctx context.Context, x store.Execer, outDir string) (*Stats, error
 		return nil, err
 	}
 
+	specPaths := map[string]bool{}
 	for _, sp := range specs {
-		var md string
-		if sp.Kind == "entity" {
-			md, err = renderEntityDoc(ctx, x, sp, entityByPath[sp.Path], res)
-			st.Entities++
-		} else {
-			md, err = renderSpec(ctx, x, sp, res, prio)
-			st.Specs++
-		}
+		md, err := renderSpec(ctx, x, sp, res, prio)
 		if err != nil {
 			return nil, err
 		}
-		if err := writeFile(outDir, specFullPath(sp), md); err != nil {
+		st.Specs++
+		path := specFullPath(sp)
+		specPaths[path] = true
+		if err := writeFile(outDir, path, md); err != nil {
+			return nil, err
+		}
+	}
+
+	// Entities are first-class documents (not specs): rendered from ent_entity +
+	// ent_entity_section, to their own doc path. Defensive: if some doc were ever both a
+	// spec and an entity at the same path, the spec (already written) wins — skip it here.
+	for _, e := range entities {
+		if specPaths[e.DocPath] {
+			continue
+		}
+		md, err := renderEntityDoc(ctx, x, e, res)
+		if err != nil {
+			return nil, err
+		}
+		st.Entities++
+		if err := writeFile(outDir, e.DocPath, md); err != nil {
 			return nil, err
 		}
 	}
@@ -91,6 +99,18 @@ func Generate(ctx context.Context, x store.Execer, outDir string) (*Stats, error
 		return nil, err
 	}
 	st.Indexes++
+	// One index page per domain (so the root index's domain links resolve to a real
+	// note, and each domain has a browsable landing page listing its specs).
+	specsByDomain := map[string][]store.SpecRow{}
+	for _, sp := range specs {
+		specsByDomain[sp.DomainSlug] = append(specsByDomain[sp.DomainSlug], sp)
+	}
+	for _, d := range domains {
+		if err := writeFile(outDir, d.Slug+"/index.md", renderDomainPage(d, specsByDomain[d.Slug])); err != nil {
+			return nil, err
+		}
+		st.Indexes++
+	}
 	if err := writeFile(outDir, "entities/index.md", renderEntityIndex(entities)); err != nil {
 		return nil, err
 	}
@@ -123,7 +143,7 @@ func renderGlossary(terms []store.GlossaryTermRow, res *refs.Resolver) string {
 		if name == "" {
 			name = t.Slug
 		}
-		fmt.Fprintf(&b, "\n## <a id=%q></a>%s\n", t.Slug, name)
+		fmt.Fprintf(&b, "\n## %s\n", name)
 		meta := "`[[TERM:" + t.Slug + "]]`"
 		if len(t.Aliases) > 0 {
 			meta += " · aka " + strings.Join(t.Aliases, ", ")
@@ -131,7 +151,8 @@ func renderGlossary(terms []store.GlossaryTermRow, res *refs.Resolver) string {
 		if t.DomainSlug != "" {
 			meta += " · domain: " + t.DomainSlug
 		}
-		fmt.Fprintf(&b, "\n_%s_\n", meta)
+		// Obsidian block reference so [[TERM:slug]] resolves to glossary.md#^slug.
+		fmt.Fprintf(&b, "\n_%s_ ^%s\n", meta, t.Slug)
 		if strings.TrimSpace(t.Definition) != "" {
 			def, _ := refs.RenderInline(t.Definition, "glossary.md", res)
 			fmt.Fprintf(&b, "\n%s\n", strings.TrimRight(def, "\n"))
@@ -176,7 +197,7 @@ func renderSpec(ctx context.Context, x store.Execer, sp store.SpecRow, res *refs
 		for _, us := range stories {
 			fmt.Fprintf(&b, "\n### User Story %d - %s (Priority: %s)\n", us.Position, us.Title, priorityText(prio, us.Priority))
 			if us.IWant != "" {
-				narr := "As " + us.AsA + ", I want " + us.IWant
+				narr := "As " + roleWithArticle(us.AsA) + ", I want " + us.IWant
 				if us.SoThat != "" {
 					narr += " so that " + us.SoThat
 				}
@@ -233,21 +254,22 @@ func renderSpec(ctx context.Context, x store.Execer, sp store.SpecRow, res *refs
 			if r.GroupID != curGroup {
 				curGroup = r.GroupID
 				if g, ok := groupByID[r.GroupID]; ok {
-					fmt.Fprintf(&b, "\n**%s**\n", g.Header)
-					if strings.TrimSpace(g.Note) != "" {
-						fmt.Fprintf(&b, "\n%s\n", rin(strings.TrimRight(g.Note, "\n")))
+					fmt.Fprintf(&b, "\n**%s**\n", g.Title)
+					if strings.TrimSpace(g.Notes) != "" {
+						fmt.Fprintf(&b, "\n%s\n", rin(strings.TrimRight(g.Notes, "\n")))
 					}
 					b.WriteString("\n")
 				} else {
 					b.WriteString("\n")
 				}
 			}
-			// An anchor on every FR so [[REQ:fr-key]] links can target it inside the spec.
+			// An Obsidian block reference on every FR (at the end of the list item) so
+			// [[REQ:fr-key]] links resolve to it inside the spec (#^fr-key).
 			anchor := strings.ToLower(r.FRKey)
 			if r.Statement != "" {
-				fmt.Fprintf(&b, "- <a id=%q></a>**%s**: %s\n", anchor, r.FRKey, rin(r.Statement))
+				fmt.Fprintf(&b, "- **%s**: %s ^%s\n", r.FRKey, rin(r.Statement), anchor)
 			} else {
-				fmt.Fprintf(&b, "- <a id=%q></a>**%s**:\n", anchor, r.FRKey)
+				fmt.Fprintf(&b, "- **%s**: ^%s\n", r.FRKey, anchor)
 			}
 		}
 	}
@@ -264,14 +286,14 @@ func renderSpec(ctx context.Context, x store.Execer, sp store.SpecRow, res *refs
 
 // ---- entity doc ------------------------------------------------------------
 
-func renderEntityDoc(ctx context.Context, x store.Execer, sp store.SpecRow, e store.EntityRow, res *refs.Resolver) (string, error) {
+func renderEntityDoc(ctx context.Context, x store.Execer, e store.EntityRow, res *refs.Resolver) (string, error) {
 	var b strings.Builder
-	rin := func(s string) string { out, _ := refs.RenderInline(s, specFullPath(sp), res); return out }
+	rin := func(s string) string { out, _ := refs.RenderInline(s, e.DocPath, res); return out }
 	secs, err := loadEntitySections(ctx, x, e.ID)
 	if err != nil {
 		return "", err
 	}
-	fmt.Fprintf(&b, "# %s\n", heading(e.Name, sp.Title))
+	fmt.Fprintf(&b, "# %s\n", heading(e.Name))
 	// preamble (headingless), then the Description→Purpose fallback (an entity column,
 	// not a section), then the rest of the prose in canonical order.
 	renderBand(&b, secs, rin, 0, posEntityPurpose)
@@ -291,7 +313,38 @@ func renderDomainIndex(domains []store.Domain) string {
 	b.WriteString("Specifications organized by **domain**.\n\n")
 	b.WriteString("## Domains\n\n| Domain | Description |\n|---|---|\n")
 	for _, d := range domains {
-		fmt.Fprintf(&b, "| [%s/](./%s/) | %s |\n", d.Slug, d.Slug, d.Description)
+		// Wikilink to the domain's index page; the alias pipe is escaped for the table cell.
+		fmt.Fprintf(&b, "| [[%s/index\\|%s]] | %s |\n", d.Slug, domainLabel(d), d.Description)
+	}
+	b.WriteString("\nSee also: [[entities/index|Entities]].\n")
+	return b.String()
+}
+
+func domainLabel(d store.Domain) string {
+	if d.Name != "" {
+		return d.Name
+	}
+	return d.Slug
+}
+
+// renderDomainPage is a domain's landing page: its specs as wikilinks, in document order.
+func renderDomainPage(d store.Domain, specs []store.SpecRow) string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "# %s\n\n", domainLabel(d))
+	if d.Description != "" {
+		fmt.Fprintf(&b, "%s\n\n", d.Description)
+	}
+	b.WriteString("## Specs\n\n")
+	if len(specs) == 0 {
+		b.WriteString("_No specs yet._\n")
+		return b.String()
+	}
+	for _, sp := range specs { // ListSpecs orders by path, slug
+		label := sp.Title
+		if label == "" {
+			label = sp.Slug
+		}
+		fmt.Fprintf(&b, "- [[%s|%s]]\n", strings.TrimSuffix(specFullPath(sp), ".md"), label)
 	}
 	return b.String()
 }
@@ -305,7 +358,8 @@ func renderEntityIndex(entities []store.EntityRow) string {
 	for _, e := range entities {
 		link := e.Name
 		if e.DocPath != "" {
-			link = fmt.Sprintf("[%s](./%s)", e.Name, filepath.Base(e.DocPath))
+			// Wikilink; the alias pipe is escaped for the table cell.
+			link = fmt.Sprintf("[[%s\\|%s]]", strings.TrimSuffix(e.DocPath, ".md"), e.Name)
 		}
 		fmt.Fprintf(&b, "| %s | %s | %s |\n", link, e.Description, titleStatus(e.Status))
 	}
@@ -313,6 +367,21 @@ func renderEntityIndex(entities []store.EntityRow) string {
 }
 
 // ---- helpers ---------------------------------------------------------------
+
+// roleWithArticle restores the indefinite article the importer strips from a user
+// story's role ("tutor" → "a tutor"), so the rendered narrative reads "As a tutor, …".
+// A role that already carries an article ("an …", "the …") is left as-is — the importer
+// only strips a leading "a ", so those survive in the stored value.
+func roleWithArticle(role string) string {
+	if role == "" {
+		return role
+	}
+	lower := strings.ToLower(role)
+	if strings.HasPrefix(lower, "a ") || strings.HasPrefix(lower, "an ") || strings.HasPrefix(lower, "the ") {
+		return role
+	}
+	return "a " + role
+}
 
 // heading picks the first non-empty of the candidates.
 func heading(cands ...string) string {
@@ -452,13 +521,10 @@ func priorityText(prio map[int]string, level int) string {
 	return fmt.Sprintf("%d", level)
 }
 
-// specFullPath reconstructs a spec's full docs path from its domain-relative path:
-// `<domain-slug>/<path>` (req_spec.path no longer carries the domain — migration 0017).
+// specFullPath reconstructs a spec's full docs path: <domain>/[path/]<slug>.md
+// (req_spec.path is the directory only; the filename is slug.md — migration 0017).
 func specFullPath(sp store.SpecRow) string {
-	if sp.DomainSlug == "" {
-		return sp.Path
-	}
-	return sp.DomainSlug + "/" + sp.Path
+	return store.SpecDocPath(sp.DomainSlug, sp.Path, sp.Slug)
 }
 
 func writeFile(outDir, relPath, content string) error {

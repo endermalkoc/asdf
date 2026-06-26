@@ -13,14 +13,11 @@ Each set is one of three **policy buckets** ([decisions.md](decisions.md)):
 
 | Enum | Values |
 |---|---|
-| Domain.kind | `service`, `shared`, `infrastructure`, `entities`, `analysis` — **seed** |
 | Domain.status | `draft`, `active`, `deprecated` |
-| Spec.kind | `feature`, `entity`, `journey`, `analysis`, `index`, `meta`, `reference` — **seed** |
 | Spec.status | `draft`, `reviewed`, `active`, `obsolete` |
 | Requirement.content_status | `draft`, `active`, `obsolete` |
 | UserStory.priority / Requirement.priority / TestCase.priority | `0`–`4` (INT level, `0` = most urgent) — **table** (`req_priority`: `0` Critical, `1` High, `2` Medium, `3` Low, `4` Backlog; carries `label`/`description`). The one standard priority scheme (migration `0018`) |
 | Requirement.delivery_status | `covered`, `test-pending`, `not-implemented`, `e2e-sufficient`, `shared`, `schema-only`, `deferred` — **table** (`delivery_status`: carries `counts_as_covered` / `requires_e2e_test` / `requires_shared_test` / `requires_milestone`) |
-| Requirement.optout_marker | `none`, `visual`, `ops`, `untestable` — **seed** (corpus has none; the FR-marker parser is forward-looking — the tutor project migrated markers to its registry) |
 | Milestone.status | `complete`, `in_progress`, `pending` |
 | Milestone.slug | `M0`–`M7`, `Future`, `backlog` — **seed** (open string) |
 | TestCase.layer | `unit`, `integration`, `e2e`, `component`, `shared` — **seed** (Qase) |
@@ -33,7 +30,6 @@ Each set is one of three **policy buckets** ([decisions.md](decisions.md)):
 | Edge.kind | `references`, `refines`, `depends_on`, `supersedes`, `relates`, `defers_to` |
 | EntityRef.owner_type | `domain`, `spec`, `requirement`, `user_story`, `entity`, `milestone`, `glossary_term` |
 | EntityRef.target_type | `domain`, `spec`, `requirement`, `entity`, `milestone`, `glossary_term` |
-| EntityRef.kind | `references` |
 | GlossaryTerm.status | `draft`, `active`, `deprecated` |
 | Capability.level | `domain`, `epic`, `capability` |
 | Deliverable.size | `S`, `M`, `L`, `XL` |

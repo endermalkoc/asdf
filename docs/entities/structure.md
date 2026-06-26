@@ -19,13 +19,12 @@ trees.
 | `slug` | varchar | **UK** | |
 | `name` | varchar | | Canonical name |
 | `description` | text | | One-line summary (from the domain index); nullable |
-| `kind` | enum | | `service`, `shared`, `infrastructure`, `entities`, `analysis` |
 | `status` | enum | | `draft`, `active`, `deprecated` |
 
 ## Spec
-A document — one `.md` file — and the unit that owns FR numbering. The directory tree is
-**derived from `domain.slug + "/" + path`** (no separate folder table); `path` itself is
-**domain-relative** so the domain isn't duplicated as the leading segment. FR-bearing specs
+A document — one `.md` file — and the unit that owns FR numbering. The full location is
+**reconstructed**, never stored whole: `domain.slug + "/" + [path + "/"] + slug + ".md"`. The
+domain isn't duplicated in `path`, and the filename isn't either — it is `slug.md`. FR-bearing specs
 have a unique `prefix`; FR-exempt docs (entity glossary,
 journeys, analysis, index/meta) have `prefix = NULL` and a `kind` that classifies them.
 
@@ -34,10 +33,10 @@ journeys, analysis, index/meta) have `prefix = NULL` and a `kind` that classifie
 | `id` | bigint / uuid | **PK** | |
 | `domain_id` | FK → Domain | | From frontmatter `domain`; the **sole** home of the domain — it is the top-level output directory and is **not** repeated in `path` |
 | `prefix` | varchar | **UK** | 2–6 upper; **nullable** for FR-exempt docs |
-| `slug` | varchar | | Filename without extension |
-| `path` | varchar | **UK** (`domain_id`,`path`) | **Domain-relative** path (no leading domain segment). Full location = `domain.slug + "/" + path`; relative paths aren't globally unique, so the key is `(domain_id, path)` (migration `0017`) |
+| `slug` | varchar | | **Filename** without extension — the file is `slug.md` |
+| `path` | varchar | | The **directory** only (domain-relative, no leading domain segment, **no filename**); **`NULL` = top-level** (directly under the domain — same convention as `ent_entity.path`). Full location = `domain.slug + "/" + [path + "/"] + slug + ".md"` |
+| — | | **UK** (`domain_id`,`path`,`slug`) | The full location identity (`uk_spec_location`, migration `0017`) |
 | `title` | varchar | | |
-| `kind` | enum | | `feature`, `entity`, `journey`, `analysis`, `index`, `meta`, `reference` |
 | `status` | enum | | `draft`, `reviewed`, `active`, `obsolete` (`reviewed` = under review, before active) |
 | `created_at` / `updated_at` | date | | From spec header |
 

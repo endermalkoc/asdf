@@ -75,7 +75,6 @@ erDiagram
     DELIVERY_STATUS ||--o{ REQUIREMENT   : "classifies (by key, not FK)"
     PRIORITY        ||--o{ USER_STORY    : "prioritizes (by level, not FK)"
     PRIORITY        ||--o{ REQUIREMENT   : "prioritizes (by level, not FK)"
-    SPEC            ||--o| ENTITY        : documents
 
     TESTSUITE       ||--o{ TESTSUITE     : "parent of"
     TESTSUITE       ||--o{ TEST_CASE     : contains
@@ -85,7 +84,6 @@ erDiagram
     TEST_RUN        }o--o{ CONFIGURATION : "runs against"
     CONFIGURATION   |o--o{ TEST_RESULT   : under
     MILESTONE       |o--o{ TEST_RUN      : scopes
-    DOMAIN          ||--o{ ENTITY        : groups
     ENTITY          ||--o{ ENTITY_ATTRIBUTE     : has
     ENTITY          ||--o{ ENTITY_RELATIONSHIP  : "from"
     EDGE            }o--o{ REQUIREMENT   : "links (polymorphic, hand-authored)"
@@ -119,17 +117,15 @@ erDiagram
         string slug UK
         string name
         text   description "one-line summary, nullable"
-        enum   kind "service|shared|infrastructure|entities|analysis"
         enum   status "draft|active|deprecated"
     }
     SPEC {
         bigint id PK
         bigint domain_id FK "top-level dir; not repeated in path"
         string prefix UK "nullable for FR-exempt"
-        string slug "filename"
-        string path "domain-relative; UK(domain_id, path)"
+        string slug "filename stem; file = slug.md"
+        string path "directory only, no filename; UK(domain_id, path, slug)"
         string title
-        enum   kind "feature|entity|journey|analysis|index|meta|reference"
         enum   status "draft|reviewed|active|obsolete"
         date   created_at
         date   updated_at
@@ -168,10 +164,7 @@ erDiagram
         enum     delivery_status "covered|test-pending|not-implemented|e2e-sufficient|shared|schema-only|deferred"
         bigint   milestone_id FK "nullable"
         int      priority "0-4 level → PRIORITY, nullable"
-        string   owner
         text     notes
-        enum     optout_marker "none|visual|ops|untestable (seed)"
-        string   optout_reason
         date     tombstoned_at "nullable"
         datetime created_at
         datetime updated_at
@@ -257,8 +250,8 @@ erDiagram
         bigint id PK
         bigint spec_id FK
         int    position "order within the spec's FR list"
-        string header "sub-header, unique per spec"
-        text   note "interspersed prose, nullable"
+        string title "sub-header text, unique per spec"
+        text   notes "interspersed prose, nullable"
     }
     MILESTONE {
         bigint   id PK
@@ -284,7 +277,6 @@ erDiagram
         bigint owner_id FK
         enum   target_type "domain|spec|requirement|entity|milestone|glossary_term"
         bigint target_id FK
-        enum   kind "references"
     }
     GLOSSARY_TERM {
         bigint   id PK
@@ -303,8 +295,7 @@ erDiagram
     }
     ENTITY {
         bigint id PK
-        bigint domain_id FK
-        bigint spec_id FK "the entity doc, nullable"
+        string path "sub-dir under entities/, nullable; filename = kebab(name)"
         string name UK
         text   description "glossary one-liner (not a doc section)"
         enum   status "draft|active|deprecated"

@@ -34,8 +34,9 @@ Every mutating command MUST, in order:
 2. **Resolve the write target** — the ambient active changeset or `--changeset <name>` (its Dolt
    branch); otherwise `main` (auto-commit). *(changeset model — decisions.md)*
 3. **Validate inputs first** — enum values against the allowed set, required fields, business
-   constraints (e.g. `optout_reason` required when `optout_marker != none`), and existence/type
-   of referenced entities. Fail with a clear message + nonzero exit **before any write**. *(gap #4, #7)*
+   constraints, and existence/type of referenced entities. Validation runs **on the resolved target
+   branch** (after the branch is selected), so existence/ref checks see rows staged in the active
+   changeset, not stale `main`. Fail with a clear message + nonzero exit **before any write**. *(gap #4, #7)*
 4. **Mint ids** — `ids.New()` for authored rows, `ids.Rel()` for relationship rows. *(done)*
 5. **Write atomically** — all rows for one logical change (entity + its junctions/edges) in a
    single transaction; roll back on any error. No half-applied writes. *(gap #3)*
@@ -53,6 +54,9 @@ Every mutating command MUST, in order:
 
 1. **Connect** through resolved config (as above).
 2. **Respect the read target** — read from the active/`--changeset` branch if set, else `main`.
+   Implemented via `app.Reader` (pin a connection + check out the resolved branch), since Dolt
+   branch state is connection-scoped and the shared pool (`ws.DB()`) sits on `main`. Reads whose
+   rows always live on `main` (e.g. `changeset ls` → `rev_changeset`) read the pool directly.
 3. **Output uniformly** — text default, `--json` envelope.
 4. **Map errors + exit codes** — structured, `--json`-aware.
 

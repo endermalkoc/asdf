@@ -14,7 +14,10 @@ import (
 	"github.com/endermalkoc/asdf/internal/importer/tutor"
 )
 
-var importApply bool
+var (
+	importApply   bool
+	importDrizzle string
+)
 
 var importCmd = &cobra.Command{
 	Use:   "import",
@@ -34,7 +37,7 @@ var importTutorCmd = &cobra.Command{
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
-		g, rep, err := tutor.Parse(args[0])
+		g, rep, err := tutor.Parse(args[0], importDrizzle)
 		if err != nil {
 			return err
 		}
@@ -92,7 +95,7 @@ var importTutorCmd = &cobra.Command{
 func printApplyStats(s *importer.ApplyStats) {
 	var b strings.Builder
 	fmt.Fprintf(&b, "imported tutor corpus\n")
-	kinds := []string{"domains", "milestones", "specs", "requirement_groups", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "external_refs", "entities", "sections"}
+	kinds := []string{"domains", "milestones", "specs", "requirement_groups", "requirements", "user_stories", "acceptance_scenarios", "entity_refs", "external_refs", "entities", "entity_relationships", "sections"}
 	fmt.Fprintf(&b, "  %-22s %8s %8s %8s\n", "", "inserted", "updated", "skipped")
 	for _, k := range kinds {
 		if s.Inserted[k] == 0 && s.Updated[k] == 0 && s.Skipped[k] == 0 {
@@ -155,6 +158,8 @@ func printTutorReport(path string, g *importer.Graph, rep *importer.Report) {
 }
 
 func init() {
+	importTutorCmd.Flags().StringVar(&importDrizzle, "drizzle", "",
+		"path to the tutor Drizzle schema dir for entity relationships (default: auto-detect at <docs>/../src/packages/database/src/schema)")
 	importTutorCmd.Flags().BoolVar(&importApply, "apply", false,
 		"write the parsed graph into the database via the command contract (default: read-only report)")
 	importCmd.AddCommand(importTutorCmd)

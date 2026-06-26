@@ -68,16 +68,10 @@ var ActorKind = []string{ActorHuman, ActorAgent}
 // that would set it is not built yet (see ROADMAP), so nothing references it today.
 var ReviewVerdict = []string{"approve", "deny", "request_changes"}
 
-// SEED sets — open value-sets with documented defaults that are project-/tenant-/
-// tooling-specific. Unknown values are ACCEPTED with a warning (app.ValidateEnumSoft);
-// --strict restores hard rejection. These are seed/policy, not core — see CLAUDE.md
-// "Known tutor-isms to genericize".
-var (
-	DomainKind   = []string{"service", "shared", "infrastructure", "entities", "analysis"}
-	SpecKind     = []string{"feature", "entity", "journey", "analysis", "index", "meta", "reference"}
-	OptoutMarker = []string{"none", "visual", "ops", "untestable"}
-)
-
+// SEED set — an open value-set with documented defaults, validated leniently
+// (app.ValidateEnumSoft accepts unknowns with a warning; --strict rejects). Seed/policy,
+// not core — see CLAUDE.md "Known tutor-isms to genericize".
+//
 // RequirementDelivery is the seed reference list for delivery_status — what the
 // importer and the soft write-path validator check against. The authoritative,
 // policy-carrying form is the `delivery_status` lookup table (migration 0009).

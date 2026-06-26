@@ -52,10 +52,7 @@ self-reference to the base FR. Delivery metadata is inline. See
 | `delivery_status` | varchar | | a `delivery_status.key` (`covered`, `test-pending`, `not-implemented`, `e2e-sufficient`, `shared`, `schema-only`, `deferred`). A **business-key reference** to the [`delivery_status`](#deliverystatus) lookup table — not an FK, so unknown values are tolerated and surfaced, not rejected |
 | `milestone_id` | FK → Milestone | | Nullable |
 | `priority` | int | | `0`–`4` level → [`Priority`](#priority); **nullable** (`NULL` = unprioritized; no corpus source yet) |
-| `owner` | varchar | | e.g. `backend` |
 | `notes` | text | | |
-| `optout_marker` | varchar | | `none`, `visual`, `ops`, `untestable` (**seed**; corpus carries none — forward-looking parser) |
-| `optout_reason` | varchar | | Required when `optout_marker != none` |
 | `tombstoned_at` | date | | Set when the FR is deleted (tombstone) |
 | `created_at` / `updated_at` | datetime | | |
 
@@ -101,7 +98,7 @@ The **one standard priority taxonomy** (migration `0018`) — a lookup table ref
 
 ## RequirementGroup
 A bold **sub-header** that organizes a spec's FR list ("Student Section", "Family Section
-(Children Only)", …), with the optional interspersed `note` (e.g. a `> See [shared/X]` blockquote)
+(Children Only)", …), with the optional interspersed `notes` (e.g. a `> See [shared/X]` blockquote)
 that sits under it. First-class so the FR list round-trips exactly: groups order by `position`,
 requirements order by their own `position` within the group — neither follows FR-number order.
 
@@ -110,10 +107,10 @@ requirements order by their own `position` within the group — neither follows 
 | `id` | bigint / uuid | **PK** | |
 | `spec_id` | FK → Spec | | |
 | `position` | int | | Order of the group within the spec's FR list |
-| `header` | varchar | | The sub-header text (unique per spec) |
-| `note` | text | | Interspersed prose under the header; nullable |
+| `title` | varchar | | The sub-header text (unique per spec) |
+| `notes` | text | | Interspersed prose under the title; nullable |
 
-> `UNIQUE(spec_id, header)`. Replaces the former denormalized `Requirement.section` string.
+> `UNIQUE(spec_id, title)`. Replaces the former denormalized `Requirement.section` string.
 
 ## Milestone
 An ordered delivery target, and the **second cross-cutting join hub** (with `Domain`)
@@ -158,7 +155,7 @@ A **prose-derived** cross-reference: the queryable projection of an inline `[[TY
 (it is what `generate` rewrites into a link); the `entity_ref` row is its reconciled,
 queryable form — re-derived per owner on every write, so editing prose adds/removes rows. The
 **owner** is the nearest first-class node holding the text (a link in a scenario /
-`SpecSection` / `EntitySection` / `RequirementGroup.note` attributes to its owning `UserStory` /
+`SpecSection` / `EntitySection` / `RequirementGroup.notes` attributes to its owning `UserStory` /
 `Spec` / `Entity`). See
 [decisions.md](decisions.md) for the token grammar, the dangling-ref policy, and the
 render mapping; **distinct from [`Edge`](#edge)**, which is hand-authored / structured.
@@ -170,9 +167,10 @@ render mapping; **distinct from [`Edge`](#edge)**, which is hand-authored / stru
 | `owner_id` | bigint / uuid | | Polymorphic FK (type + id) |
 | `target_type` | enum | | `domain`, `spec`, `requirement`, `entity`, `milestone` (`glossary_term` when the glossary lands) |
 | `target_id` | bigint / uuid | | Polymorphic FK |
-| `kind` | enum | | `references` (the only inline-link kind) |
 
-> `UNIQUE(owner_type, owner_id, target_type, target_id, kind)` is the ref's identity, and the PK
-> is derived from it (same deterministic rule as `Edge`). Multiple tokens to the same target from
+> `UNIQUE(owner_type, owner_id, target_type, target_id)` is the ref's identity, and the PK
+> is derived from it (same deterministic rule as `Edge`). Unlike `Edge`, entity_ref carries **no
+> `kind`** — it is only ever a "references" projection of an inline link (typed relationship kinds
+> live on `Edge`). Multiple tokens to the same target from
 > one owner collapse to one row; per-token display text and position are **not** stored — `generate`
 > re-scans the verbatim token in the text to render each occurrence.

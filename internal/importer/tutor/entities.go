@@ -10,17 +10,16 @@ import (
 )
 
 // parseEntities reads specs/entities/index.md (the curated entity glossary table:
-// `Entity | Description | Status`) into Entity rows. For each it also emits the
-// kind=entity Spec that documents it, so the Entity can link to a real spec row.
+// `Entity | Description | Status`) into Entity rows. Entities are first-class
+// documents (ent_entity), not specs — each carries its own doc path.
 // Entity .md files present on disk but absent from the index are flagged as drift.
-func parseEntities(specsDir string, rep *importer.Report) ([]importer.Entity, []importer.Spec) {
+func parseEntities(specsDir string, rep *importer.Report) []importer.Entity {
 	indexPath := filepath.Join(specsDir, "entities", "index.md")
 	b, err := os.ReadFile(indexPath)
 	if err != nil {
-		return nil, nil
+		return nil
 	}
 	var entities []importer.Entity
-	var specs []importer.Spec
 	listed := map[string]bool{} // entities/<file>.md → in index
 
 	for _, line := range strings.Split(string(b), "\n") {
@@ -44,16 +43,11 @@ func parseEntities(specsDir string, rep *importer.Report) ([]importer.Entity, []
 		}
 		mapped := mapSpecStatus(status, rep, rel)
 		ent := importer.Entity{Name: name, Description: strings.TrimSpace(cells[1]), Status: mapped, DocPath: rel}
-		sp := importer.Spec{
-			Prefix: "", Path: rel, Title: name, Domain: "entities", Kind: "entity",
-			RawStatus: status, Status: mapped,
-		}
 		if body, ok := readSpecBody(specsDir, rel); ok {
 			_, preamble, secs := splitDoc(body)
 			routeEntitySections(&ent, preamble, secs)
 		}
 		entities = append(entities, ent)
-		specs = append(specs, sp)
 	}
 
 	// Entity docs on disk but not in the index are imported too — the index is a
@@ -81,16 +75,12 @@ func parseEntities(specsDir string, rep *importer.Report) ([]importer.Entity, []
 		ent := importer.Entity{Name: name, Status: mapped, DocPath: rel}
 		routeEntitySections(&ent, preamble, secs)
 		entities = append(entities, ent)
-		specs = append(specs, importer.Spec{
-			Prefix: "", Path: rel, Title: name, Domain: "entities", Kind: "entity",
-			Status: mapped,
-		})
 	}
 	if unlisted > 0 {
 		rep.Add(importer.SevInfo, "entity-doc-unlisted",
 			itoa(unlisted)+" entity docs not in entities/index.md were imported from disk (index is a curation hint)", "")
 	}
-	return entities, specs
+	return entities
 }
 
 // entityNameFromHeading derives an entity's display name from its doc H1

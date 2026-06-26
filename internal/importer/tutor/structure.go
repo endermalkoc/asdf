@@ -119,28 +119,19 @@ func parseDomains(indexPath string) ([]importer.Domain, error) {
 		if slug == "" || strings.Contains(slug, " ") || seen[slug] {
 			continue
 		}
+		// "entities" is not a real domain — entity docs are domain-less first-class
+		// documents (their folder is doc organization, not a domain).
+		if slug == "entities" {
+			continue
+		}
 		seen[slug] = true
 		out = append(out, importer.Domain{
 			Slug:        slug,
 			Name:        titleCase(slug),
-			Kind:        domainKind(slug),
 			Description: cells[1],
 		})
 	}
 	return out, nil
-}
-
-func domainKind(slug string) string {
-	switch slug {
-	case "shared":
-		return "shared"
-	case "entities":
-		return "entities"
-	case "infrastructure":
-		return "infrastructure"
-	default:
-		return "service"
-	}
 }
 
 func titleCase(s string) string {
@@ -183,13 +174,17 @@ func parseSpecs(specsDir string, rep *importer.Report, domainSet map[string]bool
 		if prefix == "" || path == "" {
 			continue
 		}
+		// Docs under entities/ are entities (ent_entity), not specs — even if the
+		// registry lists a prefix for them (e.g. ATCH/attachable, which has no FRs).
+		if strings.HasPrefix(path, "entities/") {
+			continue
+		}
 		registered[path] = true
 
 		sp := importer.Spec{
 			Prefix: prefix,
 			Path:   path, // full source path (used for disk reads + dedup); apply stores it domain-relative
 			Domain: domain,
-			Kind:   specKind(path),
 		}
 
 		// Enrich from frontmatter.
@@ -249,20 +244,6 @@ func topDir(relPath string) string {
 		return relPath[:i]
 	}
 	return ""
-}
-
-// specKind infers an ASDF spec.kind from the file path.
-func specKind(relPath string) string {
-	switch {
-	case strings.HasPrefix(relPath, "entities/"):
-		return "entity"
-	case strings.Contains(relPath, "/flows/") || strings.Contains(relPath, "journey"):
-		return "journey"
-	case strings.HasSuffix(relPath, "/index.md") || relPath == "index.md":
-		return "index"
-	default:
-		return "feature"
-	}
 }
 
 // mapSpecStatus maps a tutor spec status (Draft|Reviewed|Active|Retired…) to

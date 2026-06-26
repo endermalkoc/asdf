@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/endermalkoc/asdf/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/asdf/internal/store"
 	"github.com/endermalkoc/asdf/internal/workspace"
 )
 
@@ -27,11 +28,14 @@ func (w *Write) MarkDirty(table string) { w.dirty.MarkDirty(table) }
 
 // MutateOpts configures a mutation.
 type MutateOpts struct {
-	Summary   string                          // Dolt commit message
-	Changeset string                          // explicit target; "" → active changeset, else main
-	Actor     string                          // actor handle override (--actor)
-	DryRun    bool                            // validate + run + roll back, no commit
-	Validate  func(ctx context.Context) error // optional, runs before any write
+	Summary   string // Dolt commit message
+	Changeset string // explicit target; "" → active changeset, else main
+	Actor     string // actor handle override (--actor)
+	DryRun    bool   // validate + run + roll back, no commit
+	// Validate runs before any write, on the resolved target branch. Its store.Execer
+	// reads that branch — so existence/ref checks see rows staged in the active changeset
+	// (e.g. a section added to a spec created in the same changeset), not stale main.
+	Validate func(ctx context.Context, r store.Execer) error
 }
 
 // Mutate runs body as one atomic, attributed, committed change.
@@ -41,33 +45,28 @@ type MutateOpts struct {
 // runs the row writes in a transaction (with retry), and — after the SQL tx
 // commits — records the Dolt commit on that same connection.
 func Mutate(ctx context.Context, ws *workspace.Workspace, o MutateOpts, body func(ctx context.Context, w *Write) error) error {
-	// 1. Validate before touching anything.
-	if o.Validate != nil {
-		if err := o.Validate(ctx); err != nil {
-			return err
-		}
-	}
-
-	// 2. Resolve the target branch: --changeset → active changeset → main.
-	branch := o.Changeset
-	if branch == "" {
-		branch = ws.ActiveChangeset()
-	}
-	if branch == "" {
-		branch = "main"
-	}
+	// 1. Resolve the target branch: --changeset → active changeset → main.
+	branch := ResolveBranch(ws, o.Changeset)
 	actor := workspace.ResolveActor(o.Actor)
 
-	// 3. Pin one connection (branch state is connection-scoped).
+	// 2. Pin one connection (branch state is connection-scoped).
 	conn, err := ws.Pin(ctx)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	// 4. Select the target branch on this connection.
+	// 3. Select the target branch on this connection — so validation and the writes both
+	//    see the target branch, not main.
 	if err := versioncontrolops.CheckoutBranch(ctx, conn, branch); err != nil {
 		return fmt.Errorf("selecting branch %q: %w", branch, err)
+	}
+
+	// 4. Validate before touching anything, reading the now-current target branch.
+	if o.Validate != nil {
+		if err := o.Validate(ctx, conn); err != nil {
+			return err
+		}
 	}
 
 	// Dry run: execute in a transaction and roll back — no persistence, no commit.

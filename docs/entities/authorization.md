@@ -14,18 +14,18 @@
 > business rules, validations, access — in domain language. ASDF owns them as the canonical
 > domain glossary; they do **not** mirror or sync from a database schema, and a property
 > here need not correspond one-to-one with a stored column. The full narrative lives in the
-> linked entity doc (a [`Spec`](structure.md#spec) with `kind = entity`); these tables are
-> its structured head.
+> entity's own [`EntitySection`](#entitysection) prose (the entity is a first-class document,
+> not a spec); these tables are its structured head.
 
 ## Entity
-A domain entity from `entities/**` (Student, Family, Event, …) — a business concept.
-Usually has a documenting spec (`kind = entity`) that carries the prose.
+A business concept from `entities/**` (Student, Family, Event, …). It is a **first-class document
+in its own right** — not modeled as a spec, and **not scoped to a `Domain`**: its prose lives in
+[`EntitySection`](#entitysection), its structure in `EntityAttribute`/`EntityRelationship`.
 
 | Attribute | Type | Key | Notes |
 |---|---|---|---|
 | `id` | bigint / uuid | **PK** | |
-| `domain_id` | FK → Domain | | |
-| `spec_id` | FK → Spec | | The entity doc (full narrative); nullable |
+| `path` | varchar | | Optional **sub-directory** under `entities/` (NULL = directly under `entities/`, the common case — **no filename, no `entities/` prefix**). Full location = `entities/ + [path + "/"] + kebab(name) + ".md"`; the filename is derived from `name` (lower-kebab). Entities are **domain-less** |
 | `name` | varchar | **UK** | |
 | `description` | text | | Short domain definition (from the entity index); nullable. **Not a doc section** |
 | `status` | enum | | `draft`, `active`, `deprecated` |

@@ -3,11 +3,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/endermalkoc/asdf/internal/app"
-	"github.com/endermalkoc/asdf/internal/enums"
 	"github.com/endermalkoc/asdf/internal/store"
 )
 
@@ -15,7 +16,6 @@ var (
 	specDomain string
 	specPrefix string
 	specTitle  string
-	specKind   string
 )
 
 var specCmd = &cobra.Command{Use: "spec", Short: "Manage specs"}
@@ -33,35 +33,42 @@ var specAddCmd = &cobra.Command{
 		defer ws.Close()
 		var sp store.Spec
 		var resolved app.ResolvedRefs
+		var title string
 		err = app.Mutate(ctx, ws, app.MutateOpts{
 			Summary:   fmt.Sprintf("add spec %s", args[0]),
 			Changeset: flagChangeset,
 			Actor:     flagActor,
-			Validate: func(vctx context.Context) error {
+			Validate: func(vctx context.Context, r store.Execer) error {
 				if err := app.ValidateRequired("domain", specDomain); err != nil {
 					return err
 				}
-				if note, err := app.ValidateEnumSoft("spec kind", specKind, enums.SpecKind, flagStrict); err != nil {
-					return err
-				} else if note != "" {
-					fmt.Fprintln(cmd.ErrOrStderr(), note)
-				}
-				resolver, e := app.LoadResolver(vctx, ws.DB())
+				resolver, e := app.LoadResolver(vctx, r)
 				if e != nil {
 					return e
 				}
-				resolved = app.ScanRefs(resolver, "spec", "", specTitle)
+				// Canonicalize + resolve inline refs through the shared ingestion path
+				// (same as the importer), so the stored title carries canonical links.
+				var rw []string
+				rw, resolved = app.IngestRefs(resolver, "spec", "", specTitle)
+				title = rw[0]
 				if !flagForce {
 					return app.DanglingError(resolved.Dangling)
 				}
 				return nil
 			},
 		}, func(ctx context.Context, w *app.Write) error {
+			// The path arg is domain-relative and includes the filename (e.g.
+			// student-detail/add.md); store the directory in path and the filename
+			// stem in slug (the filename is reconstructed as slug.md).
+			dir := filepath.Dir(args[0])
+			if dir == "." {
+				dir = ""
+			}
 			res, e := store.AddSpec(ctx, w.Tx, specDomain, store.Spec{
-				Path:   args[0],
+				Path:   dir,
+				Slug:   strings.TrimSuffix(filepath.Base(args[0]), filepath.Ext(args[0])),
 				Prefix: specPrefix,
-				Title:  specTitle,
-				Kind:   specKind,
+				Title:  title,
 			})
 			if e != nil {
 				return e
@@ -86,7 +93,6 @@ func init() {
 	specAddCmd.Flags().StringVar(&specDomain, "domain", "", "owning domain slug (required)")
 	specAddCmd.Flags().StringVar(&specPrefix, "prefix", "", "FR prefix, e.g. ATT (omit for FR-exempt docs)")
 	specAddCmd.Flags().StringVar(&specTitle, "title", "", "spec title")
-	specAddCmd.Flags().StringVar(&specKind, "kind", "feature", "spec kind (feature|entity|journey|analysis|index|meta|reference)")
 	_ = specAddCmd.MarkFlagRequired("domain")
 	specCmd.AddCommand(specAddCmd)
 	rootCmd.AddCommand(specCmd)

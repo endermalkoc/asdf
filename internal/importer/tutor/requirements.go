@@ -16,13 +16,12 @@ import (
 // frStatement is the text parsed from a spec's bold FR line, to be joined onto
 // the authoritative registry entry by fr_key.
 type frStatement struct {
-	Statement    string
-	OptoutMarker string // visual|ops|untestable
-	Section      string // FR group header it belongs to (link key)
-	Position     int    // document order within the spec's FR list
-	Tombstoned   bool
-	Delegated    bool // came from a "FR-x to FR-y" range line
-	matched      bool // set true once a registry entry consumes it
+	Statement  string
+	Section    string // FR group title it belongs to (link key)
+	Position   int    // document order within the spec's FR list
+	Tombstoned bool
+	Delegated  bool // came from a "FR-x to FR-y" range line
+	matched    bool // set true once a registry entry consumes it
 }
 
 // frGroupHeaderRe matches a standalone bold FR group sub-header line, e.g.
@@ -87,7 +86,7 @@ func collectStatements(prefix, body string, stmtByKey map[string]frStatement, re
 				body2, ni := gatherBody(lines, i+1)
 				if ni < len(lines) && (frLineRe.MatchString(lines[ni]) || frRangeLineRe.MatchString(lines[ni])) {
 					currentHeader = header
-					groups = append(groups, importer.ReqGroup{Position: len(groups) + 1, Header: header, Note: body2})
+					groups = append(groups, importer.ReqGroup{Position: len(groups) + 1, Title: header, Notes: body2})
 					i = ni
 					continue
 				}
@@ -104,7 +103,7 @@ func collectStatements(prefix, body string, stmtByKey map[string]frStatement, re
 			body2, ni := gatherBody(lines, i+1)
 			if ni < len(lines) && (frLineRe.MatchString(lines[ni]) || frRangeLineRe.MatchString(lines[ni])) {
 				currentHeader = header
-				groups = append(groups, importer.ReqGroup{Position: len(groups) + 1, Header: header, Note: body2})
+				groups = append(groups, importer.ReqGroup{Position: len(groups) + 1, Title: header, Notes: body2})
 			} else {
 				currentHeader = ""
 				block := "**" + header + "**"
@@ -141,9 +140,10 @@ func collectStatements(prefix, body string, stmtByKey map[string]frStatement, re
 			continue
 		}
 
-		// Single bold FR line (optionally with a [visual]/[operational]/… marker).
+		// Single bold FR line. Any [visual]/[operational]/… marker is parsed off the
+		// statement text and discarded (the opt-out concept was dropped).
 		if m := frLineRe.FindStringSubmatch(line); m != nil {
-			prefixID, numStr, suffix, marker, text := m[1], m[2], m[3], m[4], trimMarkdown(m[5])
+			prefixID, numStr, suffix, text := m[1], m[2], m[3], trimMarkdown(m[5])
 			cont, ni := gatherBody(lines, i+1)
 			i = ni
 			_, n, _, ok := splitFRKey(prefixID + "-FR-" + numStr + suffix)
@@ -155,7 +155,7 @@ func collectStatements(prefix, body string, stmtByKey map[string]frStatement, re
 			}
 			key := frKey(prefixID, n, suffix)
 			tomb := strings.HasPrefix(text, "_(") || strings.HasPrefix(text, "*(")
-			st := frStatement{Statement: text, OptoutMarker: markerToOptout(marker), Section: currentHeader, Position: pos, Tombstoned: tomb}
+			st := frStatement{Statement: text, Section: currentHeader, Position: pos, Tombstoned: tomb}
 			pos++
 			if _, exists := stmtByKey[key]; exists {
 				rep.Add(importer.SevWarn, "duplicate-fr-line", "fr_key defined by more than one spec line", key)
@@ -174,7 +174,6 @@ type regEntry struct {
 	Status    string `yaml:"status"`
 	Milestone string `yaml:"milestone"`
 	Notes     string `yaml:"notes"`
-	Owner     string `yaml:"owner"`
 	E2ERef    string `yaml:"e2e_ref"`
 }
 
@@ -186,7 +185,6 @@ func parseRegistry(registryDir string, stmtByKey map[string]frStatement, rep *im
 	milestoneSet := map[string]bool{}
 	var (
 		noStatement   int
-		ownerCount    int
 		e2eRefCount   int
 		badKeys       int
 		unknownStatus = map[string]bool{}
@@ -227,9 +225,6 @@ func parseRegistry(registryDir string, stmtByKey map[string]frStatement, rep *im
 			} else {
 				noStatement++
 			}
-			if ent.Owner != "" {
-				ownerCount++
-			}
 			if ent.E2ERef != "" {
 				e2eRefCount++
 			}
@@ -244,8 +239,6 @@ func parseRegistry(registryDir string, stmtByKey map[string]frStatement, rep *im
 				Statement:      st.Statement,
 				DeliveryStatus: ent.Status,
 				Milestone:      ent.Milestone,
-				OptoutMarker:   st.OptoutMarker,
-				Owner:          ent.Owner,
 				E2ERef:         ent.E2ERef,
 				Section:        st.Section,
 				Position:       st.Position,
@@ -279,10 +272,6 @@ func parseRegistry(registryDir string, stmtByKey map[string]frStatement, rep *im
 	if noStatement > 0 {
 		rep.Add(importer.SevInfo, "registry-no-statement",
 			itoa(noStatement)+" registry FRs have no statement line in their spec (delegated/shared or drift)", "")
-	}
-	if ownerCount > 0 {
-		rep.Add(importer.SevInfo, "registry-owner",
-			itoa(ownerCount)+" registry entries set owner — maps to requirement.owner", "")
 	}
 	if e2eRefCount > 0 {
 		rep.Add(importer.SevInfo, "registry-e2e-ref",

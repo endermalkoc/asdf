@@ -31,7 +31,6 @@ type Domain struct {
 	Slug        string `json:"slug"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
-	Kind        string `json:"kind"`
 	Status      string `json:"status"`
 }
 
@@ -42,7 +41,6 @@ type Spec struct {
 	Slug     string `json:"slug,omitempty"`
 	Path     string `json:"path"`
 	Title    string `json:"title,omitempty"`
-	Kind     string `json:"kind"`
 	Status   string `json:"status"`
 	// Title is the single spec label; the H1 renders as `# {title}`. All prose
 	// sections live in req_spec_section, each typed by req_spec_section_type (0013).
@@ -58,10 +56,7 @@ type Requirement struct {
 	ContentStatus  string `json:"content_status"`
 	DeliveryStatus string `json:"delivery_status,omitempty"`
 	MilestoneID    string `json:"milestone_id,omitempty"`
-	Owner          string `json:"owner,omitempty"`
 	Notes          string `json:"notes,omitempty"`
-	OptoutMarker   string `json:"optout_marker,omitempty"`
-	OptoutReason   string `json:"optout_reason,omitempty"`
 	GroupID        string `json:"group_id,omitempty"`
 	Position       int    `json:"position,omitempty"`
 	Priority       *int   `json:"priority,omitempty"` // 0–4 (req_priority); nil = unprioritized
@@ -87,16 +82,13 @@ func nullIfNil(p *int) any {
 // AddDomain mints a ULID and inserts the domain. The caller is responsible for
 // committing (x is typically the mutation wrapper's *sql.Tx).
 func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
-	if d.Kind == "" {
-		d.Kind = "service"
-	}
 	if d.Status == "" {
 		d.Status = "active"
 	}
 	d.ID = ids.New()
 	_, err := x.ExecContext(ctx,
-		"INSERT INTO `req_domain` (id,slug,name,description,kind,status) VALUES (?,?,?,?,?,?)",
-		d.ID, d.Slug, d.Name, nullIfEmpty(d.Description), d.Kind, d.Status)
+		"INSERT INTO `req_domain` (id,slug,name,description,status) VALUES (?,?,?,?,?)",
+		d.ID, d.Slug, d.Name, nullIfEmpty(d.Description), d.Status)
 	if err != nil {
 		return Domain{}, fmt.Errorf("add domain %q: %w", d.Slug, err)
 	}
@@ -105,7 +97,7 @@ func AddDomain(ctx context.Context, x Execer, d Domain) (Domain, error) {
 
 func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 	rows, err := x.QueryContext(ctx,
-		"SELECT id,slug,name,COALESCE(description,''),kind,status FROM `req_domain` ORDER BY slug")
+		"SELECT id,slug,name,COALESCE(description,''),status FROM `req_domain` ORDER BY slug")
 	if err != nil {
 		return nil, err
 	}
@@ -113,7 +105,7 @@ func ListDomains(ctx context.Context, x Execer) ([]Domain, error) {
 	var out []Domain
 	for rows.Next() {
 		var d Domain
-		if err := rows.Scan(&d.ID, &d.Slug, &d.Name, &d.Description, &d.Kind, &d.Status); err != nil {
+		if err := rows.Scan(&d.ID, &d.Slug, &d.Name, &d.Description, &d.Status); err != nil {
 			return nil, err
 		}
 		out = append(out, d)
@@ -139,16 +131,13 @@ func AddSpec(ctx context.Context, x Execer, domainSlug string, sp Spec) (Spec, e
 		return Spec{}, err
 	}
 	sp.DomainID = domID
-	if sp.Kind == "" {
-		sp.Kind = "feature"
-	}
 	if sp.Status == "" {
 		sp.Status = "active"
 	}
 	sp.ID = ids.New()
 	_, err = x.ExecContext(ctx,
-		"INSERT INTO `req_spec` (id,domain_id,prefix,slug,path,title,kind,status) VALUES (?,?,?,?,?,?,?,?)",
-		sp.ID, sp.DomainID, nullIfEmpty(sp.Prefix), nullIfEmpty(sp.Slug), sp.Path, nullIfEmpty(sp.Title), sp.Kind, sp.Status)
+		"INSERT INTO `req_spec` (id,domain_id,prefix,slug,path,title,status) VALUES (?,?,?,?,?,?,?)",
+		sp.ID, sp.DomainID, nullIfEmpty(sp.Prefix), nullIfEmpty(sp.Slug), nullIfEmpty(sp.Path), nullIfEmpty(sp.Title), sp.Status)
 	if err != nil {
 		return Spec{}, fmt.Errorf("add spec %q: %w", sp.Path, err)
 	}
@@ -227,38 +216,9 @@ func ListRequirements(ctx context.Context, x Execer, specPrefix string) ([]Requi
 	return out, rows.Err()
 }
 
-func reqIDByFRKey(ctx context.Context, x Execer, frKey string) (string, error) {
-	var id string
-	err := x.QueryRowContext(ctx, "SELECT id FROM `req_requirement` WHERE fr_key=?", frKey).Scan(&id)
-	if err == sql.ErrNoRows {
-		return "", fmt.Errorf("no requirement with fr_key %q", frKey)
-	}
-	return id, err
-}
-
-// ---- Edge (deterministic PK) ----------------------------------------------
-
-// AddEdge links two requirements by their fr_keys. The edge's id is DERIVED
-// deterministically from its identity, so re-adding the same edge is a no-op
-// (INSERT IGNORE) — the merge-convergence property. Returns the deterministic id.
-func AddEdge(ctx context.Context, x Execer, fromFRKey, kind, toFRKey string) (string, error) {
-	fromID, err := reqIDByFRKey(ctx, x, fromFRKey)
-	if err != nil {
-		return "", err
-	}
-	toID, err := reqIDByFRKey(ctx, x, toFRKey)
-	if err != nil {
-		return "", err
-	}
-	const fromType, toType = "requirement", "requirement"
-	id := ids.Rel(fromType, fromID, toType, toID, kind)
-	if _, err := x.ExecContext(ctx,
-		"INSERT IGNORE INTO `req_edge` (id,from_type,from_id,to_type,to_id,kind) VALUES (?,?,?,?,?,?)",
-		id, fromType, fromID, toType, toID, kind); err != nil {
-		return "", fmt.Errorf("add edge %s -%s-> %s: %w", fromFRKey, kind, toFRKey, err)
-	}
-	return id, nil
-}
+// Edges (the deterministic-PK cross-reference graph) are written via AddEdgeByIDs
+// (import.go) from resolved (type,id) endpoints; see cmd/asdf/edge.go + app/edge.go for
+// endpoint resolution and the acyclicity check.
 
 // SeedActor inserts the given actor if absent (idempotent on the handle), so
 // changeset.author_id has a row to reference.

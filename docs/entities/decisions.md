@@ -40,8 +40,8 @@ _None — all resolved (see below)._
   heading outside the curated vocabulary folds into the `notes` type on import. The per-story
   `why_priority`/`independent_test` and the FR group are still **promoted** from prose. The FR group is a
   first-class [`RequirementGroup`](requirements.md#requirementgroup) (migration `0004`, replacing the
-  earlier denormalized `Requirement.section`): it carries the group's `position`, `header`, and the
-  interspersed `note`, and requirements link to it by document `position` — so the FR list regenerates in
+  earlier denormalized `Requirement.section`): it carries the group's `position`, `title`, and the
+  interspersed `notes`, and requirements link to it by document `position` — so the FR list regenerates in
   **source order**, with grouping and notes intact. **Key Entities** lists become `spec → entity`
   references. The spec's H1 renders from `Spec.title`; `Entity.description` (the glossary one-liner)
   stays a column — these are identity, not sections. Generation emits a fixed canonical section order
@@ -75,6 +75,14 @@ _None — all resolved (see below)._
   `(domain_id, path)` (a domain-relative path like `index.md` isn't globally unique). A spec whose source
   file sat under a directory other than its tagged domain (the corpus had 4) now renders under its
   domain — the classification wins. DDL + re-import (paths repopulate in relative form).
+- **The doc path is reconstructed, never stored whole** — neither the domain (above) nor the filename
+  is duplicated in `path`. `req_spec.path` holds only the **directory**; the file is `slug.md`, so the
+  full location is `domain.slug + "/" + [path + "/"] + slug + ".md"` and the identity is
+  `(domain_id, path, slug)`. `ent_entity` mirrors this but is domain-less and derives its filename from
+  `name`: the doc lives at `entities/ + [path + "/"] + kebab(name) + ".md"`, where `kebab` lower-cases and
+  dashes CamelCase/space boundaries (`EventAttendance` → `event-attendance`); `ent_entity.path` is just an
+  optional sub-directory (NULL = directly under `entities/`, which is every entity in the corpus). The
+  CamelCase→kebab step can't be expressed in SQL, so entity paths are reconstructed in Go (`store.EntityDocPath`).
 - **`position` and `title` are the standard column names** (migration `0019`). Two columns meant
   *document order* under different names — `ordinal` on `UserStory`/`AcceptanceScenario`/`TestStep`,
   `position` everywhere else; standardized on `position`. Likewise a section *type*'s heading text is
@@ -83,6 +91,35 @@ _None — all resolved (see below)._
   Student`); they were **not** redundant, but the H1's kind-prefix is derivable from `Spec.kind` (a
   corpus-ism), so `heading` is **dropped** and the H1 renders as `# {title}` — `title` is the single
   spec label. DDL rename/drop; re-import repopulates.
+- **Entities are first-class documents, not specs.** Each entity doc previously produced **two**
+  rows — a `req_spec` with `kind='entity'` (the document) and an `ent_entity` (the concept), linked
+  1:1 by `spec_id` — duplicating `domain`/`title`/`status` and putting non-specs in the `spec` table.
+  But entities had already diverged into their own `ent_*` namespace (their prose is `ent_entity_section`
+  with its own type vocabulary, structure is `ent_attribute`/`ent_relationship`, and cross-refs use a
+  distinct `target_type='entity'`), so the spec row was a thin, leaky shell. `ent_entity` now carries its
+  own `path` (domain-relative, like `Spec.path`); the `spec[kind=entity]` rows, the `spec_id` FK, and the
+  `entity` value of `Spec.kind` are **removed**. `generate` renders entities directly from `ent_entity` +
+  `ent_entity_section` to their own doc path; ref targets get their page path from `ent_entity.path`. No
+  cross-reference targeted entity docs *as specs* (all entity links resolve via `[[ENTITY:name]]`), so the
+  change is ref-safe. Follow-ups (applied): **entities are domain-less and never specs** —
+  `ent_entity.domain_id` is dropped and `path` stores the **full** doc location; the importer treats any
+  doc under `entities/` as an entity (never a spec) and **does not create an `entities` domain** at all.
+  This resolved the one hybrid, `Attachable` (`entities/attachable.md`): it was in the prefix-registry but
+  had **zero** FRs/stories and was referenced only as an entity, so it is now a plain entity.
+- **`Spec.kind` and `Domain.kind` are dropped.** `Spec.kind`'s only behavioural consumer was the
+  `kind='entity'` discriminator (gone now that entities aren't specs); the rest were never rendered or
+  branched on, and every imported spec was `feature`. `Domain.kind` (`service`/`shared`/…) was only ever
+  *displayed* in `domain ls` — no consumer, not rendered. Both are constant/unread → removed (with their
+  CLI flags, the `SpecKind`/`DomainKind` seed enums, and the spec/domain path classifiers). Re-add if a
+  real consumer (e.g. a kind-aware `check` or index grouping) ever needs them.
+- **`EntityRelationship` is imported from the tutor app's Drizzle schema** — the entity docs describe
+  relationships only in prose, so the structured `ent_relationship` rows come from the actual DB schema
+  (the foreign-key ground truth, not the duplicative `relations()` DSL). `import tutor` parses
+  `src/packages/database/src/schema/*.ts` (auto-detected relative to the docs root, or `--drizzle <dir>`):
+  a FK on a table's `id` → **one-to-one**, on any other column → **one-to-many** (parent → child, since the
+  cardinality enum has no `many_to_one`), and a non-entity table whose composite PK is two FK columns →
+  **many-to-many** (`junction_table` set). Only relationships between two known entities are emitted;
+  N-ary junctions (e.g. `tutor_students`) are skipped and reported. Idempotent (deterministic ids).
 - **ER refinements from the tutor import** (validated by `asdf import tutor`, the read-only
   parse-and-report adapter — `internal/importer/tutor`). Five pieces of source data had no clean
   home; the resolutions keep the core generic:
@@ -118,7 +155,8 @@ _None — all resolved (see below)._
   keys: `DOMAIN`(slug) · `SPEC`(prefix, else path) · `REQ`(fr_key) · `ENTITY`(name) ·
   `MILESTONE`(slug) · `TERM`(glossary — deferred until `GlossaryTerm` lands). At ingestion the
   token is **validated, kept verbatim in the text** (for rendering), **and projected into a queryable
-  `entity_ref` row** (owner→target, `kind=references`). The token stays the source of truth; `EntityRef`
+  `entity_ref` row** (owner→target; it carries no `kind` — it is always a "references" projection,
+  whereas typed kinds live on `Edge`). The token stays the source of truth; `EntityRef`
   is its reconciled projection (re-derived per owner on each write — so removing a link removes its row).
   - **`EntityRef` vs `Edge`**: `EntityRef` is the home for **all prose-derived references** — the
     inline `[[…]]` links *and* the importer's auto-discovered mentions (inline FR citations, Key
@@ -126,17 +164,18 @@ _None — all resolved (see below)._
     via `edge add`). `impact`/`check` read **both**. (This reclassifies the importer's former ~600
     prose-derived `references` edges into `entity_ref`.)
   - **Source attribution** is the nearest first-class node owning the text: a link inside a scenario,
-    `SpecSection`/`EntitySection`, or `RequirementGroup.note` attributes to its owning user_story / spec /
+    `SpecSection`/`EntitySection`, or `RequirementGroup.notes` attributes to its owning user_story / spec /
     entity. Self-references are ignored (no self-ref row).
   - **Dangling refs** (token that resolves to nothing): **block** an interactive CLI/MCP write
     (`--force` overrides); **record a non-blocking finding** on bulk import; a `check` finding once
     `asdf check` exists.
-  - **Render is per-format**: `generate` rewrites each token to an **Obsidian-compatible relative
-    Markdown link** `[label](relpath#anchor)` (and an **HTML `<a>`** once an HTML generate path exists —
-    deferred). The generator emits a stable anchor per FR/heading so `[[REQ:…]]` targets the FR inside its
-    spec file. A target with no generated page (e.g. a milestone) renders label-only but still records the
-    `entity_ref`. The importer **converts** the corpus's `[label](./other.md)` cross-spec links to canonical
-    tokens so they round-trip as links.
+  - **Render is per-format**: the Markdown generator rewrites each token to an **Obsidian wikilink**
+    `[[vault-path#^anchor|label]]` (vault-relative path, extension dropped; same-file → `[[#^anchor|label]]`).
+    Anchors are **Obsidian block references** (`^fr-key`) emitted at the end of each FR list item (and each
+    glossary term), so `[[REQ:…]]` resolves to the FR inside its spec. **HTML `<a href>`/`<a id>` links are
+    reserved for the future HTML generate path** — the Markdown output carries no HTML. A target with no
+    generated page (e.g. a milestone) renders label-only but still records the `entity_ref`. The importer
+    **converts** the corpus's `[label](./other.md)` cross-spec links to canonical tokens so they round-trip.
 - **Glossary is shared project vocabulary, separate from the Entity layer** (the
   [`GlossaryTerm`](glossary.md) + [`GlossaryAlias`](glossary.md) entities). A `GlossaryTerm` defines a
   *concept* once (`make-up-credit` → "minutes of lesson time owed…"); an `Entity` models a *document*
@@ -173,9 +212,8 @@ _None — all resolved (see below)._
   - **closed** — fixed lifecycle/workflow + structural discriminators (`*.status`, `Edge.kind`, the polymorphic
     `*_type`, `cardinality`, `verdict`, …). Validated hard; unknown rejected (`enums.Valid`).
   - **seed** — open value-sets with documented defaults that are project-/tenant-/tooling-specific:
-    `Domain.kind`, `Spec.kind`,
-    `Requirement.optout_marker` (corpus carries none; the FR-marker parser is forward-looking),
-    and the Qase `TestCase.*` taxonomies. Validated **leniently** — `app.ValidateEnumSoft` accepts an unknown
+    `Domain.kind`, `Spec.kind`, and the Qase `TestCase.*` taxonomies. Validated **leniently** —
+    `app.ValidateEnumSoft` accepts an unknown
     value with a warning; `--strict` restores hard rejection. Import never rejects (it warns), matching the
     existing `unknown-delivery-status` finding.
   - **table** — value-sets graduate to seeded lookup tables. `Requirement.delivery_status`, the one that
