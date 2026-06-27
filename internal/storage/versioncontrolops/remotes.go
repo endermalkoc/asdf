@@ -26,6 +26,14 @@ func ListRemotes(ctx context.Context, db DBConn) ([]storage.RemoteInfo, error) {
 	return remotes, rows.Err()
 }
 
+// AddRemote configures a named Dolt remote pointing at url.
+func AddRemote(ctx context.Context, db DBConn, name, url string) error {
+	if _, err := db.ExecContext(ctx, "CALL DOLT_REMOTE('add', ?, ?)", name, url); err != nil {
+		return fmt.Errorf("add remote %s: %w", name, err)
+	}
+	return nil
+}
+
 // RemoveRemote removes a configured Dolt remote.
 func RemoveRemote(ctx context.Context, db DBConn, name string) error {
 	if _, err := db.ExecContext(ctx, "CALL DOLT_REMOTE('remove', ?)", name); err != nil {
