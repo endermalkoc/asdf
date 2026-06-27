@@ -58,4 +58,4 @@ fi
 
 echo
 echo "reseed complete — workspace $WORKSPACE is live on 127.0.0.1:$PORT"
-echo "  Dolt Workbench / DSN:  root@tcp(127.0.0.1:$PORT)/asdf"
+echo "  Dolt Workbench / DSN:  root@tcp(127.0.0.1:$PORT)/adlg"

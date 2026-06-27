@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/refs"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // CheckFinding is one integrity problem `check` reports.

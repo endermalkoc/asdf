@@ -41,7 +41,7 @@ func logHasCorruptJournalError(logPath string) (bool, error) {
 }
 
 func logHasSignature(logPath, signature string) (bool, error) {
-	f, err := os.Open(logPath) //nolint:gosec // G304: path derived from asdfDir
+	f, err := os.Open(logPath) //nolint:gosec // G304: path derived from adlgDir
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
@@ -70,10 +70,10 @@ func logHasSignature(logPath, signature string) (bool, error) {
 	return strings.Contains(string(buf), signature), nil
 }
 
-func corruptJournalRecoveryHint(asdfDir string) string {
+func corruptJournalRecoveryHint(adlgDir string) string {
 	ts := time.Now().UTC().Format("20060102T150405Z")
-	doltDir := filepath.Join(asdfDir, "dolt")
-	backupDir := filepath.Join(asdfDir, "dolt.corrupt."+ts)
+	doltDir := filepath.Join(adlgDir, "dolt")
+	backupDir := filepath.Join(adlgDir, "dolt.corrupt."+ts)
 	return fmt.Sprintf(`Dolt journal corruption detected in %s.
 
 adlg will not run automatic journal repair because Dolt's repair mode can discard data.
@@ -88,7 +88,7 @@ If the remote may be stale, snapshot %s first and inspect with:
   dolt fsck --revive-journal-with-data-loss
 
 Only use the fsck revive path after reviewing Dolt's data-loss warning.`,
-		logPath(asdfDir), doltDir, backupDir, doltDir)
+		logPath(adlgDir), doltDir, backupDir, doltDir)
 }
 
 // findCorruptNomsDirs walks doltDir and returns the paths of every
@@ -193,12 +193,12 @@ func isLowerAlphaName(s string) bool {
 // directories, or nil when the condition does not hold. Detection only —
 // never modifies anything; repair is RecoverCorruptManifest, which must stay
 // behind an explicit user action (adlg doctor --fix; adlg-6dnrw.6).
-func DetectCorruptManifest(asdfDir string) ([]string, error) {
-	return detectCorruptManifest(asdfDir, ResolveDoltDir(asdfDir))
+func DetectCorruptManifest(adlgDir string) ([]string, error) {
+	return detectCorruptManifest(adlgDir, ResolveDoltDir(adlgDir))
 }
 
-func detectCorruptManifest(asdfDir, doltDir string) ([]string, error) {
-	hasErr, err := logHasCorruptManifestError(logPath(asdfDir))
+func detectCorruptManifest(adlgDir, doltDir string) ([]string, error) {
+	hasErr, err := logHasCorruptManifestError(logPath(adlgDir))
 	if err != nil || !hasErr {
 		return nil, err
 	}
@@ -213,12 +213,12 @@ func detectCorruptManifest(asdfDir, doltDir string) ([]string, error) {
 //
 // Returns the list of backup paths created. If the preconditions do not
 // hold, returns (nil, nil).
-func RecoverCorruptManifest(asdfDir string) ([]string, error) {
-	return recoverCorruptManifest(asdfDir, ResolveDoltDir(asdfDir))
+func RecoverCorruptManifest(adlgDir string) ([]string, error) {
+	return recoverCorruptManifest(adlgDir, ResolveDoltDir(adlgDir))
 }
 
-func recoverCorruptManifest(asdfDir, doltDir string) ([]string, error) {
-	nomsDirs, err := detectCorruptManifest(asdfDir, doltDir)
+func recoverCorruptManifest(adlgDir, doltDir string) ([]string, error) {
+	nomsDirs, err := detectCorruptManifest(adlgDir, doltDir)
 	if err != nil {
 		return nil, err
 	}

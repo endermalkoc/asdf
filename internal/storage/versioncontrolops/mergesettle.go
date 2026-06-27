@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/storage"
-	"github.com/endermalkoc/asdf/internal/storage/kvkeys"
+	"github.com/endermalkoc/adlg/internal/storage"
+	"github.com/endermalkoc/adlg/internal/storage/kvkeys"
 )
 
 // memoryConfigKeyPrefix is the config-table key prefix under which `bd remember`

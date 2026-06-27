@@ -10,7 +10,7 @@ import (
 )
 
 // DefaultCredentialsPath returns the platform-appropriate default credentials file path.
-// Linux/macOS: ~/.config/asdf/credentials
+// Linux/macOS: ~/.config/adlg/credentials
 // Windows: %APPDATA%\adlg\credentials
 func DefaultCredentialsPath() string {
 	if runtime.GOOS == "windows" {

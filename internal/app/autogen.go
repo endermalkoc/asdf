@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/generate"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/generate"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 // Incremental auto-generation. When enabled in the workspace config, a successful mutation on

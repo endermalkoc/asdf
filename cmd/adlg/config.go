@@ -7,8 +7,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/app"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 var configOutDir string
@@ -163,14 +163,14 @@ func canonicalFormat(format string) (string, error) {
 // configDir resolves the workspace `.adlg` directory for config-file edits, which need no
 // database connection. It requires the workspace to exist.
 func configDir() (string, error) {
-	asdfDir, err := workspace.ResolveASDFDir()
+	adlgDir, err := workspace.ResolveADLGDir()
 	if err != nil {
 		return "", err
 	}
-	if _, statErr := os.Stat(asdfDir); statErr != nil {
-		return "", fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", asdfDir)
+	if _, statErr := os.Stat(adlgDir); statErr != nil {
+		return "", fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", adlgDir)
 	}
-	return asdfDir, nil
+	return adlgDir, nil
 }
 
 func showConfig() error {

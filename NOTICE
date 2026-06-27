@@ -12,7 +12,7 @@ satisfied by retaining this notice). They provide ADLG's Dolt infrastructure:
 embedded/owned/external Dolt SQL server management, the warm "proxied server"
 daemon, and the version-control / remote / sync / federation operations. Import
 paths were rewritten from github.com/steveyegge/beads to
-github.com/endermalkoc/asdf, and dependencies on beads' issue domain were severed
+github.com/endermalkoc/adlg, and dependencies on beads' issue domain were severed
 (see the surgery notes below).
 
   internal/doltserver

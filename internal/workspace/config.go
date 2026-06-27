@@ -35,20 +35,20 @@ type FormatConfig struct {
 	Out    string `json:"out,omitempty"`
 }
 
-func (w *Workspace) configPath() string { return filepath.Join(w.ASDFDir, configFileName) }
+func (w *Workspace) configPath() string { return filepath.Join(w.ADLGDir, configFileName) }
 
 // LoadConfig reads `.adlg/config.json`. A missing file is the zero Config (auto-gen off).
 func (w *Workspace) LoadConfig() (*Config, error) {
-	return loadConfig(w.ASDFDir)
+	return loadConfig(w.ADLGDir)
 }
 
 // SaveConfig writes `.adlg/config.json`.
-func (w *Workspace) SaveConfig(c *Config) error { return saveConfig(w.ASDFDir, c) }
+func (w *Workspace) SaveConfig(c *Config) error { return saveConfig(w.ADLGDir, c) }
 
 // loadConfig / saveConfig operate on a bare `.adlg` dir so callers (e.g. the `config`
 // command) can read or edit config without standing up a database connection.
-func loadConfig(asdfDir string) (*Config, error) {
-	b, err := os.ReadFile(filepath.Join(asdfDir, configFileName))
+func loadConfig(adlgDir string) (*Config, error) {
+	b, err := os.ReadFile(filepath.Join(adlgDir, configFileName))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Config{}, nil
@@ -62,43 +62,43 @@ func loadConfig(asdfDir string) (*Config, error) {
 	return &c, nil
 }
 
-func saveConfig(asdfDir string, c *Config) error {
+func saveConfig(adlgDir string, c *Config) error {
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(asdfDir, configFileName), append(b, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(adlgDir, configFileName), append(b, '\n'), 0o644)
 }
 
 // LoadConfigDir reads the workspace config given just the `.adlg` directory — for commands
-// that operate on config files without a live database (see cmd/asdf/config.go).
-func LoadConfigDir(asdfDir string) (*Config, error) { return loadConfig(asdfDir) }
+// that operate on config files without a live database (see cmd/adlg/config.go).
+func LoadConfigDir(adlgDir string) (*Config, error) { return loadConfig(adlgDir) }
 
 // SaveConfigDir writes the workspace config given just the `.adlg` directory.
-func SaveConfigDir(asdfDir string, c *Config) error { return saveConfig(asdfDir, c) }
+func SaveConfigDir(adlgDir string, c *Config) error { return saveConfig(adlgDir, c) }
 
 // OutDir resolves a format's output directory: the configured Out if set (relative paths are
 // resolved against the project root, the parent of `.adlg`), else the default
 // `.adlg/artifacts/<format>`.
 func (w *Workspace) OutDir(f FormatConfig) string {
-	return resolveOutDir(w.ASDFDir, f)
+	return resolveOutDir(w.ADLGDir, f)
 }
 
-func resolveOutDir(asdfDir string, f FormatConfig) string {
+func resolveOutDir(adlgDir string, f FormatConfig) string {
 	if strings.TrimSpace(f.Out) == "" {
-		return filepath.Join(asdfDir, "artifacts", f.Format)
+		return filepath.Join(adlgDir, "artifacts", f.Format)
 	}
 	if filepath.IsAbs(f.Out) {
 		return f.Out
 	}
-	return filepath.Join(filepath.Dir(asdfDir), f.Out)
+	return filepath.Join(filepath.Dir(adlgDir), f.Out)
 }
 
 // DefaultOutDir is the out directory a format gets with no override (`.adlg/artifacts/<fmt>`).
-func DefaultOutDir(asdfDir, format string) string {
-	return resolveOutDir(asdfDir, FormatConfig{Format: format})
+func DefaultOutDir(adlgDir, format string) string {
+	return resolveOutDir(adlgDir, FormatConfig{Format: format})
 }
 
 // EffectiveOutDir resolves a format target's output directory given just the `.adlg` dir
 // (the configured override if set, else the default).
-func EffectiveOutDir(asdfDir string, f FormatConfig) string { return resolveOutDir(asdfDir, f) }
+func EffectiveOutDir(adlgDir string, f FormatConfig) string { return resolveOutDir(adlgDir, f) }

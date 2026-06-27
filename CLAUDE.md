@@ -88,7 +88,7 @@ data or configurable policy, not core. The **enum policy buckets** (closed / see
 
 ## Tech stack (Go — locked)
 
-Go single static binary + an MCP server. Module `github.com/endermalkoc/asdf`, Go 1.26.2.
+Go single static binary + an MCP server. Module `github.com/endermalkoc/adlg`, Go 1.26.2.
 Storage is Dolt, reached three ways (embedded / owned / external) — see
 [ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-engine--server-modes).
 

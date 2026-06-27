@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/app"
+	"github.com/endermalkoc/adlg/internal/app"
 )
 
 var impactTransitive bool

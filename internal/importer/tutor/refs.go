@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/importer"
-	"github.com/endermalkoc/asdf/internal/refs"
+	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/adlg/internal/refs"
 )
 
 // mdLinkRe matches a standard Markdown link `[label](url)`.

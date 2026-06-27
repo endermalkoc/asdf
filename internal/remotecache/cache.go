@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
-	"github.com/endermalkoc/asdf/internal/debug"
-	"github.com/endermalkoc/asdf/internal/lockfile"
-	"github.com/endermalkoc/asdf/internal/storage"
+	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/debug"
+	"github.com/endermalkoc/adlg/internal/lockfile"
+	"github.com/endermalkoc/adlg/internal/storage"
 )
 
 // staleLockAge is the maximum age of a lock file before it's considered stale.
@@ -21,12 +21,12 @@ const staleLockAge = 5 * time.Minute
 // StoreOpener is a function that opens a DoltStorage from a adlg directory.
 // This is injected by the cmd layer to abstract over build-tag-specific
 // store construction (embedded vs server).
-type StoreOpener func(ctx context.Context, asdfDir string) (storage.DoltStorage, error)
+type StoreOpener func(ctx context.Context, adlgDir string) (storage.DoltStorage, error)
 
 // Cache manages local clones of remote Dolt databases.
 // Each remote URL maps to a directory under Dir named by CacheKey(url).
 type Cache struct {
-	Dir      string        // e.g., ~/.cache/asdf/remotes
+	Dir      string        // e.g., ~/.cache/adlg/remotes
 	FreshFor time.Duration // skip pull if last pull was within this duration; 0 means always pull
 }
 

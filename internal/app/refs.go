@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/refs"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // LoadResolver builds a cross-reference resolver from the store's ref targets — the

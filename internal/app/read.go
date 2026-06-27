@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/endermalkoc/asdf/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/asdf/internal/store"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 // ResolveBranch picks the branch a command targets: an explicit --changeset, else the

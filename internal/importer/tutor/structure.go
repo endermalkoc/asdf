@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/endermalkoc/asdf/internal/importer"
+	"github.com/endermalkoc/adlg/internal/importer"
 )
 
 // ---- frontmatter -----------------------------------------------------------

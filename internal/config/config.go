@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/debug"
+	"github.com/endermalkoc/adlg/internal/debug"
 	"github.com/spf13/viper"
 	"gopkg.in/yaml.v3"
 )
@@ -32,7 +32,7 @@ func Initialize() error {
 	// subsequent file so higher-priority values overwrite lower-priority ones.
 	//
 	// Precedence (highest to lowest):
-	//   ADLG_DIR/config.yaml > project .adlg/config.yaml > ~/.config/asdf/config.yaml > ~/.adlg/config.yaml
+	//   ADLG_DIR/config.yaml > project .adlg/config.yaml > ~/.config/adlg/config.yaml > ~/.adlg/config.yaml
 	//
 	// Previously, only ONE config file was loaded (the highest-priority match),
 	// which meant user-level config was silently ignored when project-level
@@ -48,7 +48,7 @@ func Initialize() error {
 		}
 	}
 
-	// 2. User: ~/.config/asdf/config.yaml
+	// 2. User: ~/.config/adlg/config.yaml
 	if configDir, err := os.UserConfigDir(); err == nil {
 		p := filepath.Join(configDir, "adlg", "config.yaml")
 		if _, err := os.Stat(p); err == nil {
@@ -56,7 +56,7 @@ func Initialize() error {
 		}
 	}
 
-	// Also check ~/.config/asdf/config.yaml explicitly. On macOS,
+	// Also check ~/.config/adlg/config.yaml explicitly. On macOS,
 	// os.UserConfigDir() returns ~/Library/Application Support, not ~/.config.
 	// This ensures the documented path works on all platforms.
 	if homeDir, err := os.UserHomeDir(); err == nil {
@@ -76,15 +76,15 @@ func Initialize() error {
 	}
 
 	// 1. Project: walk up from CWD to find .adlg/config.yaml
-	asdfDirEnv := strings.TrimSpace(os.Getenv("ADLG_DIR"))
-	asdfEnvConfigPath := ""
-	if asdfDirEnv != "" {
-		asdfEnvConfigPath = filepath.Clean(filepath.Join(asdfDirEnv, "config.yaml"))
+	adlgDirEnv := strings.TrimSpace(os.Getenv("ADLG_DIR"))
+	adlgEnvConfigPath := ""
+	if adlgDirEnv != "" {
+		adlgEnvConfigPath = filepath.Clean(filepath.Join(adlgDirEnv, "config.yaml"))
 	}
 	cwd, err := os.Getwd()
 	if err == nil {
 		// In the adlg repo, `.adlg/config.yaml` is tracked and may set non-default config values.
-		// In `go test` (especially for `cmd/asdf`), we want to avoid unintentionally picking up
+		// In `go test` (especially for `cmd/adlg`), we want to avoid unintentionally picking up
 		// the repo-local config, while still allowing tests to load config.yaml from temp repos.
 		//
 		// If ADLG_TEST_IGNORE_REPO_CONFIG is set, we will ignore the config at
@@ -130,7 +130,7 @@ func Initialize() error {
 				// When ADLG_DIR points at a different runtime workspace, do not
 				// merge the caller repo's config underneath it. That leaks caller
 				// settings like readonly/json/actor into explicit-target commands.
-				if asdfEnvConfigPath != "" && filepath.Clean(p) != asdfEnvConfigPath {
+				if adlgEnvConfigPath != "" && filepath.Clean(p) != adlgEnvConfigPath {
 					break
 				}
 				if tryProjectConfig(p) {
@@ -141,15 +141,15 @@ func Initialize() error {
 
 		// Worktree/shared fallback: the active workspace may live outside the
 		// worktree tree, so the parent walk above won't find it.
-		if primaryConfigPath == "" && asdfEnvConfigPath == "" {
+		if primaryConfigPath == "" && adlgEnvConfigPath == "" {
 			p := worktreeFallbackConfigPath(cwd)
 			_ = tryProjectConfig(p)
 		}
 	}
 
 	// 0. ADLG_DIR: highest priority
-	if asdfDir := os.Getenv("ADLG_DIR"); asdfDir != "" {
-		p := filepath.Join(asdfDir, "config.yaml")
+	if adlgDir := os.Getenv("ADLG_DIR"); adlgDir != "" {
+		p := filepath.Join(adlgDir, "config.yaml")
 		if _, err := os.Stat(p); err == nil {
 			// Avoid duplicate if ADLG_DIR points to same config as CWD walk
 			if primaryConfigPath == "" || filepath.Clean(p) != filepath.Clean(primaryConfigPath) {
@@ -198,7 +198,7 @@ func Initialize() error {
 	v.SetDefault("metrics.endpoint", "https://gastownhall-eventsapi.com/mp/collect")
 
 	// Federation configuration (optional Dolt remote)
-	v.SetDefault("federation.remote", "")                          // e.g., dolthub://org/asdf, gs://bucket/asdf, s3://bucket/asdf, az://account.blob.core.windows.net/container/asdf
+	v.SetDefault("federation.remote", "")                          // e.g., dolthub://org/adlg, gs://bucket/adlg, s3://bucket/adlg, az://account.blob.core.windows.net/container/adlg
 	v.SetDefault("federation.sovereignty", "")                     // T1 | T2 | T3 | T4 (empty = no restriction)
 	v.SetDefault("federation.allowed-remote-patterns", []string{}) // glob patterns restricting allowed remote URLs (enterprise lockdown)
 	v.SetDefault("federation.exclude_types", []string{"wisp"})     // issue types excluded from federation push (privacy filter)
@@ -411,8 +411,8 @@ func GetValueSource(key string) ConfigSource {
 	}
 
 	// Check ADLG_ prefixed env vars for legacy compatibility
-	asdfEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
-	if _, ok := os.LookupEnv(asdfEnvKey); ok {
+	adlgEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
+	if _, ok := os.LookupEnv(adlgEnvKey); ok {
 		return SourceEnvVar
 	}
 
@@ -437,9 +437,9 @@ func EnvVarName(key string) string {
 	if _, ok := os.LookupEnv(envKey); ok {
 		return envKey
 	}
-	asdfEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
-	if _, ok := os.LookupEnv(asdfEnvKey); ok {
-		return asdfEnvKey
+	adlgEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
+	if _, ok := os.LookupEnv(adlgEnvKey); ok {
+		return adlgEnvKey
 	}
 	return ""
 }
@@ -543,9 +543,9 @@ func LogOverride(override ConfigOverride) {
 }
 
 // SaveConfigValue sets a key-value pair and writes it to the config file.
-// If no config file is currently loaded, it creates config.yaml in the given asdfDir.
+// If no config file is currently loaded, it creates config.yaml in the given adlgDir.
 // Only the specified key is modified; other file contents are preserved.
-func SaveConfigValue(key string, value interface{}, asdfDir string) error {
+func SaveConfigValue(key string, value interface{}, adlgDir string) error {
 	if v == nil {
 		return fmt.Errorf("config not initialized")
 	}
@@ -553,7 +553,7 @@ func SaveConfigValue(key string, value interface{}, asdfDir string) error {
 
 	configPath := v.ConfigFileUsed()
 	if configPath == "" {
-		configPath = filepath.Join(asdfDir, "config.yaml")
+		configPath = filepath.Join(adlgDir, "config.yaml")
 		v.SetConfigFile(configPath)
 	}
 
@@ -598,15 +598,15 @@ func GetString(key string) string {
 }
 
 // GetStringFromDir reads a single string configuration value directly from
-// <asdfDir>/config.yaml without using or modifying global viper state.
+// <adlgDir>/config.yaml without using or modifying global viper state.
 // This is intended for library consumers that call NewFromConfigWithOptions
 // without first invoking config.Initialize().
 //
 // The key uses dotted notation (e.g. "dolt.auto-start"). YAML booleans and
 // numbers are coerced to their string representations ("true", "false", etc.).
 // Returns "" if the file is absent, the key is not found, or any error occurs.
-func GetStringFromDir(asdfDir, key string) string {
-	configPath := filepath.Join(asdfDir, "config.yaml")
+func GetStringFromDir(adlgDir, key string) string {
+	configPath := filepath.Join(adlgDir, "config.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return ""
@@ -793,7 +793,7 @@ func GetMultiRepoConfig() *MultiRepoConfig {
 // Example config.yaml:
 //
 //	external_projects:
-//	  adlg: ../asdf
+//	  adlg: ../adlg
 //	  other-project: /absolute/path/to/other-project
 func GetExternalProjects() map[string]string {
 	return GetStringMapString("external_projects")
@@ -809,7 +809,7 @@ func ResolveExternalProjectPath(projectName string) string {
 	}
 
 	// Resolve relative paths from repo root (parent of .adlg/), NOT CWD.
-	// This ensures paths like "../asdf" in config resolve correctly
+	// This ensures paths like "../adlg" in config resolve correctly
 	// when running from different directories.
 	if !filepath.IsAbs(path) {
 		// Config is at .adlg/config.yaml, so go up twice to get repo root
@@ -872,7 +872,7 @@ func GetIdentity(flagValue string) string {
 
 // FederationConfig holds the federation (Dolt remote) configuration.
 type FederationConfig struct {
-	Remote       string      // dolthub://org/asdf, gs://bucket/asdf, s3://bucket/asdf
+	Remote       string      // dolthub://org/adlg, gs://bucket/adlg, s3://bucket/adlg
 	Sovereignty  Sovereignty // T1, T2, T3, T4
 	ExcludeTypes []string    // issue types excluded from federation push (e.g. ["wisp"])
 }
@@ -994,7 +994,7 @@ func ValidateAgentsFile(filename string) error {
 // or the legacy comma-separated string form (e.g.
 // `types.custom = "step,wisp"`). Entries are trimmed; empty entries are
 // dropped. The dual-form support is required for project-extension
-// types/statuses declared in .adlg/config.yaml — see gastownhall/asdf#4024.
+// types/statuses declared in .adlg/config.yaml — see gastownhall/adlg#4024.
 func getConfigList(key string) []string {
 	if v == nil {
 		debug.Logf("config: viper not initialized, returning nil for key %q", key)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"regexp"
 
-	"github.com/endermalkoc/asdf/internal/storage"
+	"github.com/endermalkoc/adlg/internal/storage"
 )
 
 // validTablePattern matches valid SQL table names (letters, digits, underscores).

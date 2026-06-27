@@ -8,21 +8,21 @@ import (
 )
 
 const (
-	// ASDFDirPerm is the permission mode for .adlg/ directories (owner-only).
-	ASDFDirPerm fs.FileMode = 0700
-	// ASDFFilePerm is the permission mode for state files inside .adlg/ (owner-only).
-	ASDFFilePerm fs.FileMode = 0600
+	// ADLGDirPerm is the permission mode for .adlg/ directories (owner-only).
+	ADLGDirPerm fs.FileMode = 0700
+	// ADLGFilePerm is the permission mode for state files inside .adlg/ (owner-only).
+	ADLGFilePerm fs.FileMode = 0600
 )
 
-// EnsureASDFDir creates the .adlg directory with secure permissions.
-func EnsureASDFDir(path string) error {
-	return os.MkdirAll(path, ASDFDirPerm)
+// EnsureADLGDir creates the .adlg directory with secure permissions.
+func EnsureADLGDir(path string) error {
+	return os.MkdirAll(path, ADLGDirPerm)
 }
 
-// CheckASDFDirPermissions is a no-op on Windows where filesystem
+// CheckADLGDirPermissions is a no-op on Windows where filesystem
 // permissions use ACLs rather than Unix permission bits.
-func CheckASDFDirPermissions(path string) {}
+func CheckADLGDirPermissions(path string) {}
 
-// FixASDFDirPermissions is a no-op on Windows where filesystem
+// FixADLGDirPermissions is a no-op on Windows where filesystem
 // permissions use ACLs rather than Unix permission bits.
-func FixASDFDirPermissions(path string) (bool, error) { return false, nil }
+func FixADLGDirPermissions(path string) (bool, error) { return false, nil }

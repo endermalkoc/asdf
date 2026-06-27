@@ -16,7 +16,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // File is one rendered output document: its path (relative to the out dir, including

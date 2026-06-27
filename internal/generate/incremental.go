@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // Target is one configured output: a format rendered into a directory. The directory carries

@@ -1,4 +1,4 @@
-module github.com/endermalkoc/asdf
+module github.com/endermalkoc/adlg
 
 go 1.26.2
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/refs"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // acyclicEdgeKinds are the edge kinds whose graph must stay a DAG — a cycle in any of

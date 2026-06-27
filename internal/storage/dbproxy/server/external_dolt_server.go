@@ -11,8 +11,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
-	"github.com/endermalkoc/asdf/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
 )
 
 type ExternalDoltServer struct {

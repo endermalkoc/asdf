@@ -9,8 +9,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/app"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // The section CLI is where the curated-vocabulary friction lives: `section add` resolves

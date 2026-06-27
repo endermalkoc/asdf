@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/enums"
-	"github.com/endermalkoc/asdf/internal/ids"
-	"github.com/endermalkoc/asdf/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/asdf/internal/store"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/enums"
+	"github.com/endermalkoc/adlg/internal/ids"
+	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 var changesetCmd = &cobra.Command{

@@ -166,14 +166,13 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
   (schema runner). Still orphaned: `internal/timeparsing` (pull in when a command takes dates).
 - **`fr_key`** is an app-maintained column, not a SQL generated column (cross-table generation
   isn't possible in Dolt) — keep the store deriving it on write.
-- **Rename / rebrand — DONE.** The old `asdf` binary/command name collided with the
+- **Rename / rebrand — DONE (full).** The old `asdf` binary/command name collided with the
   [asdf version manager](https://asdf-vm.com/), a widely-installed CLI of the same name. Renamed to
-  **`adlg` (Agentic Delivery Lifecycle Graph)**: published binary/command, the `cmd/adlg` entrypoint,
-  the `.adlg/` config/workspace dir, and the `ADLG_*` env prefix all moved over; docs/help/output updated.
-  Per the original scope, the **Go module path (`github.com/endermalkoc/asdf`) and internal package
-  names / identifiers were left unchanged** (so the repo dir and import paths still read `asdf`). The
-  shared-server global DB name (`asdf_global`) was also left as internal infra — revisit if a full
-  module/repo rename is ever done.
+  **`adlg` (Agentic Delivery Lifecycle Graph)** end-to-end: published binary/command, the `cmd/adlg`
+  entrypoint, the `.adlg/` config/workspace dir, the `ADLG_*` env prefix, **the Go module path and
+  GitHub repo (`github.com/endermalkoc/adlg`), all internal identifiers** (`adlgDir`, `EnsureADLGDir`,
+  …), and the shared-server global DB name (`adlg_global`); docs/help/output all updated. Kept as `asdf`
+  only: references to the *other* tool (asdf-vm) and the developer's personal `~/asdf-tutor` sandbox.
 - **Concurrency:** same-branch number allocation is safe (`FOR UPDATE` + retry); cross-branch
   FR-number convergence is the documented merge-renumber policy (identifiers.md).
 - **Cross-reference syntax — RESOLVED** ([decisions.md](entities/decisions.md)): token form is

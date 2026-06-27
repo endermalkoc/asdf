@@ -217,19 +217,19 @@ func SetYamlConfig(key, value string) error {
 }
 
 // SetYamlConfigInDir sets a configuration value in the config.yaml located in
-// the provided asdfDir, bypassing CWD/worktree discovery. Use this when the
+// the provided adlgDir, bypassing CWD/worktree discovery. Use this when the
 // caller has already resolved the authoritative workspace and needs to avoid
 // local worktree stubs shadowing the real shared config location.
-func SetYamlConfigInDir(asdfDir, key, value string) error {
+func SetYamlConfigInDir(adlgDir, key, value string) error {
 	// Validate specific keys (GH#995)
 	if err := validateYamlConfigValue(key, value); err != nil {
 		return err
 	}
 
-	configPath := filepath.Join(asdfDir, "config.yaml")
+	configPath := filepath.Join(adlgDir, "config.yaml")
 	if _, err := os.Stat(configPath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("no config.yaml found in %s (run 'adlg init' first)", asdfDir)
+			return fmt.Errorf("no config.yaml found in %s (run 'adlg init' first)", adlgDir)
 		}
 		return fmt.Errorf("failed to stat config.yaml: %w", err)
 	}
@@ -462,26 +462,26 @@ func UnsetYamlConfig(key string) error {
 // This keeps YAML-only config behavior aligned with runtime resolution when
 // ADLG_DIR points to an external runtime directory.
 func findProjectConfigYaml() (string, error) {
-	return findProjectConfigYamlWithFinder(findProjectASDFDir)
+	return findProjectConfigYamlWithFinder(findProjectADLGDir)
 }
 
-func findProjectConfigYamlWithFinder(findASDFDir func() string) (string, error) {
+func findProjectConfigYamlWithFinder(findADLGDir func() string) (string, error) {
 	// Respect ADLG_DIR first when set.
-	if asdfDir := os.Getenv("ADLG_DIR"); asdfDir != "" {
-		configPath := filepath.Join(asdfDir, "config.yaml")
+	if adlgDir := os.Getenv("ADLG_DIR"); adlgDir != "" {
+		configPath := filepath.Join(adlgDir, "config.yaml")
 		if _, err := os.Stat(configPath); err == nil {
 			return configPath, nil
 		}
-		return "", fmt.Errorf("no config.yaml found in ADLG_DIR (%s) (run 'adlg init' first)", asdfDir)
+		return "", fmt.Errorf("no config.yaml found in ADLG_DIR (%s) (run 'adlg init' first)", adlgDir)
 	}
 
 	if configPath := projectConfigPathFromLoadedState(); configPath != "" {
 		return configPath, nil
 	}
 
-	if findASDFDir != nil {
-		if asdfDir := findASDFDir(); asdfDir != "" {
-			configPath := filepath.Join(asdfDir, "config.yaml")
+	if findADLGDir != nil {
+		if adlgDir := findADLGDir(); adlgDir != "" {
+			configPath := filepath.Join(adlgDir, "config.yaml")
 			if _, err := os.Stat(configPath); err == nil {
 				return configPath, nil
 			}
@@ -510,11 +510,11 @@ func projectConfigPathFromLoadedState() string {
 
 // UserConfigYamlPath returns the platform-appropriate path for the
 // user-level config.yaml file. On Linux this is typically
-// ~/.config/asdf/config.yaml; on macOS it checks ~/.config/asdf/ first
+// ~/.config/adlg/config.yaml; on macOS it checks ~/.config/adlg/ first
 // (the documented cross-platform path) and falls back to
-// ~/Library/Application Support/asdf/.
+// ~/Library/Application Support/adlg/.
 func UserConfigYamlPath() string {
-	// Prefer ~/.config/asdf/config.yaml — it's the documented path and
+	// Prefer ~/.config/adlg/config.yaml — it's the documented path and
 	// works on all platforms after GH#3532.
 	if homeDir, err := os.UserHomeDir(); err == nil {
 		xdgPath := filepath.Join(homeDir, ".config", "adlg", "config.yaml")
@@ -531,19 +531,19 @@ func UserConfigYamlPath() string {
 		}
 		return xdgPath // recommend the cross-platform path
 	}
-	return "~/.config/asdf/config.yaml" // fallback display string
+	return "~/.config/adlg/config.yaml" // fallback display string
 }
 
-func findProjectASDFDir() string {
+func findProjectADLGDir() string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
 	}
 
 	for dir := cwd; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		asdfDir := filepath.Join(dir, ".adlg")
-		if info, err := os.Stat(asdfDir); err == nil && info.IsDir() {
-			return asdfDir
+		adlgDir := filepath.Join(dir, ".adlg")
+		if info, err := os.Stat(adlgDir); err == nil && info.IsDir() {
+			return adlgDir
 		}
 	}
 

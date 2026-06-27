@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
-	"github.com/endermalkoc/asdf/internal/lockfile"
-	"github.com/endermalkoc/asdf/internal/storage/dbproxy/pidfile"
-	"github.com/endermalkoc/asdf/internal/storage/dbproxy/server"
-	"github.com/endermalkoc/asdf/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/lockfile"
+	"github.com/endermalkoc/adlg/internal/storage/dbproxy/pidfile"
+	"github.com/endermalkoc/adlg/internal/storage/dbproxy/server"
+	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
 )
 
 type ErrUpstreamMismatch struct {

@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/endermalkoc/asdf/internal/enums"
+	"github.com/endermalkoc/adlg/internal/enums"
 )
 
 // ValidateEnum checks that value is in the allowed set. An empty value passes

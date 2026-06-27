@@ -152,7 +152,7 @@ server modes](#storage-engine--server-modes)). Rationale:
 
 (The former TypeScript/Bun alternative is moot now that Go infrastructure has landed.)
 
-Module path: `github.com/endermalkoc/asdf` (Go 1.26.2). `go.mod`/`go.sum` were brought over
+Module path: `github.com/endermalkoc/adlg` (Go 1.26.2). `go.mod`/`go.sum` were brought over
 from beads and still need a `go mod tidy` to prune dependencies down to the salvaged subset.
 
 ## Repository layout

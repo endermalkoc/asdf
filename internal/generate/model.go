@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/refs"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // Model is the format-agnostic view of the canonical graph that every renderer (Markdown,

@@ -13,7 +13,7 @@ const CentralConfigFileName = "server.json"
 
 // DefaultCentralConfigPath returns the platform-appropriate path for the
 // central adlg server config.
-// Linux/macOS: ~/.config/asdf/server.json
+// Linux/macOS: ~/.config/adlg/server.json
 // Windows: %APPDATA%\adlg\server.json
 //
 // This follows the same convention as DefaultCredentialsPath.

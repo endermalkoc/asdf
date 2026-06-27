@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/importer"
+	"github.com/endermalkoc/adlg/internal/importer"
 )
 
 // This file splits a spec/entity Markdown body into its document sections and routes

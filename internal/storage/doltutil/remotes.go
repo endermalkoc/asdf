@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/endermalkoc/asdf/internal/doltremote"
-	"github.com/endermalkoc/asdf/internal/remotecache"
-	"github.com/endermalkoc/asdf/internal/storage"
+	"github.com/endermalkoc/adlg/internal/doltremote"
+	"github.com/endermalkoc/adlg/internal/remotecache"
+	"github.com/endermalkoc/adlg/internal/storage"
 )
 
 var cliRemoteLocks sync.Map

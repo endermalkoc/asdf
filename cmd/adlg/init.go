@@ -10,13 +10,13 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
-	"github.com/endermalkoc/asdf/internal/doltserver"
-	"github.com/endermalkoc/asdf/internal/git"
-	"github.com/endermalkoc/asdf/internal/storage/doltutil"
-	"github.com/endermalkoc/asdf/internal/storage/schema"
-	"github.com/endermalkoc/asdf/internal/store"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/doltserver"
+	"github.com/endermalkoc/adlg/internal/git"
+	"github.com/endermalkoc/adlg/internal/storage/doltutil"
+	"github.com/endermalkoc/adlg/internal/storage/schema"
+	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 var initCmd = &cobra.Command{
@@ -39,28 +39,28 @@ var initCmd = &cobra.Command{
 				return err
 			}
 		}
-		asdfDir := filepath.Join(root, ".adlg")
-		if _, statErr := os.Stat(configfile.ConfigPath(asdfDir)); statErr == nil {
+		adlgDir := filepath.Join(root, ".adlg")
+		if _, statErr := os.Stat(configfile.ConfigPath(adlgDir)); statErr == nil {
 			if !initForce {
-				return fmt.Errorf("ADLG workspace already exists at %s (pass --force to delete and reinitialize)", asdfDir)
+				return fmt.Errorf("ADLG workspace already exists at %s (pass --force to delete and reinitialize)", adlgDir)
 			}
 			// --force: tear down the existing workspace so we can rebuild from scratch.
 			// Stop the managed server (idempotent — ErrServerNotRunning is fine), then
 			// remove .adlg entirely. The DB is reproducible (re-import), so this is the
 			// fast reset loop while the schema is still churning.
-			if err := doltserver.IgnoreNotRunning(doltserver.Stop(asdfDir)); err != nil {
+			if err := doltserver.IgnoreNotRunning(doltserver.Stop(adlgDir)); err != nil {
 				return fmt.Errorf("stopping existing dolt server: %w", err)
 			}
-			if err := os.RemoveAll(asdfDir); err != nil {
-				return fmt.Errorf("removing existing workspace %s: %w", asdfDir, err)
+			if err := os.RemoveAll(adlgDir); err != nil {
+				return fmt.Errorf("removing existing workspace %s: %w", adlgDir, err)
 			}
 		}
-		if err := os.MkdirAll(asdfDir, 0o700); err != nil {
+		if err := os.MkdirAll(adlgDir, 0o700); err != nil {
 			return err
 		}
 
 		// 2. Start the owned dolt sql-server (no metadata yet → owned mode).
-		state, err := doltserver.Start(asdfDir)
+		state, err := doltserver.Start(adlgDir)
 		if err != nil {
 			return fmt.Errorf("starting dolt server: %w", err)
 		}
@@ -112,17 +112,17 @@ var initCmd = &cobra.Command{
 
 		// 7. Persist metadata (DoltMode empty → owned mode) + .gitignore.
 		cfg := &configfile.Config{DoltDatabase: dbName}
-		if err := cfg.Save(asdfDir); err != nil {
+		if err := cfg.Save(adlgDir); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(asdfDir, ".gitignore"),
+		if err := os.WriteFile(filepath.Join(adlgDir, ".gitignore"),
 			[]byte("dolt-server.pid\ndolt-server.port\ndolt-server.lock\ndolt-server.log\nactive_changeset\n"), 0o644); err != nil {
 			return err
 		}
 
-		emit(map[string]any{"adlg_dir": asdfDir, "database": dbName, "migrations": n, "port": state.Port},
+		emit(map[string]any{"adlg_dir": adlgDir, "database": dbName, "migrations": n, "port": state.Port},
 			fmt.Sprintf("initialized ADLG workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
-				asdfDir, dbName, n, state.Port))
+				adlgDir, dbName, n, state.Port))
 		return nil
 	},
 }

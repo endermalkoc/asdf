@@ -12,7 +12,7 @@ import (
 // share one `.adlg`).
 
 func (w *Workspace) activeChangesetPath() string {
-	return filepath.Join(w.ASDFDir, "active_changeset")
+	return filepath.Join(w.ADLGDir, "active_changeset")
 }
 
 // ActiveChangeset returns the ambient active changeset branch, or "" if none.

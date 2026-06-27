@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/ids"
+	"github.com/endermalkoc/adlg/internal/ids"
 )
 
 // GlossaryTerm is the writable shape of a glossary_term row plus its aliases.

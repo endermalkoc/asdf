@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/endermalkoc/asdf/internal/config"
+	"github.com/endermalkoc/adlg/internal/config"
 )
 
 const ConfigFileName = "metadata.json"
@@ -61,17 +61,17 @@ func DefaultConfig() *Config {
 	}
 }
 
-func ConfigPath(asdfDir string) string {
-	return filepath.Join(asdfDir, ConfigFileName)
+func ConfigPath(adlgDir string) string {
+	return filepath.Join(adlgDir, ConfigFileName)
 }
 
-func Load(asdfDir string) (*Config, error) {
-	configPath := ConfigPath(asdfDir)
+func Load(adlgDir string) (*Config, error) {
+	configPath := ConfigPath(adlgDir)
 
 	data, err := os.ReadFile(configPath) // #nosec G304 - controlled path from config
 	if os.IsNotExist(err) {
 		// Try legacy config.json location (migration path)
-		legacyPath := filepath.Join(asdfDir, "config.json")
+		legacyPath := filepath.Join(adlgDir, "config.json")
 		data, err = os.ReadFile(legacyPath) // #nosec G304 - controlled path from config
 		if os.IsNotExist(err) {
 			return nil, nil
@@ -87,7 +87,7 @@ func Load(asdfDir string) (*Config, error) {
 		}
 
 		// Save to new location
-		if err := cfg.Save(asdfDir); err != nil {
+		if err := cfg.Save(adlgDir); err != nil {
 			return nil, fmt.Errorf("migrating config to metadata.json: %w", err)
 		}
 
@@ -108,8 +108,8 @@ func Load(asdfDir string) (*Config, error) {
 	return &cfg, nil
 }
 
-func (c *Config) Save(asdfDir string) error {
-	configPath := ConfigPath(asdfDir)
+func (c *Config) Save(adlgDir string) error {
+	configPath := ConfigPath(adlgDir)
 
 	saved := *c
 	if filepath.IsAbs(saved.DoltDataDir) {
@@ -128,7 +128,7 @@ func (c *Config) Save(asdfDir string) error {
 	return nil
 }
 
-func (c *Config) DatabasePath(asdfDir string) string {
+func (c *Config) DatabasePath(adlgDir string) string {
 	// Check for custom dolt data directory (absolute path on a faster filesystem).
 	// This is useful on WSL where .adlg/ lives on NTFS (slow 9P mount) but
 	// dolt data can be placed on native ext4 for 5-10x I/O speedup.
@@ -136,7 +136,7 @@ func (c *Config) DatabasePath(asdfDir string) string {
 		if filepath.IsAbs(customDir) {
 			return customDir
 		}
-		return filepath.Join(asdfDir, customDir)
+		return filepath.Join(adlgDir, customDir)
 	}
 
 	if filepath.IsAbs(c.Database) {
@@ -144,7 +144,7 @@ func (c *Config) DatabasePath(asdfDir string) string {
 	}
 	// Always use "dolt" as the directory name.
 	// Stale values like "town", "wyvern", "asdf_rig" caused split-brain (see DOLT-HEALTH-P0.md).
-	return filepath.Join(asdfDir, "dolt")
+	return filepath.Join(adlgDir, "dolt")
 }
 
 // DefaultDeletionsRetentionDays is the default retention period for deletion records.
@@ -293,7 +293,7 @@ func (c *Config) GetDoltServerHost() string {
 	return DefaultDoltServerHost
 }
 
-// Deprecated: Use doltserver.DefaultConfig(asdfDir).Port instead.
+// Deprecated: Use doltserver.DefaultConfig(adlgDir).Port instead.
 // This method falls back to 3307 which is wrong for standalone mode
 // (where the port is an OS-assigned ephemeral port).
 // Kept for backward compatibility with external consumers.
@@ -365,7 +365,7 @@ func (c *Config) GetGlobalProjectID() string {
 // Checks in order:
 //  1. ADLG_DOLT_PASSWORD env var (highest priority, existing behavior)
 //  2. Credentials file lookup by [host:port] section
-//     (path from ADLG_CREDENTIALS_FILE env var, or ~/.config/asdf/credentials)
+//     (path from ADLG_CREDENTIALS_FILE env var, or ~/.config/adlg/credentials)
 //  3. Empty string (no password)
 //
 // Note: uses the port from configfile (metadata.json / env var), which may differ

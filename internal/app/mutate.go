@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/endermalkoc/asdf/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/asdf/internal/store"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 // Write is the handle a mutation body receives: it writes rows via Tx and records

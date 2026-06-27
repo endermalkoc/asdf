@@ -65,5 +65,5 @@ release:
     ## Install
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh | sh
     ```

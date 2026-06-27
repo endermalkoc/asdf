@@ -16,12 +16,12 @@ type ProxiedServerClientInfo struct {
 	External   *ExternalDoltConfig `json:"external,omitempty"`
 }
 
-func ProxiedServerClientInfoPath(asdfDir string) string {
-	return filepath.Join(asdfDir, ProxiedServerClientInfoFileName)
+func ProxiedServerClientInfoPath(adlgDir string) string {
+	return filepath.Join(adlgDir, ProxiedServerClientInfoFileName)
 }
 
-func LoadProxiedServerClientInfo(asdfDir string) (*ProxiedServerClientInfo, error) {
-	path := ProxiedServerClientInfoPath(asdfDir)
+func LoadProxiedServerClientInfo(adlgDir string) (*ProxiedServerClientInfo, error) {
+	path := ProxiedServerClientInfoPath(adlgDir)
 	data, err := os.ReadFile(path) // #nosec G304 - controlled path
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -36,7 +36,7 @@ func LoadProxiedServerClientInfo(asdfDir string) (*ProxiedServerClientInfo, erro
 	return &info, nil
 }
 
-func SaveProxiedServerClientInfo(asdfDir string, info *ProxiedServerClientInfo) error {
+func SaveProxiedServerClientInfo(adlgDir string, info *ProxiedServerClientInfo) error {
 	if info == nil {
 		info = &ProxiedServerClientInfo{}
 	}
@@ -44,40 +44,40 @@ func SaveProxiedServerClientInfo(asdfDir string, info *ProxiedServerClientInfo) 
 	if err != nil {
 		return fmt.Errorf("marshaling %s: %w", ProxiedServerClientInfoFileName, err)
 	}
-	path := ProxiedServerClientInfoPath(asdfDir)
+	path := ProxiedServerClientInfoPath(adlgDir)
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return fmt.Errorf("writing %s: %w", ProxiedServerClientInfoFileName, err)
 	}
 	return nil
 }
 
-func resolveSidecarPath(asdfDir, p string) string {
+func resolveSidecarPath(adlgDir, p string) string {
 	if p == "" {
 		return ""
 	}
 	if filepath.IsAbs(p) {
 		return p
 	}
-	return filepath.Join(asdfDir, p)
+	return filepath.Join(adlgDir, p)
 }
 
-func (i *ProxiedServerClientInfo) ResolvedRootPath(asdfDir string) string {
+func (i *ProxiedServerClientInfo) ResolvedRootPath(adlgDir string) string {
 	if i == nil {
 		return ""
 	}
-	return resolveSidecarPath(asdfDir, i.RootPath)
+	return resolveSidecarPath(adlgDir, i.RootPath)
 }
 
-func (i *ProxiedServerClientInfo) ResolvedConfigPath(asdfDir string) string {
+func (i *ProxiedServerClientInfo) ResolvedConfigPath(adlgDir string) string {
 	if i == nil {
 		return ""
 	}
-	return resolveSidecarPath(asdfDir, i.ConfigPath)
+	return resolveSidecarPath(adlgDir, i.ConfigPath)
 }
 
-func (i *ProxiedServerClientInfo) ResolvedLogPath(asdfDir string) string {
+func (i *ProxiedServerClientInfo) ResolvedLogPath(adlgDir string) string {
 	if i == nil {
 		return ""
 	}
-	return resolveSidecarPath(asdfDir, i.LogPath)
+	return resolveSidecarPath(adlgDir, i.LogPath)
 }

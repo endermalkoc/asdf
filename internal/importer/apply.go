@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 // TouchedTables lists every table Apply may write, so the caller (the Mutate

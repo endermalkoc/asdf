@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/endermalkoc/asdf/internal/storage/dberrors"
+	"github.com/endermalkoc/adlg/internal/storage/dberrors"
 )
 
 // DBConn is the minimal connection interface the runner needs; satisfied by

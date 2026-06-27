@@ -1,7 +1,7 @@
 #!/bin/sh
 # Install the ADLG (Agentic Delivery Lifecycle Graph) CLI from GitHub Releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh | sh
 #
 # Environment overrides:
 #   ADLG_VERSION       version/tag to install, e.g. v0.1.0   (default: latest release)
@@ -13,7 +13,7 @@
 
 set -eu
 
-REPO="endermalkoc/asdf"
+REPO="endermalkoc/adlg"
 BINARY="adlg"
 
 log()  { printf '%s\n' "$*" >&2; }

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/endermalkoc/asdf/internal/atomicfile"
+	"github.com/endermalkoc/adlg/internal/atomicfile"
 )
 
 type PidFile struct {

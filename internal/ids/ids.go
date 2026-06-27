@@ -18,7 +18,7 @@ import (
 // derived once from a stable URL and must never change: changing it would re-key
 // every relationship row and reintroduce the cross-clone divergence Rel exists to
 // prevent (cf. beads' depid/rowid, the technique this generalizes).
-var relNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/endermalkoc/asdf#rel-id"))
+var relNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/endermalkoc/adlg#rel-id"))
 
 // sep joins identity components. ASCII Unit Separator (0x1f) cannot occur in an
 // id or an enum value, so no two distinct component sequences can collide.

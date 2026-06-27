@@ -3,7 +3,7 @@ package app
 import (
 	"testing"
 
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 func n(id string) EdgeNode { return EdgeNode{Type: "requirement", ID: id} }

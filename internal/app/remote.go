@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/endermalkoc/asdf/internal/storage"
-	"github.com/endermalkoc/asdf/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/asdf/internal/workspace"
+	"github.com/endermalkoc/adlg/internal/storage"
+	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/adlg/internal/workspace"
 )
 
 // Remote sync. ADLG's store is a Dolt database, so syncing a version-controlled knowledge

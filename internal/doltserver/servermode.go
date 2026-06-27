@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/configfile"
 )
 
 // ServerMode describes who owns and manages the dolt sql-server lifecycle.
@@ -41,7 +41,7 @@ func (m ServerMode) String() string {
 	}
 }
 
-// ResolveServerMode determines the server mode from the given asdfDir.
+// ResolveServerMode determines the server mode from the given adlgDir.
 // This is the single source of truth for how the server lifecycle is managed.
 //
 // Decision logic (checked in order):
@@ -57,7 +57,7 @@ func (m ServerMode) String() string {
 //
 // The function loads metadata.json only if the file exists, to avoid
 // triggering the legacy config.json -> metadata.json migration side effect.
-func ResolveServerMode(asdfDir string) ServerMode {
+func ResolveServerMode(adlgDir string) ServerMode {
 	// 1. ADLG_DOLT_SERVER_MODE=1 env var -> external (explicit server mode)
 	if os.Getenv("ADLG_DOLT_SERVER_MODE") == "1" {
 		return ServerModeExternal
@@ -73,9 +73,9 @@ func ResolveServerMode(asdfDir string) ServerMode {
 	var fileCfg *configfile.Config
 
 	// Only load config if metadata.json exists (avoids legacy migration side effect)
-	metadataPath := configfile.ConfigPath(asdfDir)
+	metadataPath := configfile.ConfigPath(adlgDir)
 	if _, err := os.Stat(metadataPath); err == nil {
-		if cfg, loadErr := configfile.Load(asdfDir); loadErr == nil && cfg != nil {
+		if cfg, loadErr := configfile.Load(adlgDir); loadErr == nil && cfg != nil {
 			fileCfg = cfg
 		}
 	}

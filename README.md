@@ -116,14 +116,14 @@ The full intended surface. For the subset that **runs today** — with examples 
 ## Install
 
 > Releases are cut by [GoReleaser](https://goreleaser.com) on every `v*` tag and published to
-> [GitHub Releases](https://github.com/endermalkoc/asdf/releases) as static, single-file
+> [GitHub Releases](https://github.com/endermalkoc/adlg/releases) as static, single-file
 > binaries for Linux/macOS/Windows (amd64 + arm64). The CLI surface is still early — `adlg
 > version` works today; data commands need a running Dolt server (see [build/run](CLAUDE.md#build--run)).
 
 **Install script** (Linux/macOS — downloads the right binary and verifies its checksum):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh | sh
 ```
 
 Pin a version or change the location with `ADLG_VERSION=v0.1.0` / `ADLG_INSTALL_DIR=~/.local/bin`.
@@ -131,13 +131,13 @@ Pin a version or change the location with `ADLG_VERSION=v0.1.0` / `ADLG_INSTALL_
 **With Go** (any platform):
 
 ```sh
-go install github.com/endermalkoc/asdf/cmd/adlg@latest
+go install github.com/endermalkoc/adlg/cmd/adlg@latest
 ```
 
 **From source:**
 
 ```sh
-git clone https://github.com/endermalkoc/asdf && cd asdf
+git clone https://github.com/endermalkoc/adlg && cd adlg
 make build   # → ./adlg   (make install puts it on your PATH)
 ```
 
@@ -248,8 +248,8 @@ Inspired by — and building on the Dolt infrastructure of — [beads](https://g
 
 > **Name note:** the command is `adlg` (**A**gentic **D**elivery **L**ifecycle **G**raph). It was
 > renamed from `asdf` to avoid colliding with the popular
-> [asdf version manager](https://asdf-vm.com/). The Go module path / repo
-> (`github.com/endermalkoc/asdf`) is unchanged.
+> [asdf version manager](https://asdf-vm.com/). The rename is complete throughout — the Go
+> module path and GitHub repo are `github.com/endermalkoc/adlg`.
 
 ## License
 

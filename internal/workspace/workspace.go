@@ -21,21 +21,21 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/endermalkoc/asdf/internal/configfile"
-	"github.com/endermalkoc/asdf/internal/doltserver"
-	"github.com/endermalkoc/asdf/internal/git"
-	"github.com/endermalkoc/asdf/internal/storage/doltutil"
+	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/adlg/internal/doltserver"
+	"github.com/endermalkoc/adlg/internal/git"
+	"github.com/endermalkoc/adlg/internal/storage/doltutil"
 )
 
 // Workspace is a connection to an ADLG project's Dolt database.
 type Workspace struct {
-	ASDFDir string
+	ADLGDir string
 	db      *sql.DB
 }
 
-// ResolveASDFDir returns the `.adlg` directory for the current project — at the
+// ResolveADLGDir returns the `.adlg` directory for the current project — at the
 // git repo root (worktree-aware). It does not require `.adlg` to exist.
-func ResolveASDFDir() (string, error) {
+func ResolveADLGDir() (string, error) {
 	root, err := git.GetMainRepoRoot()
 	if err != nil {
 		return "", fmt.Errorf("locating project root (run inside a git repo): %w", err)
@@ -48,26 +48,26 @@ func ResolveASDFDir() (string, error) {
 // the DSN from config; a non-empty dsnOverride (e.g. --dsn) connects to an
 // external server directly without managing one.
 func Connect(ctx context.Context, dsnOverride string) (*Workspace, error) {
-	asdfDir, err := ResolveASDFDir()
+	adlgDir, err := ResolveADLGDir()
 	if err != nil {
 		return nil, err
 	}
-	if _, statErr := os.Stat(asdfDir); statErr != nil {
-		return nil, fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", asdfDir)
+	if _, statErr := os.Stat(adlgDir); statErr != nil {
+		return nil, fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", adlgDir)
 	}
 
 	dsn := dsnOverride
 	if dsn == "" {
-		dsn, err = managedDSN(asdfDir)
+		dsn, err = managedDSN(adlgDir)
 		if err != nil {
 			return nil, err
 		}
 	}
-	return open(ctx, asdfDir, dsn)
+	return open(ctx, adlgDir, dsn)
 }
 
 // open dials the DSN and verifies connectivity.
-func open(ctx context.Context, asdfDir, dsn string) (*Workspace, error) {
+func open(ctx context.Context, adlgDir, dsn string) (*Workspace, error) {
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
@@ -76,23 +76,23 @@ func open(ctx context.Context, asdfDir, dsn string) (*Workspace, error) {
 		_ = db.Close()
 		return nil, fmt.Errorf("connecting to dolt: %w", err)
 	}
-	return &Workspace{ASDFDir: asdfDir, db: db}, nil
+	return &Workspace{ADLGDir: adlgDir, db: db}, nil
 }
 
 // managedDSN ensures the owned server is running and builds a DSN for it. The
 // live port comes from doltserver (NOT configfile.GetDoltServerPort, which
 // defaults to 3307); host/user/db/password come from config (or defaults).
-func managedDSN(asdfDir string) (string, error) {
-	port, err := doltserver.EnsureRunning(asdfDir)
+func managedDSN(adlgDir string) (string, error) {
+	port, err := doltserver.EnsureRunning(adlgDir)
 	if err != nil {
 		return "", fmt.Errorf("starting dolt server: %w", err)
 	}
-	return dsnForPort(asdfDir, port), nil
+	return dsnForPort(adlgDir, port), nil
 }
 
 // dsnForPort builds a MySQL DSN for the given live port using config (or defaults).
-func dsnForPort(asdfDir string, port int) string {
-	cfg, _ := configfile.Load(asdfDir) // (nil,nil) for a minimal workspace → defaults
+func dsnForPort(adlgDir string, port int) string {
+	cfg, _ := configfile.Load(adlgDir) // (nil,nil) for a minimal workspace → defaults
 	d := doltutil.ServerDSN{Port: port}
 	if cfg != nil {
 		d.Host = cfg.GetDoltServerHost()

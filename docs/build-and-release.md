@@ -76,7 +76,7 @@ secrets to configure**. Tags like `v0.1.0-rc1` publish as pre-releases automatic
 
 ### One-time setup
 
-- The repo must be **public** at `github.com/endermalkoc/asdf` for both the install script
+- The repo must be **public** at `github.com/endermalkoc/adlg` for both the install script
   (release assets must be downloadable) and `go install` to work.
 - The workflows only run once `.github/workflows/` is pushed to GitHub.
 
@@ -84,8 +84,8 @@ secrets to configure**. Tags like `v0.1.0-rc1` publish as pre-releases automatic
 
 | Method | Command |
 |---|---|
-| Install script (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh \| sh` |
-| Go | `go install github.com/endermalkoc/asdf/cmd/adlg@latest` |
+| Install script (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh \| sh` |
+| Go | `go install github.com/endermalkoc/adlg/cmd/adlg@latest` |
 | From source | `git clone … && cd adlg && make build` |
 
 The installer honors `ADLG_VERSION=v0.1.0` (pin a version) and `ADLG_INSTALL_DIR=~/.local/bin`
@@ -95,7 +95,7 @@ the SHA-256 checksum when `sha256sum`/`shasum` is available.
 > **Binary name.** The binary is named `adlg` (renamed from `asdf` to avoid the
 > [asdf version manager](https://asdf-vm.com) collision). `ADLG_INSTALL_DIR` lets consumers control
 > PATH placement. The name is set by `project_name`/`binary:` in `.goreleaser.yaml` and `BINARY` in the
-> Makefile/installer; the Go module path / repo stays `github.com/endermalkoc/asdf`.
+> Makefile/installer; the Go module path / repo is `github.com/endermalkoc/adlg`.
 
 ## `.gitignore` policy
 

@@ -30,7 +30,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/endermalkoc/asdf/internal/debug"
+	"github.com/endermalkoc/adlg/internal/debug"
 )
 
 // DefaultMaxLogBytes is the default size ceiling for dolt-server.log before
@@ -104,8 +104,8 @@ func rotateLogIfOversized(primary string, maxBytes int64) (bool, error) {
 // dolt-server log if it is oversized and emits a debug message on both
 // rotation and error paths. It never returns an error — rotation is
 // best-effort and must not block server startup.
-func maybeRotateLog(asdfDir string) {
-	primary := logPath(asdfDir)
+func maybeRotateLog(adlgDir string) {
+	primary := logPath(adlgDir)
 	max := maxLogBytes()
 	rotated, err := rotateLogIfOversized(primary, max)
 	if err != nil {

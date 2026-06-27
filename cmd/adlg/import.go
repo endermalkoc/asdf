@@ -9,9 +9,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/app"
-	"github.com/endermalkoc/asdf/internal/importer"
-	"github.com/endermalkoc/asdf/internal/importer/tutor"
+	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/adlg/internal/importer/tutor"
 )
 
 var (

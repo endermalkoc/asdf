@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/app"
-	"github.com/endermalkoc/asdf/internal/enums"
-	"github.com/endermalkoc/asdf/internal/refs"
-	"github.com/endermalkoc/asdf/internal/store"
+	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/adlg/internal/enums"
+	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/adlg/internal/store"
 )
 
 var edgeCmd = &cobra.Command{Use: "edge", Short: "Manage the cross-reference graph"}

@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/asdf/internal/generate"
+	"github.com/endermalkoc/adlg/internal/generate"
 )
 
 var (
