@@ -101,13 +101,21 @@ func UpsertSpec(ctx context.Context, x Execer, domainID string, sp Spec) (string
 			sp.DomainID, nullIfEmpty(sp.Path), nullIfEmpty(sp.Slug)).Scan(&id)
 	}
 	now := time.Now().UTC()
+	// created_at is the source "Created" date when known. The column is NOT NULL, so a spec
+	// with no source date falls back to import time on insert; an existing row keeps its
+	// created_at on update (COALESCE) unless the source now carries a date.
+	srcCreated := isoDateArg(sp.CreatedAt) // time.Time or nil
 	switch {
 	case err == sql.ErrNoRows:
 		id = ids.New()
+		insertCreated := srcCreated
+		if insertCreated == nil {
+			insertCreated = now
+		}
 		_, err = x.ExecContext(ctx,
 			"INSERT INTO `req_spec` (id,domain_id,prefix,slug,path,title,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
 			id, sp.DomainID, nullIfEmpty(sp.Prefix), nullIfEmpty(sp.Slug), nullIfEmpty(sp.Path), nullIfEmpty(sp.Title), sp.Status,
-			now, now)
+			insertCreated, now)
 		if err != nil {
 			return "", false, fmt.Errorf("insert spec %q: %w", sp.Path, err)
 		}
@@ -115,10 +123,11 @@ func UpsertSpec(ctx context.Context, x Execer, domainID string, sp Spec) (string
 	case err != nil:
 		return "", false, err
 	}
+	// COALESCE keeps the existing created_at when the source carries no date.
 	_, err = x.ExecContext(ctx,
-		"UPDATE `req_spec` SET domain_id=?, slug=?, path=?, title=?, status=?, updated_at=? WHERE id=?",
+		"UPDATE `req_spec` SET domain_id=?, slug=?, path=?, title=?, status=?, created_at=COALESCE(?, created_at), updated_at=? WHERE id=?",
 		sp.DomainID, nullIfEmpty(sp.Slug), nullIfEmpty(sp.Path), nullIfEmpty(sp.Title), sp.Status,
-		now, id)
+		srcCreated, now, id)
 	if err != nil {
 		return "", false, fmt.Errorf("update spec %q: %w", sp.Path, err)
 	}

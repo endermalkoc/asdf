@@ -61,16 +61,22 @@ func markdownSpec(sp *Spec, res *refs.Resolver, prio map[int]string) string {
 	rin := func(s string) string { out, _ := refs.RenderInline(s, sp.Path, res); return out }
 	secs := newSections(sp.Sections)
 
+	// Frontmatter carries the spec's structured metadata (the single source: the DB columns,
+	// no longer the source preamble). HTML renders it as a styled bar; Obsidian shows it as
+	// properties; JSON has the same fields. id appears only for a prefixed spec.
+	b.WriteString("---\n")
 	if sp.Prefix != "" {
-		b.WriteString("---\n")
 		fmt.Fprintf(&b, "id: %s\n", sp.Prefix)
-		if sp.Title != "" {
-			fmt.Fprintf(&b, "title: %s\n", sp.Title)
-		}
-		fmt.Fprintf(&b, "domain: %s\n", sp.Domain)
-		fmt.Fprintf(&b, "status: %s\n", titleStatus(sp.Status))
-		b.WriteString("---\n\n")
 	}
+	if sp.Title != "" {
+		fmt.Fprintf(&b, "title: %s\n", sp.Title)
+	}
+	fmt.Fprintf(&b, "domain: %s\n", sp.Domain)
+	fmt.Fprintf(&b, "status: %s\n", titleStatus(sp.Status))
+	if sp.Created != "" {
+		fmt.Fprintf(&b, "created: %s\n", sp.Created)
+	}
+	b.WriteString("---\n\n")
 
 	fmt.Fprintf(&b, "# %s\n", heading(sp.Title, sp.Prefix))
 

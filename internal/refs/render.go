@@ -1,6 +1,13 @@
 package refs
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
+
+// mdPathTokenRe matches a file-path token ending in `.md` inside a link label (e.g.
+// `shared/contacts-notifications.md`), so it can be swapped for the target's title.
+var mdPathTokenRe = regexp.MustCompile(`[^\s|\]]+\.md`)
 
 // RenderInline rewrites every resolvable `[[TYPE:key]]` token in text into an Obsidian
 // wikilink and returns the rewritten text plus the tokens that did NOT resolve
@@ -36,6 +43,7 @@ func RenderInline(text, ownerDocPath string, r *Resolver) (string, []Token) {
 // the path, giving `[[#^anchor|label]]`. HTML/relative links are reserved for the
 // future HTML generator.
 func renderLink(label, ownerDocPath string, tg Target) string {
+	label = displayLabel(label, tg)
 	if tg.DocPath == "" {
 		return label
 	}
@@ -50,4 +58,19 @@ func renderLink(label, ownerDocPath string, tg Target) string {
 		return label
 	}
 	return "[[" + inner + "|" + label + "]]"
+}
+
+// displayLabel cleans a link's display text: a source link whose text was a file path
+// (`shared/contacts-notifications.md`) renders as the target's human title; any trailing
+// descriptive suffix (`… — Email Field`) is preserved. A descriptive label with no path
+// token (an fr_key, a phrase) is left untouched. With no title available, the path token at
+// least loses its directory and `.md`.
+func displayLabel(label string, tg Target) string {
+	return mdPathTokenRe.ReplaceAllStringFunc(label, func(tok string) string {
+		if tg.Label != "" {
+			return tg.Label
+		}
+		base := tok[strings.LastIndexByte(tok, '/')+1:]
+		return strings.TrimSuffix(base, ".md")
+	})
 }

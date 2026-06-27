@@ -54,12 +54,14 @@ type SpecRow struct {
 	Slug       string `json:"slug"` // filename stem
 	Title      string `json:"title,omitempty"`
 	Status     string `json:"status"`
+	Created    string `json:"created,omitempty"` // created_at as YYYY-MM-DD; "" when unknown (NULL)
 }
 
 // ListSpecs returns every spec with its domain slug, by path.
 func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	rows, err := x.QueryContext(ctx, `
-		SELECT s.id, d.slug, COALESCE(s.prefix,''), COALESCE(s.path,''), COALESCE(s.slug,''), COALESCE(s.title,''), s.status
+		SELECT s.id, d.slug, COALESCE(s.prefix,''), COALESCE(s.path,''), COALESCE(s.slug,''), COALESCE(s.title,''), s.status,
+		       COALESCE(DATE_FORMAT(s.created_at,'%Y-%m-%d'),'')
 		FROM `+"`req_spec`"+` s JOIN `+"`req_domain`"+` d ON s.domain_id = d.id
 		ORDER BY s.path, s.slug`)
 	if err != nil {
@@ -69,7 +71,7 @@ func ListSpecs(ctx context.Context, x Execer) ([]SpecRow, error) {
 	var out []SpecRow
 	for rows.Next() {
 		var s SpecRow
-		if err := rows.Scan(&s.ID, &s.DomainSlug, &s.Prefix, &s.Path, &s.Slug, &s.Title, &s.Status); err != nil {
+		if err := rows.Scan(&s.ID, &s.DomainSlug, &s.Prefix, &s.Path, &s.Slug, &s.Title, &s.Status, &s.Created); err != nil {
 			return nil, err
 		}
 		out = append(out, s)
@@ -436,6 +438,7 @@ type RefTargetRow struct {
 	ID      string
 	DocPath string // generated page path; requirement = owning spec's path; "" when none
 	Anchor  string // in-page anchor (requirement = fr-key slug); "" otherwise
+	Label   string // human display title (spec title / entity or domain name / fr_key); "" if none
 }
 
 // ListRefTargets returns every resolvable cross-reference target. Specs appear twice
@@ -446,16 +449,19 @@ func ListRefTargets(ctx context.Context, x Execer) ([]RefTargetRow, error) {
 	// fullPath reconstructs a spec's full docs path: <domain>/[path/]<slug>.md (path is
 	// the directory only; the filename is slug.md — migration 0017).
 	const fullPath = "CONCAT(d.slug,'/',IF(COALESCE(s.path,'')='','',CONCAT(s.path,'/')),COALESCE(s.slug,''),'.md')"
+	// Each query selects (type, key, id, doc_path, anchor, label) — label is the human title
+	// used to render a clean link text (so a source link whose text was a path shows the
+	// title, not `foo.md`).
 	queries := []string{
-		"SELECT 'domain', slug, id, '', '' FROM `req_domain`",
-		"SELECT 'spec', s.prefix, s.id, " + fullPath + ", '' FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id WHERE s.prefix IS NOT NULL AND s.prefix<>''",
-		"SELECT 'spec', " + fullPath + ", s.id, " + fullPath + ", '' FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id",
-		"SELECT 'requirement', r.fr_key, r.id, " + fullPath + ", LOWER(r.fr_key) " +
+		"SELECT 'domain', slug, id, '', '', COALESCE(name,slug) FROM `req_domain`",
+		"SELECT 'spec', s.prefix, s.id, " + fullPath + ", '', COALESCE(s.title,s.prefix) FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id WHERE s.prefix IS NOT NULL AND s.prefix<>''",
+		"SELECT 'spec', " + fullPath + ", s.id, " + fullPath + ", '', COALESCE(s.title,s.slug) FROM `req_spec` s JOIN `req_domain` d ON s.domain_id=d.id",
+		"SELECT 'requirement', r.fr_key, r.id, " + fullPath + ", LOWER(r.fr_key), r.fr_key " +
 			"FROM `req_requirement` r JOIN `req_spec` s ON r.spec_id = s.id JOIN `req_domain` d ON s.domain_id=d.id WHERE r.fr_key IS NOT NULL AND r.fr_key<>''",
-		"SELECT 'milestone', slug, id, '', '' FROM `plan_milestone`",
+		"SELECT 'milestone', slug, id, '', '', COALESCE(name,slug) FROM `plan_milestone`",
 		// Glossary terms resolve by slug and by alias; both link to glossary.md#slug.
-		"SELECT 'glossary_term', slug, id, 'glossary.md', slug FROM `req_glossary_term`",
-		"SELECT 'glossary_term', a.alias, t.id, 'glossary.md', t.slug " +
+		"SELECT 'glossary_term', slug, id, 'glossary.md', slug, COALESCE(term,slug) FROM `req_glossary_term`",
+		"SELECT 'glossary_term', a.alias, t.id, 'glossary.md', t.slug, COALESCE(t.term,t.slug) " +
 			"FROM `req_glossary_alias` a JOIN `req_glossary_term` t ON a.term_id = t.id",
 	}
 	for _, q := range queries {
@@ -475,7 +481,7 @@ func ListRefTargets(ctx context.Context, x Execer) ([]RefTargetRow, error) {
 		if err := rows.Scan(&name, &id, &subdir); err != nil {
 			return nil, err
 		}
-		out = append(out, RefTargetRow{Type: "entity", Key: name, ID: id, DocPath: EntityDocPath(subdir, name)})
+		out = append(out, RefTargetRow{Type: "entity", Key: name, ID: id, DocPath: EntityDocPath(subdir, name), Label: name})
 	}
 	return out, rows.Err()
 }
@@ -488,7 +494,7 @@ func scanRefTargets(ctx context.Context, x Execer, out *[]RefTargetRow, query st
 	defer rows.Close()
 	for rows.Next() {
 		var t RefTargetRow
-		if err := rows.Scan(&t.Type, &t.Key, &t.ID, &t.DocPath, &t.Anchor); err != nil {
+		if err := rows.Scan(&t.Type, &t.Key, &t.ID, &t.DocPath, &t.Anchor, &t.Label); err != nil {
 			return err
 		}
 		*out = append(*out, t)

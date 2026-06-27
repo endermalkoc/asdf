@@ -63,6 +63,7 @@ type Spec struct {
 	Domain    string `json:"domain"`     // domain slug (registry column)
 	RawStatus string `json:"raw_status"` // source status verbatim: Draft|Reviewed|Active
 	Status    string `json:"status"`     // mapped to ASDF spec.status (draft|active|obsolete)
+	Created   string `json:"created"`    // source "Created" date (YYYY-MM-DD) → spec.created_at; "" if absent
 
 	// Prose sections → req_spec_section, each addressed by a curated section key
 	// (overview, edge_cases, success_criteria, scope, assumptions, open_questions,

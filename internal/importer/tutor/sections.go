@@ -20,7 +20,34 @@ var (
 	keyEntityRe   = regexp.MustCompile(`^\s*[-*]\s*\*\*([^*]+?)\*\*`)
 	whyPriorityRe = regexp.MustCompile(`(?i)^\s*\*\*Why this priority\*\*:?\s*(.+)$`)
 	indepTestRe   = regexp.MustCompile(`(?i)^\s*\*\*Independent Test\*\*:?\s*(.+)$`)
+
+	// preambleFieldRe matches a `**Field**: value` metadata line in a spec preamble.
+	preambleFieldRe = regexp.MustCompile(`(?i)^\s*\*\*([A-Za-z ]+?)\*\*\s*:\s*(.*)$`)
+	isoDateRe       = regexp.MustCompile(`\d{4}-\d{2}-\d{2}`)
 )
+
+// cleanSpecPreamble drops the boilerplate metadata lines from a spec preamble: Feature Branch
+// (noise), Status (already a spec column, from frontmatter), and Updated (the row's
+// updated_at). Created is captured into the returned date (→ spec.created_at) and likewise
+// dropped. Every other line — notably `**Input**: User description: …` and any real prose —
+// is kept. So the metadata lives in structured columns and is rendered from there, never
+// duplicated as frozen prose.
+func cleanSpecPreamble(preamble string) (cleaned, created string) {
+	var kept []string
+	for _, ln := range strings.Split(preamble, "\n") {
+		if m := preambleFieldRe.FindStringSubmatch(ln); m != nil {
+			switch strings.ToLower(strings.TrimSpace(m[1])) {
+			case "feature branch", "status", "updated":
+				continue // drop: noise or captured structurally
+			case "created":
+				created = isoDateRe.FindString(m[2])
+				continue // captured into spec.created_at
+			}
+		}
+		kept = append(kept, ln)
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n")), created
+}
 
 // stripFrontmatter removes a leading `---`-delimited block from a body.
 func stripFrontmatter(s string) string {
@@ -208,7 +235,9 @@ func (a *sectionAcc) sections() []importer.DocSection {
 // (more_info is appended later by the FR parser — see Parse.)
 func routeSpecSections(sp *importer.Spec, preamble string, sections []rawSection) {
 	acc := newSectionAcc()
-	acc.add("preamble", preamble)
+	cleaned, created := cleanSpecPreamble(preamble)
+	sp.Created = created
+	acc.add("preamble", cleaned)
 	for _, s := range sections {
 		switch norm := normHeading(s.heading); norm {
 		case "key entities":

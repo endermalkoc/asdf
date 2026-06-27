@@ -95,12 +95,14 @@ func Sync(ctx context.Context, x store.Execer, targets []Target, dirty DirtySet)
 	return st, nil
 }
 
-// keepDocs filters to the per-document files (spec/entity), dropping index/glossary outputs
-// that only a full-graph model can render correctly.
+// keepDocs filters to the files the fast path can write correctly: the per-document outputs
+// (spec/entity), plus static assets (the stylesheet) whose content is independent of the
+// model so they reconcile to a no-op once written. Index/glossary rollups are dropped — only
+// a full-graph model can render those.
 func keepDocs(files []File) []File {
 	out := files[:0:0]
 	for _, f := range files {
-		if f.Kind == "spec" || f.Kind == "entity" {
+		if f.Kind == "spec" || f.Kind == "entity" || f.Kind == "asset" {
 			out = append(out, f)
 		}
 	}

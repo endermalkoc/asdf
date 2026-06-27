@@ -35,13 +35,14 @@ type Domain struct {
 }
 
 type Spec struct {
-	ID       string `json:"id"`
-	DomainID string `json:"domain_id"`
-	Prefix   string `json:"prefix,omitempty"`
-	Slug     string `json:"slug,omitempty"`
-	Path     string `json:"path"`
-	Title    string `json:"title,omitempty"`
-	Status   string `json:"status"`
+	ID        string `json:"id"`
+	DomainID  string `json:"domain_id"`
+	Prefix    string `json:"prefix,omitempty"`
+	Slug      string `json:"slug,omitempty"`
+	Path      string `json:"path"`
+	Title     string `json:"title,omitempty"`
+	Status    string `json:"status"`
+	CreatedAt string `json:"created_at,omitempty"` // source "Created" date (YYYY-MM-DD); "" → unknown (NULL)
 	// Title is the single spec label; the H1 renders as `# {title}`. All prose
 	// sections live in req_spec_section, each typed by req_spec_section_type (0013).
 }
@@ -67,6 +68,19 @@ func nullIfEmpty(s string) any {
 		return nil
 	}
 	return s
+}
+
+// isoDateArg parses a YYYY-MM-DD date into a SQL arg (UTC midnight), or NULL when the string
+// is empty or unparseable — so an unknown source date is stored as NULL, not fabricated.
+func isoDateArg(s string) any {
+	if s == "" {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return nil
+	}
+	return t.UTC()
 }
 
 // nullIfNil maps a nil *int to SQL NULL, else its value (for nullable int columns).

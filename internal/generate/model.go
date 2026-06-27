@@ -2,6 +2,7 @@ package generate
 
 import (
 	"context"
+	"strings"
 
 	"github.com/endermalkoc/asdf/internal/refs"
 	"github.com/endermalkoc/asdf/internal/store"
@@ -18,6 +19,60 @@ type Model struct {
 	Terms      []*Term        `json:"glossary,omitempty"`
 	Targets    []refs.Target  `json:"-"` // inline-ref resolution (doc renderers); not serialized
 	Priorities map[int]string `json:"-"` // level → label
+	Nav        *Nav           `json:"-"` // full site-navigation tree (HTML chrome); not serialized
+}
+
+// Nav is the whole-project navigation tree — header data only (no bodies), so every HTML
+// page can render the same always-visible sidebar. It mirrors the documents' actual on-disk
+// path hierarchy (domain → sub-directories → docs), not just a flat domain→spec list, so a
+// spec at `enrollment/student-detail/overview.md` nests under a "Student Detail" group. It is
+// loaded in full even on the incremental fast path (a few cheap header queries), so a single
+// re-rendered document still carries the complete navigation and stays byte-identical to a
+// full rebuild.
+type Nav struct {
+	Root     []*NavNode        // top-level nodes in display order (domains, Entities, Glossary)
+	DirLabel map[string]string // dir path → display name, for dirs that have an index page
+}
+
+// NavNode is one entry in the navigation tree. A node with an Href is a link (a document, or
+// a directory that has an index page); a node with children but no Href is a bare directory
+// grouping. Seg is the raw path segment, used to merge sibling docs into the same directory.
+// Kind drives the type icon (domain | dir | spec | entity | entities | glossary).
+type NavNode struct {
+	Label    string
+	Href     string // root-relative .html path; "" for a non-linking directory grouping
+	Seg      string // raw path segment (for dir matching during tree construction)
+	Kind     string // node type, for iconography
+	Children []*NavNode
+}
+
+// HasIndex reports whether a directory path has its own index page (domains and the entities
+// root do; arbitrary sub-directories do not).
+func (n *Nav) HasIndex(dirPath string) bool { _, ok := n.DirLabel[dirPath]; return ok }
+
+// SegLabel is the display label for a path segment: a domain/entities directory uses its
+// proper name; any other segment is humanized from kebab/snake case.
+func (n *Nav) SegLabel(dirPath, seg string) string {
+	if l, ok := n.DirLabel[dirPath]; ok {
+		return l
+	}
+	return humanizeSegment(seg)
+}
+
+// humanizeSegment turns a kebab/snake path segment into a Title-Cased label
+// ("student-detail" → "Student Detail").
+func humanizeSegment(seg string) string {
+	words := strings.FieldsFunc(seg, func(r rune) bool { return r == '-' || r == '_' })
+	for i, w := range words {
+		if w == "" {
+			continue
+		}
+		words[i] = strings.ToUpper(w[:1]) + w[1:]
+	}
+	if len(words) == 0 {
+		return seg
+	}
+	return strings.Join(words, " ")
 }
 
 // Domain is a top-level grouping of specs.
@@ -37,6 +92,7 @@ type Spec struct {
 	Title        string         `json:"title,omitempty"`
 	Domain       string         `json:"domain"`
 	Status       string         `json:"status"`
+	Created      string         `json:"created,omitempty"` // source created date (YYYY-MM-DD); "" when unknown
 	Path         string         `json:"path"`
 	Sections     []*Section     `json:"sections,omitempty"`
 	Stories      []*Story       `json:"user_stories,omitempty"`
@@ -223,7 +279,8 @@ func LoadDocs(ctx context.Context, x store.Execer, specIDs, entityIDs []string) 
 func loadSpecDoc(ctx context.Context, x store.Execer, sr store.SpecRow) (*Spec, error) {
 	sp := &Spec{
 		Prefix: sr.Prefix, Slug: sr.Slug, Title: sr.Title, Domain: sr.DomainSlug, Status: sr.Status,
-		Path: store.SpecDocPath(sr.DomainSlug, sr.Path, sr.Slug),
+		Created: sr.Created,
+		Path:    store.SpecDocPath(sr.DomainSlug, sr.Path, sr.Slug),
 	}
 	secRows, err := store.ListSpecSections(ctx, x, sr.ID)
 	if err != nil {
@@ -281,7 +338,8 @@ func loadEntityDoc(ctx context.Context, x store.Execer, er store.EntityRow) (*En
 }
 
 // loadShared fills the model's cross-cutting inputs that every renderer needs regardless of
-// which docs are present: the inline-ref target table and the priority labels.
+// which docs are present: the inline-ref target table, the priority labels, and the full
+// navigation tree (for the HTML sidebar).
 func loadShared(ctx context.Context, x store.Execer, m *Model) error {
 	targets, err := store.ListRefTargets(ctx, x)
 	if err != nil {
@@ -293,7 +351,113 @@ func loadShared(ctx context.Context, x store.Execer, m *Model) error {
 		return err
 	}
 	m.Priorities = prio
+	nav, err := loadNav(ctx, x)
+	if err != nil {
+		return err
+	}
+	m.Nav = nav
 	return nil
+}
+
+// loadNav assembles the full navigation tree from header rows only (no per-document children),
+// so it is cheap enough to load on every mutation — including the fast path, which otherwise
+// loads just the dirty documents. The tree has top-level sections — Specifications (all the
+// domains and their specs) and Entities — with room for more later (Glossary appears when
+// terms exist). Within Specifications a domain node (linked to its index page) holds its
+// specs, nesting any sub-directories as grouping nodes, mirroring each document's real path.
+func loadNav(ctx context.Context, x store.Execer) (*Nav, error) {
+	nav := &Nav{DirLabel: map[string]string{}}
+
+	// Section 1: Specifications — the existing root index is its landing page.
+	specsRoot := &NavNode{Label: "Specifications", Href: "index.html", Kind: "specs"}
+	nav.Root = append(nav.Root, specsRoot)
+
+	domainRows, err := store.ListDomains(ctx, x)
+	if err != nil {
+		return nil, err
+	}
+	specRows, err := store.ListSpecs(ctx, x)
+	if err != nil {
+		return nil, err
+	}
+	// One node per domain (index-linked); specs nest under it by their path tail.
+	domainNode := map[string]*NavNode{}
+	for _, d := range domainRows {
+		name := d.Name
+		if name == "" {
+			name = d.Slug
+		}
+		nav.DirLabel[d.Slug] = name
+		n := &NavNode{Label: name, Href: d.Slug + "/index.html", Seg: d.Slug, Kind: "domain"}
+		domainNode[d.Slug] = n
+		specsRoot.Children = append(specsRoot.Children, n)
+	}
+	for _, s := range specRows {
+		parent := domainNode[s.DomainSlug]
+		if parent == nil {
+			continue // a spec whose domain is missing has no place to hang
+		}
+		label := s.Title
+		if label == "" {
+			label = s.Slug
+		}
+		docPath := store.SpecDocPath(s.DomainSlug, s.Path, s.Slug) // <domain>/[dirs/]<slug>.md
+		tail := strings.Split(strings.TrimSuffix(docPath, ".md"), "/")[1:]
+		insertDoc(parent, s.DomainSlug, tail, label, "spec")
+	}
+
+	// Section 2: Entities — under a single "entities/" tree, mirroring their doc paths.
+	entitiesNode := &NavNode{Label: "Entities", Href: "entities/index.html", Seg: "entities", Kind: "entities"}
+	nav.DirLabel["entities"] = "Entities"
+	nav.Root = append(nav.Root, entitiesNode)
+	entityRows, err := store.ListEntities(ctx, x)
+	if err != nil {
+		return nil, err
+	}
+	for _, e := range entityRows {
+		tail := strings.Split(strings.TrimSuffix(e.DocPath, ".md"), "/")[1:] // drop "entities"
+		insertDoc(entitiesNode, "entities", tail, e.Name, "entity")
+	}
+
+	termRows, err := store.ListGlossaryTerms(ctx, x)
+	if err != nil {
+		return nil, err
+	}
+	if len(termRows) > 0 {
+		nav.Root = append(nav.Root, &NavNode{Label: "Glossary", Href: "glossary.html", Seg: "glossary", Kind: "glossary"})
+	}
+	return nav, nil
+}
+
+// insertDoc places a document under parent following its path tail (the segments below
+// parent's directory). All but the last segment are directory groupings (created on demand
+// and shared by siblings); the last is the document leaf, linked to its .html page. base is
+// parent's directory path, so leaf/dir hrefs are built absolute from the site root. leafKind
+// is the icon kind for the document leaf (spec | entity).
+func insertDoc(parent *NavNode, base string, tail []string, leafLabel, leafKind string) {
+	if len(tail) == 0 {
+		return
+	}
+	if len(tail) == 1 {
+		parent.Children = append(parent.Children, &NavNode{
+			Label: leafLabel, Href: base + "/" + tail[0] + ".html", Seg: tail[0], Kind: leafKind,
+		})
+		return
+	}
+	seg := tail[0]
+	dirPath := base + "/" + seg
+	var dir *NavNode
+	for _, c := range parent.Children {
+		if c.Href == "" && c.Seg == seg {
+			dir = c
+			break
+		}
+	}
+	if dir == nil {
+		dir = &NavNode{Label: humanizeSegment(seg), Seg: seg, Kind: "dir"}
+		parent.Children = append(parent.Children, dir)
+	}
+	insertDoc(dir, dirPath, tail[1:], leafLabel, leafKind)
 }
 
 func toSections(rows []store.SectionRow) []*Section {
@@ -308,7 +472,7 @@ func toSections(rows []store.SectionRow) []*Section {
 func toTargets(rows []store.RefTargetRow) []refs.Target {
 	out := make([]refs.Target, len(rows))
 	for i, r := range rows {
-		out[i] = refs.Target{Type: r.Type, Key: r.Key, ID: r.ID, DocPath: r.DocPath, Anchor: r.Anchor}
+		out[i] = refs.Target{Type: r.Type, Key: r.Key, ID: r.ID, DocPath: r.DocPath, Anchor: r.Anchor, Label: r.Label}
 	}
 	return out
 }

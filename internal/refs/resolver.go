@@ -12,6 +12,7 @@ type Target struct {
 	ID      string
 	DocPath string
 	Anchor  string
+	Label   string // human display title, used to render clean link text (no raw paths/.md)
 }
 
 // Resolver maps (type, key) → Target. Build once per generate/import run from the

@@ -115,7 +115,7 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 		// which is how the importer's cross-references address specs.
 		id, ins, err := store.UpsertSpec(ctx, x, dID, store.Spec{
 			Prefix: sp.Prefix, Slug: slugFromPath(sp.Path), Path: domainRelDir(sp.Path),
-			Title: sp.Title, Status: sp.Status,
+			Title: sp.Title, Status: sp.Status, CreatedAt: sp.Created,
 		})
 		if err != nil {
 			return st, err
