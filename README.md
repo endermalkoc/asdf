@@ -241,15 +241,13 @@ Inspired by — and building on the Dolt infrastructure of — [beads](https://g
 
 - [docs/entities/](docs/entities/index.md) — the data model
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture & principles
-- [ROADMAP.md](docs/ROADMAP.md) — what's built, what's next
+- [CHANGELOG.md](CHANGELOG.md) — what's already built
+- [ROADMAP.md](docs/ROADMAP.md) — what's next
 - [docs/codebase-map.md](docs/codebase-map.md) — folder map + fresh-session orientation
 - [docs/build-and-release.md](docs/build-and-release.md) — build, versioning, release, install, `.gitignore` policy
 - [CLAUDE.md](CLAUDE.md) — guidance for agents and contributors
 
-> **Name note:** the command is `adlg` (**A**gentic **D**elivery **L**ifecycle **G**raph). It was
-> renamed from `asdf` to avoid colliding with the popular
-> [asdf version manager](https://asdf-vm.com/). The rename is complete throughout — the Go
-> module path and GitHub repo are `github.com/endermalkoc/adlg`.
+> **Name note:** the command is `adlg` (**A**gentic **D**elivery **L**ifecycle **G**raph). > module path and GitHub repo are `github.com/endermalkoc/adlg`.
 
 ## License
 

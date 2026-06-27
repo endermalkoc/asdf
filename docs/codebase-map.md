@@ -8,7 +8,7 @@ item. Read alongside [ARCHITECTURE.md](ARCHITECTURE.md) (how it works) and
 ## Start here (reading order for a new session)
 
 1. [CLAUDE.md](../CLAUDE.md) — invariants, build/run, the hub of links.
-2. [ROADMAP.md](ROADMAP.md) — what's done and what to pick up next.
+2. [ROADMAP.md](ROADMAP.md) — what to pick up next ([CHANGELOG.md](../CHANGELOG.md) records what's already done).
 3. [ARCHITECTURE.md](ARCHITECTURE.md) — storage modes, the versioning/changeset model, generation.
 4. [command-contract.md](command-contract.md) — the workflow every mutating command MUST follow.
 5. [docs/entities/](entities/index.md) — the authoritative data model.

@@ -92,8 +92,7 @@ The installer honors `ADLG_VERSION=v0.1.0` (pin a version) and `ADLG_INSTALL_DIR
 (choose the location; defaults to `/usr/local/bin`, falling back to `~/.local/bin`). It verifies
 the SHA-256 checksum when `sha256sum`/`shasum` is available.
 
-> **Binary name.** The binary is named `adlg` (renamed from `asdf` to avoid the
-> [asdf version manager](https://asdf-vm.com) collision). `ADLG_INSTALL_DIR` lets consumers control
+> **Binary name.** The binary is named `adlg`
 > PATH placement. The name is set by `project_name`/`binary:` in `.goreleaser.yaml` and `BINARY` in the
 > Makefile/installer; the Go module path / repo is `github.com/endermalkoc/adlg`.
 

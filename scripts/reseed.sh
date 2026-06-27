@@ -9,13 +9,13 @@
 #
 # Usage:   scripts/reseed.sh
 # Tunables (env vars, with defaults):
-#   WORKSPACE   workspace dir to (re)seed         (default: $HOME/asdf-tutor)
+#   WORKSPACE   workspace dir to (re)seed         (default: $HOME/adlg-tutor)
 #   CORPUS      tutor docs corpus to import       (default: $HOME/repos/endermalkoc/tutor/docs)
 #   PORT        managed dolt server port          (default: 3306)
 #   NO_GENERATE set to 1 to skip `adlg generate`  (default: generate runs)
 set -euo pipefail
 
-WORKSPACE="${WORKSPACE:-$HOME/asdf-tutor}"
+WORKSPACE="${WORKSPACE:-$HOME/adlg-tutor}"
 CORPUS="${CORPUS:-$HOME/repos/endermalkoc/tutor/docs}"
 PORT="${PORT:-3306}"
 

@@ -74,7 +74,8 @@ data or configurable policy, not core. The **enum policy buckets** (closed / see
 - [docs/entities/](docs/entities/index.md) — data model: entities, relationships, identifiers, decisions (root [ER.md](docs/ER.md) is a pointer stub)
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — architecture, generation pipeline, interfaces, import
 - [README.md](README.md) — project overview
-- [ROADMAP.md](docs/ROADMAP.md) — what's done, what's next, and the beads-feature survey
+- [CHANGELOG.md](CHANGELOG.md) — what's already built (completed work, moved out of the roadmap)
+- [ROADMAP.md](docs/ROADMAP.md) — what's next, and the beads-feature survey
 - [docs/codebase-map.md](docs/codebase-map.md) — **fresh-session orientation**: folder map, the
   beads reference, reading order, and where to pick up each roadmap item
 - [docs/command-contract.md](docs/command-contract.md) — the workflow every command follows
