@@ -6,7 +6,7 @@ import "context"
 //
 // Genericized from beads during the salvage: issueID became the generic nodeID,
 // and AsOf — which beads typed as *types.Issue — now returns an opaque row
-// (column name → value) so it stays domain-agnostic. ASDF's concrete store can
+// (column name → value) so it stays domain-agnostic. ADLG's concrete store can
 // decode that row into whichever entity the nodeID refers to.
 type HistoryViewer interface {
 	History(ctx context.Context, nodeID string) ([]*HistoryEntry, error)

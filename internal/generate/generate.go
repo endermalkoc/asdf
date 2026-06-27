@@ -1,5 +1,5 @@
 // Package generate renders the canonical database back into git-ignored, read-only build
-// artifacts — the basis of ASDF's "generated, never edited" principle.
+// artifacts — the basis of ADLG's "generated, never edited" principle.
 //
 // Architecture: assembly and formatting are separate. Load (model.go) reads the whole
 // graph once into a format-agnostic Model. A Renderer then turns that Model into a set of

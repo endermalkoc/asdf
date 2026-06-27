@@ -37,7 +37,7 @@ is how commits made on a branch are correlated back to a reviewer/author.
 
 ## Changeset
 The reviewable unit (PR-like) **and** the bridge to Dolt. The diff under review is computed
-from `base_commit`→`head_commit` on `branch`; it is never duplicated into ASDF tables.
+from `base_commit`→`head_commit` on `branch`; it is never duplicated into ADLG tables.
 
 | Attribute | Type | Key | Notes |
 |---|---|---|---|

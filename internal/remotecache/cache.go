@@ -18,7 +18,7 @@ import (
 // staleLockAge is the maximum age of a lock file before it's considered stale.
 const staleLockAge = 5 * time.Minute
 
-// StoreOpener is a function that opens a DoltStorage from a asdf directory.
+// StoreOpener is a function that opens a DoltStorage from a adlg directory.
 // This is injected by the cmd layer to abstract over build-tag-specific
 // store construction (embedded vs server).
 type StoreOpener func(ctx context.Context, asdfDir string) (storage.DoltStorage, error)
@@ -47,7 +47,7 @@ func DefaultCache() (*Cache, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to determine cache directory: %w", err)
 	}
-	dir := filepath.Join(cacheDir, "asdf", "remotes")
+	dir := filepath.Join(cacheDir, "adlg", "remotes")
 	return &Cache{Dir: dir, FreshFor: defaultFreshFor}, nil
 }
 
@@ -58,7 +58,7 @@ func (c *Cache) entryDir(remoteURL string) string {
 
 // cloneTarget returns the dolt database directory within a cache entry.
 // dolt clone creates <target>/.dolt/ directly, so the target is named
-// after the database (default "asdf") to match the embedded driver layout.
+// after the database (default "adlg") to match the embedded driver layout.
 func (c *Cache) cloneTarget(remoteURL string) string {
 	return filepath.Join(c.entryDir(remoteURL), configfile.DefaultDoltDatabase)
 }
@@ -159,7 +159,7 @@ func (c *Cache) Push(ctx context.Context, remoteURL string) error {
 }
 
 // OpenStore opens a DoltStorage from the cached clone using the provided
-// StoreOpener. The cache entry directory is used as the asdf directory.
+// StoreOpener. The cache entry directory is used as the adlg directory.
 // The caller is responsible for calling Close() on the returned store.
 //
 // Note: OpenStore does not acquire a cache lock. The caller must ensure

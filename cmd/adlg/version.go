@@ -68,7 +68,7 @@ var versionCmd = &cobra.Command{
 			"os":      runtime.GOOS,
 			"arch":    runtime.GOARCH,
 		}
-		human := fmt.Sprintf("asdf %s\n  commit: %s\n  built:  %s\n  go:     %s %s/%s",
+		human := fmt.Sprintf("adlg %s\n  commit: %s\n  built:  %s\n  go:     %s %s/%s",
 			version, c, d, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		emit(info, human)
 	},

@@ -18,7 +18,7 @@ const (
 
 	// corruptJournalSignature is emitted by dolt sql-server when the journal
 	// contains damaged blocks. Unlike the empty-manifest case, Dolt may still
-	// have user data to recover, so asdf must not run destructive repair
+	// have user data to recover, so adlg must not run destructive repair
 	// automatically. See GH#2559.
 	corruptJournalSignature = "corrupted journal"
 )
@@ -76,12 +76,12 @@ func corruptJournalRecoveryHint(asdfDir string) string {
 	backupDir := filepath.Join(asdfDir, "dolt.corrupt."+ts)
 	return fmt.Sprintf(`Dolt journal corruption detected in %s.
 
-asdf will not run automatic journal repair because Dolt's repair mode can discard data.
+adlg will not run automatic journal repair because Dolt's repair mode can discard data.
 Recommended recovery when your remote is current:
   mv %s %s
-  asdf bootstrap --dry-run
-  asdf bootstrap --yes
-  asdf stats
+  adlg bootstrap --dry-run
+  adlg bootstrap --yes
+  adlg stats
 
 If the remote may be stale, snapshot %s first and inspect with:
   dolt fsck
@@ -192,7 +192,7 @@ func isLowerAlphaName(s string) bool {
 // data (empty journal, empty oldgen). Returns the corrupt .dolt/noms
 // directories, or nil when the condition does not hold. Detection only —
 // never modifies anything; repair is RecoverCorruptManifest, which must stay
-// behind an explicit user action (asdf doctor --fix; asdf-6dnrw.6).
+// behind an explicit user action (adlg doctor --fix; adlg-6dnrw.6).
 func DetectCorruptManifest(asdfDir string) ([]string, error) {
 	return detectCorruptManifest(asdfDir, ResolveDoltDir(asdfDir))
 }
@@ -209,7 +209,7 @@ func detectCorruptManifest(asdfDir, doltDir string) ([]string, error) {
 // reported by DetectCorruptManifest: each corrupt .dolt/ directory is backed
 // up with a timestamped suffix and the database is reinitialized in place.
 // Destructive — callers must only invoke this on explicit user request
-// (asdf doctor --fix), never automatically (asdf-6dnrw.6).
+// (adlg doctor --fix), never automatically (adlg-6dnrw.6).
 //
 // Returns the list of backup paths created. If the preconditions do not
 // hold, returns (nil, nil).

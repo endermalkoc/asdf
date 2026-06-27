@@ -20,12 +20,12 @@ type configFile struct {
 	root yaml.Node
 }
 
-// FindConfigYAMLPath finds the config.yaml file in .asdf directory
-// Walks up from CWD to find .asdf/config.yaml
+// FindConfigYAMLPath finds the config.yaml file in .adlg directory
+// Walks up from CWD to find .adlg/config.yaml
 func FindConfigYAMLPath() (string, error) {
 	configPath, err := findProjectConfigYaml()
 	if err != nil {
-		return "", fmt.Errorf("no .asdf/config.yaml found in current directory or parents")
+		return "", fmt.Errorf("no .adlg/config.yaml found in current directory or parents")
 	}
 	return configPath, nil
 }

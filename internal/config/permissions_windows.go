@@ -8,13 +8,13 @@ import (
 )
 
 const (
-	// ASDFDirPerm is the permission mode for .asdf/ directories (owner-only).
+	// ASDFDirPerm is the permission mode for .adlg/ directories (owner-only).
 	ASDFDirPerm fs.FileMode = 0700
-	// ASDFFilePerm is the permission mode for state files inside .asdf/ (owner-only).
+	// ASDFFilePerm is the permission mode for state files inside .adlg/ (owner-only).
 	ASDFFilePerm fs.FileMode = 0600
 )
 
-// EnsureASDFDir creates the .asdf directory with secure permissions.
+// EnsureASDFDir creates the .adlg directory with secure permissions.
 func EnsureASDFDir(path string) error {
 	return os.MkdirAll(path, ASDFDirPerm)
 }

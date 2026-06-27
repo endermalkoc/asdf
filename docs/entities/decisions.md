@@ -31,7 +31,7 @@ _None — all resolved (see below)._
   and agent-change diffs come from `dolt_history_*` / `dolt_diff_*` / `dolt_log` /
   `dolt_blame_*`.
 - **Document sections are captured so a regenerate is information-complete** (migration `0003`,
-  simplified by `0010`, restructured by `0013`). Goal: `asdf generate` must reproduce the *information*
+  simplified by `0010`, restructured by `0013`). Goal: `adlg generate` must reproduce the *information*
   of the source docs (format may differ). A spec's prose sections are
   [`SpecSection`](structure.md#specsection) rows, each addressed by a curated
   [`SpecSectionType`](structure.md#specsectiontype) (title/level/canonical position live on the type);
@@ -120,7 +120,7 @@ _None — all resolved (see below)._
   cardinality enum has no `many_to_one`), and a non-entity table whose composite PK is two FK columns →
   **many-to-many** (`junction_table` set). Only relationships between two known entities are emitted;
   N-ary junctions (e.g. `tutor_students`) are skipped and reported. Idempotent (deterministic ids).
-- **ER refinements from the tutor import** (validated by `asdf import tutor`, the read-only
+- **ER refinements from the tutor import** (validated by `adlg import tutor`, the read-only
   parse-and-report adapter — `internal/importer/tutor`). Five pieces of source data had no clean
   home; the resolutions keep the core generic:
   - **`Domain.description`** — added (migration `0002`). The domain index gives every domain a
@@ -141,7 +141,7 @@ _None — all resolved (see below)._
 - **Changeset is the unit of batched, reviewable change** (the `Changeset` entity, formerly
   `ChangeProposal`). A changeset is a **Dolt branch** that bundles edits across many entities
   so they are diffed and reviewed together (a PR over the knowledge graph), not committed
-  per-edit. CLI: `asdf changeset start|diff|submit|merge|abandon`; mutating commands take an
+  per-edit. CLI: `adlg changeset start|diff|submit|merge|abandon`; mutating commands take an
   optional `--changeset <name>` (and honor an ambient active changeset set by `start`). With
   **no changeset, a write commits straight to `main`** (auto-commit default). Lifecycle via
   `status`: `draft` (building) → `open` (submitted for review) → `approved`/`merged`. The diff
@@ -168,7 +168,7 @@ _None — all resolved (see below)._
     entity. Self-references are ignored (no self-ref row).
   - **Dangling refs** (token that resolves to nothing): **block** an interactive CLI/MCP write
     (`--force` overrides); **record a non-blocking finding** on bulk import; a `check` finding once
-    `asdf check` exists.
+    `adlg check` exists.
   - **Render is per-format**: the Markdown generator rewrites each token to an **Obsidian wikilink**
     `[[vault-path#^anchor|label]]` (vault-relative path, extension dropped; same-file → `[[#^anchor|label]]`).
     Anchors are **Obsidian block references** (`^fr-key`) emitted at the end of each FR list item (and each
@@ -186,11 +186,11 @@ _None — all resolved (see below)._
   **Aliases are a child table** (`GlossaryAlias`, `UNIQUE(alias)`) so several surface forms resolve to one
   term; the resolver tries the slug first, then aliases. A term is a first-class
   [cross-reference](requirements.md#entityref) target (`[[TERM:slug]]`, deferred until now) and a generated
-  artifact (the `glossary.md` page, one anchor per term). Authored via the CLI (`asdf term …`), not imported
+  artifact (the `glossary.md` page, one anchor per term). Authored via the CLI (`adlg term …`), not imported
   from the tutor corpus (no structured glossary source there).
 - **Physical table names are prefixed by layer (migration `0011`).** MySQL/Dolt has no
   schema-within-database namespace (`CREATE SCHEMA` == `CREATE DATABASE`, a separate version-control unit),
-  and ASDF must keep all tables in one database so a changeset is one atomic branch over the whole graph.
+  and ADLG must keep all tables in one database so a changeset is one atomic branch over the whole graph.
   So tables are grouped by **name prefix** instead: `req_*` (structure + requirements + glossary),
   `ent_*` (entity layer), `test_*` (testing), `plan_*` (planning, incl. `plan_milestone` /
   `plan_delivery_status`), `pub_*` (interop / external refs), `rev_*` (review). Tables already named
@@ -226,4 +226,4 @@ _None — all resolved (see below)._
     referenced by `requirement.delivery_status` **with no FK**, on purpose: the lookup is *soft* so drift is
     tolerated and surfaced by `check`, never rejected at write (record this rationale — a reviewer who sees the
     schema's ~43 FKs should not "fix" it by adding the constraint). The coverage policy (e2e/shared/milestone
-    requirements) moves from prose into the table's boolean columns, enforced by the future `asdf check`.
+    requirements) moves from prose into the table's boolean columns, enforced by the future `adlg check`.

@@ -44,7 +44,7 @@ type SyncStats struct {
 
 // manifestName is the per-out-dir content-hash index that lets Sync write only files whose
 // content actually changed (and, on a full rebuild, delete files whose source rows are gone).
-const manifestName = ".asdf-manifest.json"
+const manifestName = ".adlg-manifest.json"
 
 // Sync brings the configured targets up to date with the database state on x, doing the
 // least work the DirtySet allows. On a Full set it rebuilds the whole graph and reconciles

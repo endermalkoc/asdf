@@ -247,7 +247,7 @@ func topDir(relPath string) string {
 }
 
 // mapSpecStatus maps a tutor spec status (Draft|Reviewed|Active|Retired…) to
-// ASDF's spec.status enum (draft|reviewed|active|obsolete). `reviewed` is a
+// ADLG's spec.status enum (draft|reviewed|active|obsolete). `reviewed` is a
 // first-class value (added in migration 0001's enum set per decisions.md), so it
 // is preserved, not downgraded.
 func mapSpecStatus(raw string, rep *importer.Report, ref string) string {

@@ -1,8 +1,8 @@
--- 0001_init.up.sql — initial ASDF schema (all layers).
+-- 0001_init.up.sql — initial ADLG schema (all layers).
 --
 -- Source of truth: docs/entities/. This migration is generated from those entity
 -- docs; keep them in sync (CLAUDE.md). Conventions (matching the Dolt-proven
--- beads schema, and ASDF's invariants):
+-- beads schema, and ADLG's invariants):
 --   * Every `id` is VARCHAR(255): holds a ULID (authored rows) or a deterministic
 --     id (pure-relationship rows) — see docs/entities/identifiers.md. Minted by the
 --     app, never DB-generated.

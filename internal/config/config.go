@@ -32,17 +32,17 @@ func Initialize() error {
 	// subsequent file so higher-priority values overwrite lower-priority ones.
 	//
 	// Precedence (highest to lowest):
-	//   ASDF_DIR/config.yaml > project .asdf/config.yaml > ~/.config/asdf/config.yaml > ~/.asdf/config.yaml
+	//   ADLG_DIR/config.yaml > project .adlg/config.yaml > ~/.config/asdf/config.yaml > ~/.adlg/config.yaml
 	//
 	// Previously, only ONE config file was loaded (the highest-priority match),
 	// which meant user-level config was silently ignored when project-level
-	// config existed — e.g., the idle-monitor daemon with ASDF_DIR set (GH#2375).
+	// config existed — e.g., the idle-monitor daemon with ADLG_DIR set (GH#2375).
 	var configPaths []string     // ordered lowest priority first
 	var primaryConfigPath string // project-level config (for config.local.yaml and SaveConfigValue)
 
-	// 3. Legacy: ~/.asdf/config.yaml (lowest priority)
+	// 3. Legacy: ~/.adlg/config.yaml (lowest priority)
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		p := filepath.Join(homeDir, ".asdf", "config.yaml")
+		p := filepath.Join(homeDir, ".adlg", "config.yaml")
 		if _, err := os.Stat(p); err == nil {
 			configPaths = append(configPaths, p)
 		}
@@ -50,7 +50,7 @@ func Initialize() error {
 
 	// 2. User: ~/.config/asdf/config.yaml
 	if configDir, err := os.UserConfigDir(); err == nil {
-		p := filepath.Join(configDir, "asdf", "config.yaml")
+		p := filepath.Join(configDir, "adlg", "config.yaml")
 		if _, err := os.Stat(p); err == nil {
 			configPaths = append(configPaths, p)
 		}
@@ -60,7 +60,7 @@ func Initialize() error {
 	// os.UserConfigDir() returns ~/Library/Application Support, not ~/.config.
 	// This ensures the documented path works on all platforms.
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		xdgPath := filepath.Join(homeDir, ".config", "asdf", "config.yaml")
+		xdgPath := filepath.Join(homeDir, ".config", "adlg", "config.yaml")
 		alreadyAdded := false
 		for _, existing := range configPaths {
 			if filepath.Clean(existing) == filepath.Clean(xdgPath) {
@@ -75,21 +75,21 @@ func Initialize() error {
 		}
 	}
 
-	// 1. Project: walk up from CWD to find .asdf/config.yaml
-	asdfDirEnv := strings.TrimSpace(os.Getenv("ASDF_DIR"))
+	// 1. Project: walk up from CWD to find .adlg/config.yaml
+	asdfDirEnv := strings.TrimSpace(os.Getenv("ADLG_DIR"))
 	asdfEnvConfigPath := ""
 	if asdfDirEnv != "" {
 		asdfEnvConfigPath = filepath.Clean(filepath.Join(asdfDirEnv, "config.yaml"))
 	}
 	cwd, err := os.Getwd()
 	if err == nil {
-		// In the asdf repo, `.asdf/config.yaml` is tracked and may set non-default config values.
+		// In the adlg repo, `.adlg/config.yaml` is tracked and may set non-default config values.
 		// In `go test` (especially for `cmd/asdf`), we want to avoid unintentionally picking up
 		// the repo-local config, while still allowing tests to load config.yaml from temp repos.
 		//
-		// If ASDF_TEST_IGNORE_REPO_CONFIG is set, we will ignore the config at
-		// <module-root>/.asdf/config.yaml (where module-root is the nearest parent containing go.mod).
-		ignoreRepoConfig := os.Getenv("ASDF_TEST_IGNORE_REPO_CONFIG") != ""
+		// If ADLG_TEST_IGNORE_REPO_CONFIG is set, we will ignore the config at
+		// <module-root>/.adlg/config.yaml (where module-root is the nearest parent containing go.mod).
+		ignoreRepoConfig := os.Getenv("ADLG_TEST_IGNORE_REPO_CONFIG") != ""
 		var moduleRoot string
 		ignoredRepoConfigPaths := map[string]bool{}
 		if ignoreRepoConfig {
@@ -101,7 +101,7 @@ func Initialize() error {
 				}
 			}
 			if moduleRoot != "" {
-				ignoredRepoConfigPaths[filepath.Clean(filepath.Join(moduleRoot, ".asdf", "config.yaml"))] = true
+				ignoredRepoConfigPaths[filepath.Clean(filepath.Join(moduleRoot, ".adlg", "config.yaml"))] = true
 			}
 			if fallbackPath := worktreeFallbackConfigPath(cwd); fallbackPath != "" {
 				ignoredRepoConfigPaths[filepath.Clean(fallbackPath)] = true
@@ -123,11 +123,11 @@ func Initialize() error {
 			return true
 		}
 
-		// Walk up parent directories to find .asdf/config.yaml.
+		// Walk up parent directories to find .adlg/config.yaml.
 		for dir := cwd; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-			p := filepath.Join(dir, ".asdf", "config.yaml")
+			p := filepath.Join(dir, ".adlg", "config.yaml")
 			if _, err := os.Stat(p); err == nil {
-				// When ASDF_DIR points at a different runtime workspace, do not
+				// When ADLG_DIR points at a different runtime workspace, do not
 				// merge the caller repo's config underneath it. That leaks caller
 				// settings like readonly/json/actor into explicit-target commands.
 				if asdfEnvConfigPath != "" && filepath.Clean(p) != asdfEnvConfigPath {
@@ -147,11 +147,11 @@ func Initialize() error {
 		}
 	}
 
-	// 0. ASDF_DIR: highest priority
-	if asdfDir := os.Getenv("ASDF_DIR"); asdfDir != "" {
+	// 0. ADLG_DIR: highest priority
+	if asdfDir := os.Getenv("ADLG_DIR"); asdfDir != "" {
 		p := filepath.Join(asdfDir, "config.yaml")
 		if _, err := os.Stat(p); err == nil {
-			// Avoid duplicate if ASDF_DIR points to same config as CWD walk
+			// Avoid duplicate if ADLG_DIR points to same config as CWD walk
 			if primaryConfigPath == "" || filepath.Clean(p) != filepath.Clean(primaryConfigPath) {
 				configPaths = append(configPaths, p)
 			}
@@ -161,7 +161,7 @@ func Initialize() error {
 
 	// Automatic environment variable binding
 	// Environment variables take precedence over config file
-	// E.g., BD_JSON, BD_NO_DAEMON, BD_DB (BD_ACTOR deprecated in favor of ASDF_ACTOR)
+	// E.g., BD_JSON, BD_NO_DAEMON, BD_DB (BD_ACTOR deprecated in favor of ADLG_ACTOR)
 	v.SetEnvPrefix("BD")
 
 	// Replace hyphens and dots with underscores for env var mapping
@@ -177,11 +177,11 @@ func Initialize() error {
 	v.SetDefault("actor", "")
 	v.SetDefault("issue-prefix", "")
 	// Additional environment variables (not prefixed with BD_)
-	_ = v.BindEnv("identity", "ASDF_IDENTITY") // BindEnv only fails with zero args, which can't happen here
+	_ = v.BindEnv("identity", "ADLG_IDENTITY") // BindEnv only fails with zero args, which can't happen here
 	v.SetDefault("identity", "")
 
 	// Dolt configuration defaults
-	// Controls whether asdf should automatically create Dolt commits after write commands.
+	// Controls whether adlg should automatically create Dolt commits after write commands.
 	// Values: off | on
 	v.SetDefault("dolt.auto-commit", "on")
 
@@ -189,9 +189,9 @@ func Initialize() error {
 	v.SetDefault("routing.mode", "")
 	v.SetDefault("routing.default", ".")
 	v.SetDefault("routing.maintainer", ".")
-	v.SetDefault("routing.contributor", "~/.asdf-planning")
+	v.SetDefault("routing.contributor", "~/.adlg-planning")
 
-	// Sync configuration defaults (asdf-4u8)
+	// Sync configuration defaults (adlg-4u8)
 	v.SetDefault("sync.require_confirmation_on_mass_delete", false)
 
 	v.SetDefault("metrics.disabled", false)
@@ -209,7 +209,7 @@ func Initialize() error {
 	// Create command defaults
 	v.SetDefault("create.require-description", false)
 
-	// Validation configuration defaults (asdf-t7jq)
+	// Validation configuration defaults (adlg-t7jq)
 	// Values: "warn" | "error" | "none"
 	// - "none": no validation (default, backwards compatible)
 	// - "warn": validate and print warnings but proceed
@@ -225,19 +225,19 @@ func Initialize() error {
 	v.SetDefault("validation.metadata.mode", "none")
 
 	// Hierarchy configuration defaults (GH#995)
-	// Maximum nesting depth for hierarchical IDs (e.g., asdf-abc.1.2.3)
+	// Maximum nesting depth for hierarchical IDs (e.g., adlg-abc.1.2.3)
 	// Default matches types.MaxHierarchyDepth constant
 	v.SetDefault("hierarchy.max-depth", 3)
 
 	// Git configuration defaults (GH#600)
-	v.SetDefault("git.author", "")         // Override commit author (e.g., "asdf-bot <asdf@example.com>")
-	v.SetDefault("git.no-gpg-sign", false) // Disable GPG signing for asdf commits
+	v.SetDefault("git.author", "")         // Override commit author (e.g., "adlg-bot <adlg@example.com>")
+	v.SetDefault("git.no-gpg-sign", false) // Disable GPG signing for adlg commits
 
 	// Directory-aware label scoping (GH#541)
 	// Maps directory patterns to labels for automatic filtering in monorepos
 	v.SetDefault("directory.labels", map[string]string{})
 
-	// Backup configuration defaults (JSONL export to .asdf/backup/)
+	// Backup configuration defaults (JSONL export to .adlg/backup/)
 	v.SetDefault("backup.enabled", false)
 	v.SetDefault("backup.interval", "15m")
 	v.SetDefault("backup.git-push", false)
@@ -248,14 +248,14 @@ func Initialize() error {
 	// the source of truth for sync. Viewer integrations can opt in explicitly.
 	v.SetDefault("export.auto", false)
 	v.SetDefault("export.interval", "60s")
-	v.SetDefault("export.path", "issues.jsonl") // relative to .asdf/; canonical name
+	v.SetDefault("export.path", "issues.jsonl") // relative to .adlg/; canonical name
 	v.SetDefault("export.git-add", false)
 
 	// Auto-import: legacy compatibility fallback for projects that have not
 	// configured a Dolt remote yet. Hook code skips this path when sync.remote
 	// is configured because JSONL import is upsert-only, not reconciliation.
 	v.SetDefault("import.auto", true)
-	v.SetDefault("import.path", "issues.jsonl") // relative to .asdf/; canonical import name
+	v.SetDefault("import.path", "issues.jsonl") // relative to .adlg/; canonical import name
 
 	// AI configuration defaults
 	v.SetDefault("ai.model", "claude-haiku-4-5-20251001")
@@ -265,7 +265,7 @@ func Initialize() error {
 	// 0 = hide title, N > 0 = truncate to N chars with "…"
 	v.SetDefault("output.title-length", 255)
 
-	// External projects for cross-project dependency resolution (asdf-h807)
+	// External projects for cross-project dependency resolution (adlg-h807)
 	// Maps project names to paths for resolving external: blocked_by references
 	v.SetDefault("external_projects", map[string]string{})
 
@@ -324,10 +324,10 @@ func worktreeFallbackConfigPath(repoPath string) string {
 	}
 
 	if filepath.Base(commonDir) == ".git" {
-		return filepath.Join(filepath.Dir(commonDir), ".asdf", "config.yaml")
+		return filepath.Join(filepath.Dir(commonDir), ".adlg", "config.yaml")
 	}
 
-	return filepath.Join(commonDir, ".asdf", "config.yaml")
+	return filepath.Join(commonDir, ".adlg", "config.yaml")
 }
 
 func gitDirsForRepo(repoPath string) (gitDir, commonDir string, ok bool) {
@@ -410,8 +410,8 @@ func GetValueSource(key string) ConfigSource {
 		return SourceEnvVar
 	}
 
-	// Check ASDF_ prefixed env vars for legacy compatibility
-	asdfEnvKey := "ASDF_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
+	// Check ADLG_ prefixed env vars for legacy compatibility
+	asdfEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
 	if _, ok := os.LookupEnv(asdfEnvKey); ok {
 		return SourceEnvVar
 	}
@@ -430,14 +430,14 @@ func GetValueSource(key string) ConfigSource {
 }
 
 // EnvVarName returns the environment variable name that would override the given
-// config key, if one is set. Returns the BD_ or ASDF_ prefixed name, or empty
+// config key, if one is set. Returns the BD_ or ADLG_ prefixed name, or empty
 // string if no env var is set for this key.
 func EnvVarName(key string) string {
 	envKey := "BD_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
 	if _, ok := os.LookupEnv(envKey); ok {
 		return envKey
 	}
-	asdfEnvKey := "ASDF_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
+	asdfEnvKey := "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
 	if _, ok := os.LookupEnv(asdfEnvKey); ok {
 		return asdfEnvKey
 	}
@@ -493,7 +493,7 @@ func CheckOverrides(flagOverrides map[string]struct {
 				// are still intentional overrides.
 				envKey := "BD_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
 				if _, ok := os.LookupEnv(envKey); !ok {
-					envKey = "ASDF_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
+					envKey = "ADLG_" + strings.ToUpper(strings.ReplaceAll(strings.ReplaceAll(key, "-", "_"), ".", "_"))
 					if _, ok := os.LookupEnv(envKey); !ok {
 						continue
 					}
@@ -685,7 +685,7 @@ func Set(key string, value interface{}) {
 // }
 
 // DefaultAIModel returns the configured AI model identifier.
-// Override via: asdf config set ai.model "model-name" or BD_AI_MODEL=model-name
+// Override via: adlg config set ai.model "model-name" or BD_AI_MODEL=model-name
 func DefaultAIModel() string {
 	return GetString("ai.model")
 }
@@ -793,7 +793,7 @@ func GetMultiRepoConfig() *MultiRepoConfig {
 // Example config.yaml:
 //
 //	external_projects:
-//	  asdf: ../asdf
+//	  adlg: ../asdf
 //	  other-project: /absolute/path/to/other-project
 func GetExternalProjects() map[string]string {
 	return GetStringMapString("external_projects")
@@ -808,14 +808,14 @@ func ResolveExternalProjectPath(projectName string) string {
 		return ""
 	}
 
-	// Resolve relative paths from repo root (parent of .asdf/), NOT CWD.
+	// Resolve relative paths from repo root (parent of .adlg/), NOT CWD.
 	// This ensures paths like "../asdf" in config resolve correctly
 	// when running from different directories.
 	if !filepath.IsAbs(path) {
-		// Config is at .asdf/config.yaml, so go up twice to get repo root
+		// Config is at .adlg/config.yaml, so go up twice to get repo root
 		configFile := ConfigFileUsed()
 		if configFile != "" {
-			repoRoot := filepath.Dir(filepath.Dir(configFile)) // .asdf/config.yaml -> repo/
+			repoRoot := filepath.Dir(filepath.Dir(configFile)) // .adlg/config.yaml -> repo/
 			path = filepath.Join(repoRoot, path)
 		} else {
 			// Fallback: resolve from CWD (legacy behavior)
@@ -838,18 +838,18 @@ func ResolveExternalProjectPath(projectName string) string {
 // GetIdentity resolves the user's identity for messaging.
 // Priority chain:
 //  1. flagValue (if non-empty, from --identity flag)
-//  2. ASDF_IDENTITY env var / config.yaml identity field (via viper)
+//  2. ADLG_IDENTITY env var / config.yaml identity field (via viper)
 //  3. git config user.name
 //  4. hostname
 //
-// This is used as the sender field in asdf mail commands.
+// This is used as the sender field in adlg mail commands.
 func GetIdentity(flagValue string) string {
 	// 1. Command-line flag takes precedence
 	if flagValue != "" {
 		return flagValue
 	}
 
-	// 2. ASDF_IDENTITY env var or config.yaml identity (viper handles both)
+	// 2. ADLG_IDENTITY env var or config.yaml identity (viper handles both)
 	if identity := GetString("identity"); identity != "" {
 		return identity
 	}
@@ -888,7 +888,7 @@ func GetFederationConfig() FederationConfig {
 
 // GetCustomTypesFromYAML retrieves custom issue types from config.yaml.
 // This is used as a fallback when the database doesn't have types.custom set yet
-// (e.g., during asdf init auto-import before the database is fully configured).
+// (e.g., during adlg init auto-import before the database is fully configured).
 // Returns nil if no custom types are configured in config.yaml.
 func GetCustomTypesFromYAML() []string {
 	return getConfigList("types.custom")
@@ -994,7 +994,7 @@ func ValidateAgentsFile(filename string) error {
 // or the legacy comma-separated string form (e.g.
 // `types.custom = "step,wisp"`). Entries are trimmed; empty entries are
 // dropped. The dual-form support is required for project-extension
-// types/statuses declared in .asdf/config.yaml — see gastownhall/asdf#4024.
+// types/statuses declared in .adlg/config.yaml — see gastownhall/asdf#4024.
 func getConfigList(key string) []string {
 	if v == nil {
 		debug.Logf("config: viper not initialized, returning nil for key %q", key)

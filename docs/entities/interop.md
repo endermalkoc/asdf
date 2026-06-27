@@ -3,7 +3,7 @@
 [← index](index.md) · see the [master diagram](index.md#master-diagram).
 
 ## ExternalRef
-A pointer from an ASDF node to its identity in an external task system. ASDF is the system
+A pointer from an ADLG node to its identity in an external task system. ADLG is the system
 of record; this is interop only and is deliberately **not** tied to any single tracker.
 Polymorphic subject — the confirmed subjects are **`Deliverable`** (the work unit),
 **`Requirement`** (FR ↔ external requirement/issue), and **`TestResult`** (imported result

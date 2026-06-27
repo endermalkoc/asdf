@@ -1,7 +1,7 @@
 -- 0009_delivery_status.up.sql — the one enum value-set that earns a table.
 -- requirement.delivery_status carries latent POLICY (e2e-sufficient ⇒ an e2e test;
 -- shared ⇒ a shared test; not-implemented ⇒ a milestone). This lookup table moves
--- that policy from prose into data (boolean columns), so a future `asdf check` can
+-- that policy from prose into data (boolean columns), so a future `adlg check` can
 -- enforce it data-drivenly and so the set is configurable by adding rows.
 --
 -- Keyed by the business value itself (`key` is the PK, like a classic reference

@@ -1,4 +1,4 @@
-// Package workspace resolves an ASDF project's `.asdf/` directory and connects to
+// Package workspace resolves an ADLG project's `.adlg/` directory and connects to
 // its Dolt database. Connection mode follows beads' model (owned / external /
 // embedded) via the lifted internal/doltserver + internal/configfile:
 //
@@ -27,20 +27,20 @@ import (
 	"github.com/endermalkoc/asdf/internal/storage/doltutil"
 )
 
-// Workspace is a connection to an ASDF project's Dolt database.
+// Workspace is a connection to an ADLG project's Dolt database.
 type Workspace struct {
 	ASDFDir string
 	db      *sql.DB
 }
 
-// ResolveASDFDir returns the `.asdf` directory for the current project — at the
-// git repo root (worktree-aware). It does not require `.asdf` to exist.
+// ResolveASDFDir returns the `.adlg` directory for the current project — at the
+// git repo root (worktree-aware). It does not require `.adlg` to exist.
 func ResolveASDFDir() (string, error) {
 	root, err := git.GetMainRepoRoot()
 	if err != nil {
 		return "", fmt.Errorf("locating project root (run inside a git repo): %w", err)
 	}
-	return filepath.Join(root, ".asdf"), nil
+	return filepath.Join(root, ".adlg"), nil
 }
 
 // Connect resolves the workspace and returns a connected *Workspace. With an
@@ -53,7 +53,7 @@ func Connect(ctx context.Context, dsnOverride string) (*Workspace, error) {
 		return nil, err
 	}
 	if _, statErr := os.Stat(asdfDir); statErr != nil {
-		return nil, fmt.Errorf("no ASDF workspace at %s — run `asdf init` first", asdfDir)
+		return nil, fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", asdfDir)
 	}
 
 	dsn := dsnOverride
@@ -115,5 +115,5 @@ func (w *Workspace) DB() *sql.DB { return w.db }
 func (w *Workspace) Pin(ctx context.Context) (*sql.Conn, error) { return w.db.Conn(ctx) }
 
 // Close releases the connection pool. It does NOT stop the managed server (each
-// command adopts the running server; use `asdf dolt stop` to stop it).
+// command adopts the running server; use `adlg dolt stop` to stop it).
 func (w *Workspace) Close() error { return w.db.Close() }

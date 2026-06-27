@@ -12,22 +12,22 @@ import (
 const CentralConfigFileName = "server.json"
 
 // DefaultCentralConfigPath returns the platform-appropriate path for the
-// central asdf server config.
+// central adlg server config.
 // Linux/macOS: ~/.config/asdf/server.json
-// Windows: %APPDATA%\asdf\server.json
+// Windows: %APPDATA%\adlg\server.json
 //
 // This follows the same convention as DefaultCredentialsPath.
 func DefaultCentralConfigPath() string {
 	if runtime.GOOS == "windows" {
 		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "asdf", CentralConfigFileName)
+			return filepath.Join(appdata, "adlg", CentralConfigFileName)
 		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "asdf", CentralConfigFileName)
+	return filepath.Join(home, ".config", "adlg", CentralConfigFileName)
 }
 
 // LoadCentralConfig reads the central server config from the given path.
@@ -79,7 +79,7 @@ func ApplyCentralDefaults(project *Config, central *Config) {
 	// from "not set". We only apply central TLS=true when project has TLS=false,
 	// which means central can enable TLS but project cannot explicitly disable it
 	// via the zero value. To disable TLS when central enables it, use the
-	// ASDF_DOLT_SERVER_TLS=0 env var.
+	// ADLG_DOLT_SERVER_TLS=0 env var.
 	if !project.DoltServerTLS && central.DoltServerTLS {
 		project.DoltServerTLS = central.DoltServerTLS
 	}

@@ -1,4 +1,4 @@
-// Package enums holds ASDF's allowed enum value sets. The schema stores enums as
+// Package enums holds ADLG's allowed enum value sets. The schema stores enums as
 // VARCHAR (by design — keeps the sets configurable, see 0001_init.up.sql), so the
 // application validates against these sets. They mirror docs/entities/enums.md.
 package enums

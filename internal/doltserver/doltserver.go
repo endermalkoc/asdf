@@ -1,5 +1,5 @@
 // Package doltserver manages the lifecycle of a local dolt sql-server process.
-// It provides transparent auto-start so that `asdf init` and `asdf <command>` work
+// It provides transparent auto-start so that `adlg init` and `adlg <command>` work
 // without manual server management.
 //
 // Port assignment uses OS-assigned ephemeral ports by default. When no explicit
@@ -8,11 +8,11 @@
 // the actual port to dolt-server.port. This eliminates the birthday-problem
 // collisions that plagued the old hash-derived port scheme (GH#2098, GH#2372).
 //
-// Users with explicit port config via ASDF_DOLT_SERVER_PORT env var or
+// Users with explicit port config via ADLG_DOLT_SERVER_PORT env var or
 // config.yaml always use that port instead, with conflict detection via
 // reclaimPort.
 //
-// Server state files (PID, port, log, lock) live in the .asdf/ directory.
+// Server state files (PID, port, log, lock) live in the .adlg/ directory.
 package doltserver
 
 import (
@@ -102,21 +102,21 @@ const GlobalProjectID = "00000000-0000-0000-0000-000000000000"
 
 // IsSharedServerMode returns true if shared server mode is enabled.
 // Checks (in priority order):
-//  1. ASDF_DOLT_SHARED_SERVER env var ("1" or "true")
+//  1. ADLG_DOLT_SHARED_SERVER env var ("1" or "true")
 //  2. dolt.shared-server in config.yaml
 //
 // Shared server mode means all projects on this machine share a single
 // dolt sql-server process at SharedServerDir(), each using its own
-// database (already unique via prefix-based naming in asdf init).
+// database (already unique via prefix-based naming in adlg init).
 func IsSharedServerMode() bool {
-	if v := os.Getenv("ASDF_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
+	if v := os.Getenv("ADLG_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
 		return true
 	}
 	return config.GetBool("dolt.shared-server")
 }
 
 func IsDebugMode() bool {
-	if v := os.Getenv("ASDF_DOLT_DEBUG"); v == "1" || strings.EqualFold(v, "true") {
+	if v := os.Getenv("ADLG_DOLT_DEBUG"); v == "1" || strings.EqualFold(v, "true") {
 		return true
 	}
 	return config.GetBool("dolt.debug")
@@ -150,7 +150,7 @@ func rotateDebugProfile(asdfDir string) {
 }
 
 // IsAutoStartDisabled returns true if the dolt server should NOT be
-// auto-started or managed by asdf. When true, KillStaleServers and
+// auto-started or managed by adlg. When true, KillStaleServers and
 // auto-start are suppressed — the server is externally managed (e.g.,
 // by systemd).
 //
@@ -163,7 +163,7 @@ func rotateDebugProfile(asdfDir string) {
 // This is used by KillStaleServers and Start to avoid killing or
 // interfering with externally-managed dolt processes (GH#2641).
 func IsAutoStartDisabled() bool {
-	if isFalsyBool(os.Getenv("ASDF_DOLT_AUTO_START")) {
+	if isFalsyBool(os.Getenv("ADLG_DOLT_AUTO_START")) {
 		return true
 	}
 	return isFalsyBool(config.GetString("dolt.auto-start"))
@@ -183,20 +183,20 @@ func isFalsyBool(s string) bool {
 
 // readyTimeout returns the timeout used by waitForReady when starting the
 // dolt sql-server. Defaults to 10 seconds, but can be overridden via the
-// ASDF_DOLT_READY_TIMEOUT environment variable (positive integer seconds).
+// ADLG_DOLT_READY_TIMEOUT environment variable (positive integer seconds).
 // First-run Dolt SQL engine initialization can take ~60s on slower hardware
 // where the privileges.db, stats subrepo, and other bootstrap work must
 // happen before the MySQL listener accepts TCP connections. See GH#3142.
 func readyTimeout() time.Duration {
 	const defaultTimeout = 10 * time.Second
-	v := strings.TrimSpace(os.Getenv("ASDF_DOLT_READY_TIMEOUT"))
+	v := strings.TrimSpace(os.Getenv("ADLG_DOLT_READY_TIMEOUT"))
 	if v == "" {
 		return defaultTimeout
 	}
 	secs, err := strconv.Atoi(v)
 	if err != nil || secs < 1 {
 		fmt.Fprintf(os.Stderr,
-			"Warning: ASDF_DOLT_READY_TIMEOUT=%q is not a positive integer; using default %s\n",
+			"Warning: ADLG_DOLT_READY_TIMEOUT=%q is not a positive integer; using default %s\n",
 			v, defaultTimeout)
 		return defaultTimeout
 	}
@@ -204,18 +204,18 @@ func readyTimeout() time.Duration {
 }
 
 // SharedServerDir returns the directory for shared server state files.
-// Returns ~/.asdf/shared-server/ (created on first use).
-// Override with ASDF_SHARED_SERVER_DIR env var for testing or custom layouts.
+// Returns ~/.adlg/shared-server/ (created on first use).
+// Override with ADLG_SHARED_SERVER_DIR env var for testing or custom layouts.
 func SharedServerDir() (string, error) {
 	var dir string
-	if d := os.Getenv("ASDF_SHARED_SERVER_DIR"); d != "" {
+	if d := os.Getenv("ADLG_SHARED_SERVER_DIR"); d != "" {
 		dir = d
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		dir = filepath.Join(home, ".asdf", "shared-server")
+		dir = filepath.Join(home, ".adlg", "shared-server")
 	}
 	if err := os.MkdirAll(dir, config.ASDFDirPerm); err != nil {
 		return "", fmt.Errorf("cannot create shared server directory %s: %w", dir, err)
@@ -224,7 +224,7 @@ func SharedServerDir() (string, error) {
 }
 
 // SharedDoltDir returns the dolt data directory for the shared server.
-// Returns ~/.asdf/shared-server/dolt/ (created on first use).
+// Returns ~/.adlg/shared-server/dolt/ (created on first use).
 func SharedDoltDir() (string, error) {
 	serverDir, err := SharedServerDir()
 	if err != nil {
@@ -238,8 +238,8 @@ func SharedDoltDir() (string, error) {
 }
 
 // resolveServerDir returns the canonical server directory for dolt state files.
-// In shared server mode, returns ~/.asdf/shared-server/ instead of the
-// project's .asdf/ directory.
+// In shared server mode, returns ~/.adlg/shared-server/ instead of the
+// project's .adlg/ directory.
 func resolveServerDir(asdfDir string) string {
 	if IsSharedServerMode() {
 		dir, err := SharedServerDir()
@@ -260,12 +260,12 @@ func ResolveServerDir(asdfDir string) string {
 }
 
 // ResolveDoltDir returns the dolt data directory for the given asdfDir.
-// It checks the ASDF_DOLT_DATA_DIR env var and metadata.json for a custom
-// dolt_data_dir, falling back to the default .asdf/dolt/ path.
+// It checks the ADLG_DOLT_DATA_DIR env var and metadata.json for a custom
+// dolt_data_dir, falling back to the default .adlg/dolt/ path.
 //
 // Note: we check for metadata.json existence before calling configfile.Load
 // to avoid triggering the config.json → metadata.json migration side effect,
-// which would create files in the .asdf/ directory unexpectedly.
+// which would create files in the .adlg/ directory unexpectedly.
 func ResolveDoltDir(asdfDir string) string {
 	// Shared server mode: use centralized dolt data directory
 	if IsSharedServerMode() {
@@ -278,7 +278,7 @@ func ResolveDoltDir(asdfDir string) string {
 	}
 
 	// Check env var first (highest priority)
-	if d := os.Getenv("ASDF_DOLT_DATA_DIR"); d != "" {
+	if d := os.Getenv("ADLG_DOLT_DATA_DIR"); d != "" {
 		if filepath.IsAbs(d) {
 			return d
 		}
@@ -296,7 +296,7 @@ func ResolveDoltDir(asdfDir string) string {
 
 // Config holds the server configuration.
 type Config struct {
-	ASDFDir string     // Path to .asdf/ directory
+	ASDFDir string     // Path to .adlg/ directory
 	Port    int        // MySQL protocol port (0 = allocate ephemeral port on Start)
 	Host    string     // Bind address (default: 127.0.0.1)
 	Mode    ServerMode // Server ownership mode (Owned, External, Embedded)
@@ -310,7 +310,7 @@ type State struct {
 	DataDir string `json:"data_dir"`
 }
 
-// file paths within .asdf/
+// file paths within .adlg/
 func pidPath(asdfDir string) string  { return filepath.Join(asdfDir, PIDFileName) }
 func logPath(asdfDir string) string  { return filepath.Join(asdfDir, "dolt-server.log") }
 func lockPath(asdfDir string) string { return filepath.Join(asdfDir, "dolt-server.lock") }
@@ -376,7 +376,7 @@ func reclaimPort(host string, port int, asdfDir string) (adoptPID int, err error
 
 	// Check if it's a dolt sql-server process
 	if !isDoltProcess(pid) {
-		return 0, fmt.Errorf("port %d is in use by a non-dolt process (PID %d).\n\nFree the port or configure a different one with: asdf dolt set port <port>", port, pid)
+		return 0, fmt.Errorf("port %d is in use by a non-dolt process (PID %d).\n\nFree the port or configure a different one with: adlg dolt set port <port>", port, pid)
 	}
 
 	// It's a dolt process. Check if it's one we should adopt.
@@ -388,8 +388,8 @@ func reclaimPort(host string, port int, asdfDir string) (adoptPID int, err error
 		return pid, nil // our server — adopt it
 	}
 
-	// Another asdf project's Dolt server is on this port.
-	return 0, fmt.Errorf("port %d is in use by another project's dolt server (PID %d).\n\nFree the port or use a different one with: asdf dolt set port <port>", port, pid)
+	// Another adlg project's Dolt server is on this port.
+	return 0, fmt.Errorf("port %d is in use by another project's dolt server (PID %d).\n\nFree the port or use a different one with: adlg dolt set port <port>", port, pid)
 }
 
 // countDoltProcesses returns the number of running dolt sql-server processes.
@@ -426,7 +426,7 @@ func writePortFile(asdfDir string, port int) error {
 
 // EnsurePortFile makes the repo-local port file match the connected server port.
 // This is a best-effort repair path for upgraded repos that are missing
-// .asdf/dolt-server.port even though commands can still connect.
+// .adlg/dolt-server.port even though commands can still connect.
 func EnsurePortFile(asdfDir string, port int) error {
 	if asdfDir == "" || port <= 0 {
 		return nil
@@ -442,7 +442,7 @@ func EnsurePortFile(asdfDir string, port int) error {
 }
 
 // ReadPortFile returns the port from the project's dolt-server.port file,
-// or 0 if the file doesn't exist or is invalid. Exported for use by asdf init
+// or 0 if the file doesn't exist or is invalid. Exported for use by adlg init
 // to detect whether this project has its own running server (GH#2336).
 func ReadPortFile(asdfDir string) int {
 	return readPortFile(asdfDir)
@@ -471,7 +471,7 @@ func DefaultConfig(asdfDir string) *Config {
 	}
 
 	// Check env var override first (used by tests and manual overrides)
-	if p := os.Getenv("ASDF_DOLT_SERVER_PORT"); p != "" {
+	if p := os.Getenv("ADLG_DOLT_SERVER_PORT"); p != "" {
 		if port, err := strconv.Atoi(p); err == nil {
 			cfg.Port = port
 			return cfg
@@ -506,8 +506,8 @@ func DefaultConfig(asdfDir string) *Config {
 		if metaCfg, err := configfile.Load(asdfDir); err == nil && metaCfg != nil {
 			if metaCfg.DoltServerPort > 0 {
 				fmt.Fprintf(os.Stderr, "Warning: dolt_server_port in metadata.json is deprecated (can cause cross-project data leakage).\n")
-				fmt.Fprintf(os.Stderr, "  The port file (.asdf/dolt-server.port) is now the primary source.\n")
-				fmt.Fprintf(os.Stderr, "  Remove dolt_server_port from .asdf/metadata.json to silence this warning.\n")
+				fmt.Fprintf(os.Stderr, "  The port file (.adlg/dolt-server.port) is now the primary source.\n")
+				fmt.Fprintf(os.Stderr, "  Remove dolt_server_port from .adlg/metadata.json to silence this warning.\n")
 				cfg.Port = metaCfg.DoltServerPort
 			}
 		}
@@ -592,7 +592,7 @@ func IsRunning(asdfDir string) (*State, error) {
 //
 // When metadata.json specifies an explicit dolt_server_port (indicating an
 // external/shared server, e.g. managed by systemd), EnsureRunning will NOT
-// start a new server. The external server's lifecycle is not asdf's
+// start a new server. The external server's lifecycle is not adlg's
 // responsibility — starting a per-project server would conflict with (or
 // kill) the shared server. See GH#2554.
 func EnsureRunning(asdfDir string) (int, error) {
@@ -629,9 +629,9 @@ func EnsureRunningDetailed(asdfDir string) (port int, startedByUs bool, err erro
 		cfg := DefaultConfig(asdfDir)
 		return 0, false, fmt.Errorf("Dolt server is not running on port %d, and auto-start is suppressed "+
 			"because the server is externally managed (dolt.auto-start: false or explicit port configured).\n\n"+
-			"Start the external server, or enable auto-start to allow asdf to manage the server.\n"+
-			"  To start manually: asdf dolt start\n"+
-			"  To check status: asdf dolt status", cfg.Port)
+			"Start the external server, or enable auto-start to allow adlg to manage the server.\n"+
+			"  To start manually: adlg dolt start\n"+
+			"  To check status: adlg dolt status", cfg.Port)
 	}
 
 	// Defense-in-depth: if dolt.auto-start is explicitly disabled in
@@ -640,10 +640,10 @@ func EnsureRunningDetailed(asdfDir string) (port int, startedByUs bool, err erro
 	if IsAutoStartDisabled() {
 		cfg := DefaultConfig(asdfDir)
 		return 0, false, fmt.Errorf("Dolt server unreachable (port %d) and auto-start is disabled "+
-			"(dolt.auto-start: false in config.yaml or ASDF_DOLT_AUTO_START=0).\n\n"+
+			"(dolt.auto-start: false in config.yaml or ADLG_DOLT_AUTO_START=0).\n\n"+
 			"Start the server manually or enable auto-start.\n"+
-			"  To start manually: asdf dolt start\n"+
-			"  To check status: asdf dolt status", cfg.Port)
+			"  To start manually: adlg dolt start\n"+
+			"  To check status: adlg dolt status", cfg.Port)
 	}
 
 	s, err := Start(serverDir)
@@ -656,8 +656,8 @@ func EnsureRunningDetailed(asdfDir string) (port int, startedByUs bool, err erro
 // doltServerLogLevel is the --loglevel value passed to `dolt sql-server`.
 //
 // Dolt's sql-server logs every new connection and connection close at INFO
-// level (`msg=NewConnection` / `msg=ConnectionClosed`). Because asdf opens
-// a fresh MySQL connection for each `asdf` invocation, a busy project can
+// level (`msg=NewConnection` / `msg=ConnectionClosed`). Because adlg opens
+// a fresh MySQL connection for each `adlg` invocation, a busy project can
 // produce millions of lines of connection churn noise, which in one field
 // report filled dolt-server.log with ~380 MB of useless entries, generated
 // significant btrfs write pressure, and buried real error signals.
@@ -717,7 +717,7 @@ func Start(asdfDir string) (*State, error) {
 
 	if err := lockfile.FlockExclusiveNonBlocking(lockF); err != nil {
 		if lockfile.IsLocked(err) {
-			// Another asdf process is starting the server — wait for it
+			// Another adlg process is starting the server — wait for it
 			if err := lockfile.FlockExclusiveBlocking(lockF); err != nil {
 				return nil, fmt.Errorf("waiting for server start lock: %w", err)
 			}
@@ -747,7 +747,7 @@ func Start(asdfDir string) (*State, error) {
 	// Clean up orphaned dolt sql-server processes INSIDE the lock.
 	// This MUST happen under the lock to prevent a race where one process
 	// kills a server that another process is in the middle of starting
-	// (PID file not yet written). Without this, concurrent asdf processes
+	// (PID file not yet written). Without this, concurrent adlg processes
 	// can cause journal corruption (GH#2430).
 	if killed, killErr := KillStaleServers(asdfDir); killErr == nil && len(killed) > 0 {
 		fmt.Fprintf(os.Stderr, "Info: cleaned up %d orphaned dolt sql-server process(es)\n", len(killed))
@@ -875,13 +875,13 @@ func Start(asdfDir string) (*State, error) {
 		_ = logFile.Close()
 
 		if lastErr != nil {
-			// GH#3290 / asdf-6dnrw.6: unclean-shutdown manifest corruption is
+			// GH#3290 / adlg-6dnrw.6: unclean-shutdown manifest corruption is
 			// detected here but never auto-repaired — reinitializing .dolt is
-			// destructive, so repair stays behind explicit asdf doctor --fix.
+			// destructive, so repair stays behind explicit adlg doctor --fix.
 			if dirs, detErr := detectCorruptManifest(asdfDir, doltDir); detErr == nil && len(dirs) > 0 {
 				return nil, fmt.Errorf("failed to start dolt server after %d attempts: %w\n"+
 					"Corrupt manifest with no recoverable data detected (GH#3290) in:\n  %s\n"+
-					"Run 'asdf doctor --fix' to back up the corrupt database(s) and reinitialize.\nCheck logs: %s",
+					"Run 'adlg doctor --fix' to back up the corrupt database(s) and reinitialize.\nCheck logs: %s",
 					attempts, lastErr, strings.Join(dirs, "\n  "), logPath(asdfDir))
 			}
 			return nil, fmt.Errorf("failed to start dolt server after %d attempts: %w\nCheck logs: %s",
@@ -1023,7 +1023,7 @@ func FlushWorkingSet(host string, port int) error {
 		var hasChanges bool
 		row := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) > 0 FROM `%s`.dolt_status", dbName))
 		if err := row.Scan(&hasChanges); err != nil {
-			// dolt_status may not exist for non-asdf databases; skip
+			// dolt_status may not exist for non-adlg databases; skip
 			continue
 		}
 		if !hasChanges {
@@ -1070,7 +1070,7 @@ func StopWithForce(asdfDir string, force bool) error {
 	}
 	if !state.Running {
 		// Server not running — still clean up any leftover state files
-		// so asdf dolt status won't report stale state (GH#2670).
+		// so adlg dolt status won't report stale state (GH#2670).
 		// Join cleanup errors with the sentinel so callers can still use
 		// errors.Is(err, ErrServerNotRunning) while operators see filesystem issues.
 		cleanupErr := cleanupStateFiles(asdfDir)
@@ -1121,20 +1121,20 @@ func LogPath(asdfDir string) string {
 
 // killStaleServersForDir finds and kills orphan dolt sql-server processes for
 // the current repo's Dolt data directory that are not tracked by the canonical
-// PID file. Only processes that asdf started (tracked via the PID file) are
+// PID file. Only processes that adlg started (tracked via the PID file) are
 // eligible for cleanup. Externally-managed servers are never killed.
 //
 // A process is considered "external" (never kill) when any of:
 //   - ResolveServerMode() returns ServerModeExternal (explicit port, shared server, etc.)
-//   - No PID file exists (asdf has no record of starting a server)
+//   - No PID file exists (adlg has no record of starting a server)
 func killStaleServersForDir(asdfDir string, allPIDs []int, inDir func(int, string) bool, kill func(int) error) ([]int, error) {
 	if len(allPIDs) == 0 {
 		return nil, nil
 	}
 
 	// If auto-start is disabled the server is externally managed (e.g., by
-	// systemd or a manual asdf dolt start), so we must not kill any processes.
-	// IsAutoStartDisabled covers the ASDF_DOLT_AUTO_START env var and
+	// systemd or a manual adlg dolt start), so we must not kill any processes.
+	// IsAutoStartDisabled covers the ADLG_DOLT_AUTO_START env var and
 	// dolt.auto-start config; ResolveServerMode covers explicit port/shared
 	// server/embedded configurations. Both indicate "not our server" (GH#2641).
 	if IsAutoStartDisabled() || ResolveServerMode(asdfDir) == ServerModeExternal {
@@ -1144,7 +1144,7 @@ func killStaleServersForDir(asdfDir string, allPIDs []int, inDir func(int, strin
 	serverDir := resolveServerDir(asdfDir)
 
 	// Read the canonical PID from the PID file. If there is no PID file,
-	// asdf has no record of having started a server for this directory,
+	// adlg has no record of having started a server for this directory,
 	// so there is nothing stale to clean up. This prevents killing
 	// externally-started servers (systemd, other repos sharing a data dir).
 	var canonicalPID int
@@ -1154,14 +1154,14 @@ func killStaleServersForDir(asdfDir string, allPIDs []int, inDir func(int, strin
 		}
 	}
 	if canonicalPID == 0 {
-		// No valid PID file → no asdf-owned server to compare against.
+		// No valid PID file → no adlg-owned server to compare against.
 		// Nothing is stale from our perspective.
 		return nil, nil
 	}
 
 	// The canonical PID itself is alive and tracked — never kill it.
 	// Only kill OTHER dolt processes in our data dir (orphans from a
-	// previous asdf-started server that lost its PID file tracking).
+	// previous adlg-started server that lost its PID file tracking).
 	ownedDoltDir := ResolveDoltDir(serverDir)
 
 	var killed []int
@@ -1186,9 +1186,9 @@ func killStaleServersForDir(asdfDir string, allPIDs []int, inDir func(int, strin
 // current repo's Dolt data directory that are not tracked by the canonical PID
 // file. Returns the PIDs of killed processes.
 //
-// When auto-start is disabled (ASDF_DOLT_AUTO_START=0 or dolt.auto-start:
+// When auto-start is disabled (ADLG_DOLT_AUTO_START=0 or dolt.auto-start:
 // false), this function is a no-op — the dolt server is externally managed
-// and must not be killed by asdf (GH#2641).
+// and must not be killed by adlg (GH#2641).
 func KillStaleServers(asdfDir string) ([]int, error) {
 	if IsAutoStartDisabled() {
 		return nil, nil
@@ -1234,8 +1234,8 @@ func ensureDoltIdentity() error {
 	}
 
 	// Try to get identity from git
-	gitName := "asdf"
-	gitEmail := "asdf@localhost"
+	gitName := "adlg"
+	gitEmail := "adlg@localhost"
 
 	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
 		if name := strings.TrimSpace(string(out)); name != "" {
@@ -1258,13 +1258,13 @@ func ensureDoltIdentity() error {
 	return nil
 }
 
-// bdDoltMarker is written after a current asdf process creates or acknowledges a
+// bdDoltMarker is written after a current adlg process creates or acknowledges a
 // local Dolt repository. Its absence in an existing .dolt/ directory indicates
-// the database was created by a pre-0.56 asdf version (which used embedded mode).
+// the database was created by a pre-0.56 adlg version (which used embedded mode).
 // Those databases are incompatible with the current server-only architecture.
-const bdDoltMarker = ".asdf-dolt-ok"
+const bdDoltMarker = ".adlg-dolt-ok"
 
-// MarkDoltDirCompatible writes the canonical asdf compatibility marker when
+// MarkDoltDirCompatible writes the canonical adlg compatibility marker when
 // doltDir contains a local Dolt repository. It no-ops when there is no .dolt/
 // directory, which lets server and repair paths call it defensively.
 func MarkDoltDirCompatible(doltDir string) error {
@@ -1293,7 +1293,7 @@ func MarkDoltDirCompatible(doltDir string) error {
 }
 
 // ensureDoltInit initializes a dolt database directory if .dolt/ doesn't exist.
-// If .dolt/ exists, seeds the .asdf-dolt-ok marker for existing working databases.
+// If .dolt/ exists, seeds the .adlg-dolt-ok marker for existing working databases.
 // See GH#2137 for background on pre-0.56 database compatibility.
 func ensureDoltInit(doltDir string) error {
 	if err := os.MkdirAll(doltDir, config.ASDFDirPerm); err != nil {
@@ -1324,7 +1324,7 @@ func ensureDoltInit(doltDir string) error {
 }
 
 // RecoverPreV56DoltDir removes and reinitializes a dolt database that was
-// created by a pre-0.56 asdf version. Call this during version upgrade detection
+// created by a pre-0.56 adlg version. Call this during version upgrade detection
 // (e.g., from autoMigrateOnVersionBump when previousVersion < 0.56).
 //
 // Pre-0.56 databases used embedded Dolt mode with a different Dolt library
@@ -1343,7 +1343,7 @@ func RecoverPreV56DoltDir(doltDir string) (bool, error) {
 		return false, nil // Marker exists — database is from 0.56+
 	}
 
-	fmt.Fprintf(os.Stderr, "Detected dolt database from an older asdf version (pre-0.56).\n")
+	fmt.Fprintf(os.Stderr, "Detected dolt database from an older adlg version (pre-0.56).\n")
 	fmt.Fprintf(os.Stderr, "Rebuilding dolt database at %s ...\n", doltDir)
 
 	if err := os.RemoveAll(dotDolt); err != nil {
@@ -1360,7 +1360,7 @@ func RecoverPreV56DoltDir(doltDir string) (bool, error) {
 }
 
 // IsPreV56DoltDir returns true if doltDir contains a .dolt/ directory that
-// was NOT created by asdf 0.56+ (missing .asdf-dolt-ok marker). These databases
+// was NOT created by adlg 0.56+ (missing .adlg-dolt-ok marker). These databases
 // were created by the old embedded Dolt mode and may be incompatible.
 // Used by doctor checks to detect potentially problematic dolt databases.
 func IsPreV56DoltDir(doltDir string) bool {

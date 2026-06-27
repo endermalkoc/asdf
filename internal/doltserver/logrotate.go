@@ -1,18 +1,18 @@
 // Rotation for dolt-server.log.
 //
 // Background: dolt sql-server writes stdout/stderr straight into
-// .asdf/dolt-server.log. There is no streaming goroutine — the child process
+// .adlg/dolt-server.log. There is no streaming goroutine — the child process
 // owns the file descriptor directly — so we cannot interpose a size-limiting
 // writer without fundamentally changing how the log is captured. This file
 // implements the simplest thing that works: a startup-time size check that
 // rotates the file if it exceeds a configurable ceiling.
 //
 // Policy:
-//   - At Start() time, if .asdf/dolt-server.log is larger than maxLogBytes,
-//     rename it to .asdf/dolt-server.log.1 (overwriting any existing .log.1)
+//   - At Start() time, if .adlg/dolt-server.log is larger than maxLogBytes,
+//     rename it to .adlg/dolt-server.log.1 (overwriting any existing .log.1)
 //     and allow the subsequent OpenFile to create a fresh empty file.
 //   - The threshold defaults to DefaultMaxLogBytes (50 MB) and may be
-//     overridden with the ASDF_DOLT_LOG_MAX_BYTES env var (bytes).
+//     overridden with the ADLG_DOLT_LOG_MAX_BYTES env var (bytes).
 //   - Rotation failures are non-fatal: if we can't rotate, we log a debug
 //     message and fall through to the existing open path so the server still
 //     starts. Running with an oversized log is better than refusing to start.
@@ -40,7 +40,7 @@ const DefaultMaxLogBytes int64 = 50 * 1024 * 1024
 
 // EnvMaxLogBytes is the environment variable that overrides DefaultMaxLogBytes.
 // Value is interpreted as a decimal integer number of bytes.
-const EnvMaxLogBytes = "ASDF_DOLT_LOG_MAX_BYTES"
+const EnvMaxLogBytes = "ADLG_DOLT_LOG_MAX_BYTES"
 
 // maxLogBytes returns the effective size ceiling, honoring the env override.
 // An unset, empty, or unparseable value falls back to the default. A value

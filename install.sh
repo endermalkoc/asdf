@@ -1,21 +1,20 @@
 #!/bin/sh
-# Install the ASDF (Agentic Software Development Framework) CLI from GitHub Releases.
+# Install the ADLG (Agentic Delivery Lifecycle Graph) CLI from GitHub Releases.
 #
 #   curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh | sh
 #
 # Environment overrides:
-#   ASDF_VERSION       version/tag to install, e.g. v0.1.0   (default: latest release)
-#   ASDF_INSTALL_DIR   directory to install into             (default: /usr/local/bin,
+#   ADLG_VERSION       version/tag to install, e.g. v0.1.0   (default: latest release)
+#   ADLG_INSTALL_DIR   directory to install into             (default: /usr/local/bin,
 #                                                             falling back to ~/.local/bin)
 #
-# NOTE: the installed binary is named `asdf`, which collides with the asdf
-# version manager (https://asdf-vm.com). If you use that, set ASDF_INSTALL_DIR
-# to a directory that precedes/follows it on PATH as you prefer.
+# The installed binary is named `adlg`. Set ADLG_INSTALL_DIR to choose where it
+# lands on PATH.
 
 set -eu
 
 REPO="endermalkoc/asdf"
-BINARY="asdf"
+BINARY="adlg"
 
 log()  { printf '%s\n' "$*" >&2; }
 err()  { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -48,12 +47,12 @@ case "$arch" in
 esac
 
 # ── resolve version ─────────────────────────────────────────────────────────
-version="${ASDF_VERSION:-}"
+version="${ADLG_VERSION:-}"
 if [ -z "$version" ]; then
   log "Resolving latest release…"
   version=$(dl "https://api.github.com/repos/$REPO/releases/latest" \
     | grep '"tag_name":' | head -n1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-  [ -n "$version" ] || err "could not determine latest release (set ASDF_VERSION=vX.Y.Z to pin one)"
+  [ -n "$version" ] || err "could not determine latest release (set ADLG_VERSION=vX.Y.Z to pin one)"
 fi
 vnum=${version#v} # archive names use the version without the leading 'v'
 
@@ -63,7 +62,7 @@ base="https://github.com/$REPO/releases/download/$version"
 log "Installing $BINARY $version ($os/$arch)…"
 
 # ── download + verify + extract in a temp dir ───────────────────────────────
-tmp=$(mktemp -d 2>/dev/null || mktemp -d -t asdf)
+tmp=$(mktemp -d 2>/dev/null || mktemp -d -t adlg)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 dlo "$base/$asset" "$tmp/$asset" || err "download failed: $base/$asset"
@@ -95,7 +94,7 @@ tar -xzf "$tmp/$asset" -C "$tmp" || err "failed to extract $asset"
 chmod +x "$tmp/$BINARY"
 
 # ── choose an install dir and place the binary ──────────────────────────────
-dir="${ASDF_INSTALL_DIR:-/usr/local/bin}"
+dir="${ADLG_INSTALL_DIR:-/usr/local/bin}"
 install_to() { # $1 = dir
   mkdir -p "$1" 2>/dev/null || return 1
   if [ -w "$1" ]; then
@@ -110,10 +109,10 @@ install_to() { # $1 = dir
 
 if install_to "$dir"; then
   :
-elif [ -z "${ASDF_INSTALL_DIR:-}" ] && install_to "$HOME/.local/bin"; then
+elif [ -z "${ADLG_INSTALL_DIR:-}" ] && install_to "$HOME/.local/bin"; then
   dir="$HOME/.local/bin"
 else
-  err "could not write to $dir (set ASDF_INSTALL_DIR to a writable directory)"
+  err "could not write to $dir (set ADLG_INSTALL_DIR to a writable directory)"
 fi
 
 log ""

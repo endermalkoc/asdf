@@ -4,7 +4,7 @@ package storage
 import "time"
 
 // These value types were salvaged from beads. Where beads embedded its concrete
-// *types.Issue (the node state at a commit / either side of a diff), ASDF keeps
+// *types.Issue (the node state at a commit / either side of a diff), ADLG keeps
 // the state opaque as a column→value row (map[string]any) so the package stays
 // free of any entity model — the concrete store decodes a row into whichever
 // entity the NodeID refers to.

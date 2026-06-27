@@ -1,5 +1,5 @@
-ASDF — Agentic Software Development Framework
-Copyright (c) 2026 ASDF Contributors
+ADLG — Agentic Delivery Lifecycle Graph
+Copyright (c) 2026 ADLG Contributors
 
 This product includes software developed by the Beads project.
 
@@ -8,7 +8,7 @@ This product includes software developed by the Beads project.
   Licensed under the MIT License.
 
 The following packages were salvaged from beads (the MIT license terms are
-satisfied by retaining this notice). They provide ASDF's Dolt infrastructure:
+satisfied by retaining this notice). They provide ADLG's Dolt infrastructure:
 embedded/owned/external Dolt SQL server management, the warm "proxied server"
 daemon, and the version-control / remote / sync / federation operations. Import
 paths were rewritten from github.com/steveyegge/beads to

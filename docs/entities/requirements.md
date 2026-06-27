@@ -61,7 +61,7 @@ self-reference to the base FR. Delivery metadata is inline. See
 > `layer = shared` when `= shared`; `milestone_id` required when `= not-implemented`) are now **data,
 > not prose** — they live in the [`delivery_status`](#deliverystatus) table's policy columns
 > (`requires_e2e_test` / `requires_shared_test` / `requires_milestone`) and are enforced by the future
-> `asdf check`.
+> `adlg check`.
 
 ## DeliveryStatus
 A **lookup table** for `Requirement.delivery_status` — the one enum that earned its own table because it

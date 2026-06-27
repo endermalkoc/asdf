@@ -21,9 +21,9 @@ var (
 
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "Import external corpora into ASDF",
-	Long: "Import external corpora into ASDF. Today this is a read-only parse-and-report:\n" +
-		"the adapter walks the source and stages an ASDF graph so it can be eyeballed\n" +
+	Short: "Import external corpora into ADLG",
+	Long: "Import external corpora into ADLG. Today this is a read-only parse-and-report:\n" +
+		"the adapter walks the source and stages an ADLG graph so it can be eyeballed\n" +
 		"against the data model before any write path is wired.",
 }
 
@@ -31,7 +31,7 @@ var importTutorCmd = &cobra.Command{
 	Use:   "tutor <docs-path>",
 	Short: "Parse the tutor docs corpus and report the staged graph (no writes)",
 	Long: "Parse the tutor documentation corpus (the directory containing specs/ and\n" +
-		"fr-registry/) into ASDF's entity shapes and print counts, a coverage histogram,\n" +
+		"fr-registry/) into ADLG's entity shapes and print counts, a coverage histogram,\n" +
 		"and drift / ER-gap findings. This is deterministic and read-only — it never\n" +
 		"connects to the database. Use --json to emit the full staged graph + report.",
 	Args: cobra.ExactArgs(1),

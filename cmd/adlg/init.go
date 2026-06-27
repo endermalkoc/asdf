@@ -21,15 +21,15 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create an ASDF workspace (.asdf/) and its Dolt database in this repo",
-	Long: "Initializes an ASDF workspace: creates .asdf/, starts a managed (owned) dolt\n" +
+	Short: "Create an ADLG workspace (.adlg/) and its Dolt database in this repo",
+	Long: "Initializes an ADLG workspace: creates .adlg/, starts a managed (owned) dolt\n" +
 		"sql-server, applies the schema, and records the initial Dolt commit. Requires the\n" +
 		"`dolt` binary on PATH.",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
-		// 1. Locate the project root (init a git repo if needed); create .asdf/.
+		// 1. Locate the project root (init a git repo if needed); create .adlg/.
 		root, err := git.GetMainRepoRoot()
 		if err != nil {
 			if _, e := exec.Command("git", "init").CombinedOutput(); e != nil {
@@ -39,14 +39,14 @@ var initCmd = &cobra.Command{
 				return err
 			}
 		}
-		asdfDir := filepath.Join(root, ".asdf")
+		asdfDir := filepath.Join(root, ".adlg")
 		if _, statErr := os.Stat(configfile.ConfigPath(asdfDir)); statErr == nil {
 			if !initForce {
-				return fmt.Errorf("ASDF workspace already exists at %s (pass --force to delete and reinitialize)", asdfDir)
+				return fmt.Errorf("ADLG workspace already exists at %s (pass --force to delete and reinitialize)", asdfDir)
 			}
 			// --force: tear down the existing workspace so we can rebuild from scratch.
 			// Stop the managed server (idempotent — ErrServerNotRunning is fine), then
-			// remove .asdf entirely. The DB is reproducible (re-import), so this is the
+			// remove .adlg entirely. The DB is reproducible (re-import), so this is the
 			// fast reset loop while the schema is still churning.
 			if err := doltserver.IgnoreNotRunning(doltserver.Stop(asdfDir)); err != nil {
 				return fmt.Errorf("stopping existing dolt server: %w", err)
@@ -106,7 +106,7 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("staging schema: %w", err)
 		}
 		if _, err := conn.ExecContext(ctx, "CALL DOLT_COMMIT('-m', ?, '--author', ?)",
-			"asdf init", actor.CommitAuthorString()); err != nil {
+			"adlg init", actor.CommitAuthorString()); err != nil {
 			return fmt.Errorf("initial commit: %w", err)
 		}
 
@@ -120,8 +120,8 @@ var initCmd = &cobra.Command{
 			return err
 		}
 
-		emit(map[string]any{"asdf_dir": asdfDir, "database": dbName, "migrations": n, "port": state.Port},
-			fmt.Sprintf("initialized ASDF workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
+		emit(map[string]any{"adlg_dir": asdfDir, "database": dbName, "migrations": n, "port": state.Port},
+			fmt.Sprintf("initialized ADLG workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
 				asdfDir, dbName, n, state.Port))
 		return nil
 	},
@@ -131,6 +131,6 @@ var initForce bool
 
 func init() {
 	initCmd.Flags().BoolVar(&initForce, "force", false,
-		"if a workspace already exists, stop its server, delete .asdf, and reinitialize from scratch")
+		"if a workspace already exists, stop its server, delete .adlg, and reinitialize from scratch")
 	rootCmd.AddCommand(initCmd)
 }

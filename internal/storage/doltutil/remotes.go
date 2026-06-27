@@ -50,7 +50,7 @@ func IsGitProtocolURL(url string) bool {
 // PersistedRemotes reads the Dolt remotes recorded in
 // <dbPath>/.dolt/repo_state.json directly, without shelling out to the dolt
 // CLI — so it works when the dolt binary is absent and its failure modes are
-// distinguishable (asdf-6dnrw.33). A missing .dolt directory or repo_state.json
+// distinguishable (adlg-6dnrw.33). A missing .dolt directory or repo_state.json
 // means "not a dolt repository here" and returns (nil, nil); an unreadable or
 // unparseable file returns an error so callers can tell "definitely none"
 // from "could not tell". Results are sorted by name.

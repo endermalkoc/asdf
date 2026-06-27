@@ -1,4 +1,4 @@
-# ASDF Entity-Relationship Model
+# ADLG Entity-Relationship Model
 
 > **Moved.** The data model was split into [docs/entities/](entities/index.md) — it had
 > grown too large for one file.

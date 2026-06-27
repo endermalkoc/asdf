@@ -214,7 +214,7 @@ func forkExecChild(rootDir string, opts OpenOpts, port int, lock *util.Lock) (*e
 
 	self, err := ResolveExecutable()
 	if err != nil {
-		return nil, nil, fmt.Errorf("locate asdf executable: %w", err)
+		return nil, nil, fmt.Errorf("locate adlg executable: %w", err)
 	}
 
 	idleTimeout := opts.IdleTimeout

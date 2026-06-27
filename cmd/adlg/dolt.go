@@ -16,7 +16,7 @@ var (
 var doltCmd = &cobra.Command{
 	Use:   "dolt",
 	Short: "Sync the database with a Dolt remote (push/pull/fetch, manage remotes)",
-	Long: "ASDF's store is a Dolt database, so syncing a version-controlled knowledge graph is\n" +
+	Long: "ADLG's store is a Dolt database, so syncing a version-controlled knowledge graph is\n" +
 		"`dolt push`/`pull` over the canonical branch. Remote/branch default to origin/main.\n" +
 		"Authenticated remotes: pass --user and set DOLT_REMOTE_PASSWORD in the server's env.",
 }
@@ -82,7 +82,7 @@ var doltRemoteLsCmd = &cobra.Command{
 			return nil
 		}
 		if len(remotes) == 0 {
-			fmt.Println("(no remotes — add one with `asdf dolt remote add <name> <url>`)")
+			fmt.Println("(no remotes — add one with `adlg dolt remote add <name> <url>`)")
 			return nil
 		}
 		for _, r := range remotes {

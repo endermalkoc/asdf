@@ -20,9 +20,9 @@ var edgeAddCmd = &cobra.Command{
 	Short: "Link two entities with a typed edge (deterministic, merge-convergent id)",
 	Long: "Add a typed edge between any two keyed entities. Each endpoint is a TYPE:key\n" +
 		"reference; a bare value is taken as a requirement fr_key. Examples:\n" +
-		"  asdf edge add ATT-FR-002 refines ATT-FR-001\n" +
-		"  asdf edge add SPEC:ADDS depends_on ENTITY:Student\n" +
-		"  asdf edge add REQ:ATT-FR-012 relates MILESTONE:M4\n" +
+		"  adlg edge add ATT-FR-002 refines ATT-FR-001\n" +
+		"  adlg edge add SPEC:ADDS depends_on ENTITY:Student\n" +
+		"  adlg edge add REQ:ATT-FR-012 relates MILESTONE:M4\n" +
 		"Both endpoints must already exist (validated on the target branch). For the acyclic\n" +
 		"kinds (refines, depends_on, supersedes, defers_to) the edge is rejected if it would\n" +
 		"create a cycle. The id is derived from the edge's identity, so re-adding it is a no-op.",

@@ -9,18 +9,18 @@ import (
 )
 
 const (
-	// ASDFDirPerm is the permission mode for .asdf/ directories (owner-only).
+	// ASDFDirPerm is the permission mode for .adlg/ directories (owner-only).
 	ASDFDirPerm fs.FileMode = 0700
-	// ASDFFilePerm is the permission mode for state files inside .asdf/ (owner-only).
+	// ASDFFilePerm is the permission mode for state files inside .adlg/ (owner-only).
 	ASDFFilePerm fs.FileMode = 0600
 )
 
-// EnsureASDFDir creates the .asdf directory with secure permissions.
+// EnsureASDFDir creates the .adlg directory with secure permissions.
 func EnsureASDFDir(path string) error {
 	return os.MkdirAll(path, ASDFDirPerm)
 }
 
-// CheckASDFDirPermissions warns to stderr if the .asdf directory has
+// CheckASDFDirPermissions warns to stderr if the .adlg directory has
 // group or world-accessible permissions. The check is non-fatal.
 func CheckASDFDirPermissions(path string) {
 	info, err := os.Stat(path)
@@ -33,7 +33,7 @@ func CheckASDFDirPermissions(path string) {
 	}
 }
 
-// FixASDFDirPermissions sets the .asdf directory to ASDFDirPerm when it
+// FixASDFDirPermissions sets the .adlg directory to ASDFDirPerm when it
 // has group or world-accessible bits. Returns true if permissions changed.
 func FixASDFDirPermissions(path string) (bool, error) {
 	info, err := os.Stat(path)

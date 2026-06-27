@@ -8,8 +8,8 @@ import (
 
 // The active changeset is the ambient changeset branch mutating commands target
 // when no --changeset is given — analogous to git's HEAD. It is recorded in
-// `.asdf/active_changeset` and is project-local (shared across worktrees, which
-// share one `.asdf`).
+// `.adlg/active_changeset` and is project-local (shared across worktrees, which
+// share one `.adlg`).
 
 func (w *Workspace) activeChangesetPath() string {
 	return filepath.Join(w.ASDFDir, "active_changeset")

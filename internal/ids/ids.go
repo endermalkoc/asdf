@@ -1,4 +1,4 @@
-// Package ids mints ASDF's primary keys.
+// Package ids mints ADLG's primary keys.
 //
 // Two strategies, per docs/entities/identifiers.md:
 //   - New() — a time-ordered ULID for authored rows (collision-free, offline-mintable).
@@ -14,7 +14,7 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// relNamespace is the fixed UUIDv5 namespace for ASDF relationship ids. It is
+// relNamespace is the fixed UUIDv5 namespace for ADLG relationship ids. It is
 // derived once from a stable URL and must never change: changing it would re-key
 // every relationship row and reintroduce the cross-clone divergence Rel exists to
 // prevent (cf. beads' depid/rowid, the technique this generalizes).

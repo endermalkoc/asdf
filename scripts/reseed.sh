@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# reseed.sh — rebuild the asdf binary and reset a workspace from scratch:
+# reseed.sh — rebuild the adlg binary and reset a workspace from scratch:
 # delete the database, reinitialize (applies the current schema), and re-import the
 # tutor corpus. This is the fast iteration loop while the schema is still churning —
 # we don't bother with forward migrations; we just rebuild from the source of truth.
 #
-# The managed dolt server is pinned to a fixed port (ASDF_DOLT_SERVER_PORT) so Dolt
+# The managed dolt server is pinned to a fixed port (ADLG_DOLT_SERVER_PORT) so Dolt
 # Workbench keeps the same connection across reseeds — no manual server, no handoff.
 #
 # Usage:   scripts/reseed.sh
@@ -12,7 +12,7 @@
 #   WORKSPACE   workspace dir to (re)seed         (default: $HOME/asdf-tutor)
 #   CORPUS      tutor docs corpus to import       (default: $HOME/repos/endermalkoc/tutor/docs)
 #   PORT        managed dolt server port          (default: 3306)
-#   NO_GENERATE set to 1 to skip `asdf generate`  (default: generate runs)
+#   NO_GENERATE set to 1 to skip `adlg generate`  (default: generate runs)
 set -euo pipefail
 
 WORKSPACE="${WORKSPACE:-$HOME/asdf-tutor}"
@@ -30,8 +30,8 @@ command -v go   >/dev/null || { echo "reseed: 'go' not found on PATH" >&2; exit 
 command -v dolt >/dev/null || { echo "reseed: 'dolt' not found on PATH" >&2; exit 1; }
 [ -d "$CORPUS/specs" ] || { echo "reseed: corpus not found at $CORPUS (no specs/)" >&2; exit 1; }
 
-echo "==> building asdf from $REPO"
-go build -C "$REPO" -o "$WORKSPACE/asdf" ./cmd/asdf
+echo "==> building adlg from $REPO"
+go build -C "$REPO" -o "$WORKSPACE/adlg" ./cmd/adlg
 
 # Free the port: stop a dolt server still bound to it (managed or hand-started), so the
 # data dir lock is released before init --force wipes and rebinds. Only kills dolt.
@@ -42,18 +42,18 @@ if [ -n "${pid:-}" ] && tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q
   sleep 2
 fi
 
-export ASDF_DOLT_SERVER_PORT="$PORT"
+export ADLG_DOLT_SERVER_PORT="$PORT"
 cd "$WORKSPACE"
 
-echo "==> asdf init --force  (port $PORT)"
-./asdf init --force
+echo "==> adlg init --force  (port $PORT)"
+./adlg init --force
 
-echo "==> asdf import tutor --apply"
-./asdf import tutor "$CORPUS" --apply
+echo "==> adlg import tutor --apply"
+./adlg import tutor "$CORPUS" --apply
 
 if [ "${NO_GENERATE:-0}" != "1" ]; then
-  echo "==> asdf generate"
-  ./asdf generate
+  echo "==> adlg generate"
+  ./adlg generate
 fi
 
 echo

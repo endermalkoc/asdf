@@ -43,7 +43,7 @@ var generateCmd = &cobra.Command{
 }
 
 func init() {
-	generateCmd.Flags().StringVar(&generateOut, "out", ".asdf/generated",
+	generateCmd.Flags().StringVar(&generateOut, "out", ".adlg/generated",
 		"output directory for generated artifacts")
 	generateCmd.Flags().StringVar(&generateFormat, "format", "md",
 		"output format: md | json | html")

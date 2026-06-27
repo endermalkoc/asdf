@@ -30,7 +30,7 @@ shapes:
   **composite column pair *is* the PK**. Identical links converge automatically.
 - **`Edge`, `EntityRef`, and `TestResult`** — keep a surrogate `id` (`Edge`/`EntityRef` are
   polymorphic; `TestResult` is externally referenced and carries payload), but **derive it
-  deterministically** from the `UNIQUE` identity: `id = uuidv5(asdf-rel-namespace, identity-columns)`
+  deterministically** from the `UNIQUE` identity: `id = uuidv5(adlg-rel-namespace, identity-columns)`
   (a fixed namespace + the identity columns joined by a separator that cannot occur in them). The
   derivation uses only the immutable identity columns, **never** mutable payload (a `TestResult`'s
   `status`), so editing payload never re-keys the row.

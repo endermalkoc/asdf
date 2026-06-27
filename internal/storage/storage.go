@@ -1,9 +1,9 @@
-// Package storage holds ASDF's storage contracts.
+// Package storage holds ADLG's storage contracts.
 //
 // The Dolt version-control / remote / sync / federation interfaces and their
 // value types were salvaged from beads (see NOTICE) and are pure infrastructure.
 // The issue-domain `Storage` interface that beads composed alongside them was
-// NOT lifted — ASDF's own entity store (Spec / Requirement / TestCase / Edge / …,
+// NOT lifted — ADLG's own entity store (Spec / Requirement / TestCase / Edge / …,
 // per ER.md) will grow here instead, keeping the core generic (CLAUDE.md #4).
 //
 // `RemoteInfo`, `Conflict`, `SyncStatus`, `FederationPeer`, etc. live in
@@ -16,7 +16,7 @@ package storage
 // DoltStorage is an opaque handle to a Dolt-backed store, composed of the
 // salvaged version-control infrastructure contracts. The salvaged
 // remotecache/doltutil packages only pass it through (open and return); they
-// never invoke its methods. ASDF's concrete store will implement this and extend
+// never invoke its methods. ADLG's concrete store will implement this and extend
 // it with the real entity operations.
 type DoltStorage interface {
 	VersionControl

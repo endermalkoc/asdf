@@ -6,7 +6,7 @@
 # Validate this file:                  make release-check
 version: 2
 
-project_name: asdf
+project_name: adlg
 
 before:
   hooks:
@@ -15,9 +15,9 @@ before:
     - go mod download
 
 builds:
-  - id: asdf
-    main: ./cmd/asdf
-    binary: asdf
+  - id: adlg
+    main: ./cmd/adlg
+    binary: adlg
     env:
       - CGO_ENABLED=0 # pure-Go build → trivial cross-compilation, fully static binary
     goos:

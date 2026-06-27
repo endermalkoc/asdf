@@ -11,7 +11,7 @@
 
 > These are **authored business-domain documents**, not a projection of the technical
 > schema. They describe what an entity *means* — purpose, domain properties, relationships,
-> business rules, validations, access — in domain language. ASDF owns them as the canonical
+> business rules, validations, access — in domain language. ADLG owns them as the canonical
 > domain glossary; they do **not** mirror or sync from a database schema, and a property
 > here need not correspond one-to-one with a stored column. The full narrative lives in the
 > entity's own [`EntitySection`](#entitysection) prose (the entity is a first-class document,

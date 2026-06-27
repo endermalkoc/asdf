@@ -15,10 +15,10 @@ var configOutDir string
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Read and edit the workspace config (.asdf/config.json)",
+	Short: "Read and edit the workspace config (.adlg/config.json)",
 	Long: "Manage project-local workspace settings. The `generate` section controls incremental\n" +
 		"auto-generation: when enabled, every change committed to main re-materializes only the\n" +
-		"affected documents in each configured format. Output defaults to .asdf/artifacts/<format>.",
+		"affected documents in each configured format. Output defaults to .adlg/artifacts/<format>.",
 	RunE: func(cmd *cobra.Command, args []string) error { return showConfig() },
 }
 
@@ -43,10 +43,10 @@ var configGenerateEnableCmd = &cobra.Command{
 		return editConfig(func(c *workspace.Config) error {
 			c.Generate.Enabled = true
 			if len(c.Generate.Formats) == 0 {
-				fmt.Fprintln(os.Stderr, "note: no formats configured yet — add one with `asdf config generate add <format>`")
+				fmt.Fprintln(os.Stderr, "note: no formats configured yet — add one with `adlg config generate add <format>`")
 			}
 			return nil
-		}, "auto-generation enabled (run `asdf config generate sync` to materialize now)")
+		}, "auto-generation enabled (run `adlg config generate sync` to materialize now)")
 	},
 }
 
@@ -64,7 +64,7 @@ var configGenerateDisableCmd = &cobra.Command{
 
 var configGenerateAddCmd = &cobra.Command{
 	Use:   "add <format>",
-	Short: "Add (or re-point) an auto-generated format; --out overrides .asdf/artifacts/<format>",
+	Short: "Add (or re-point) an auto-generated format; --out overrides .adlg/artifacts/<format>",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, err := canonicalFormat(args[0])
@@ -85,7 +85,7 @@ var configGenerateAddCmd = &cobra.Command{
 				c.Generate.Formats = append(c.Generate.Formats, fc)
 			}
 			return nil
-		}, fmt.Sprintf("format %q configured (run `asdf config generate sync` to materialize now)", format))
+		}, fmt.Sprintf("format %q configured (run `adlg config generate sync` to materialize now)", format))
 	},
 }
 
@@ -131,7 +131,7 @@ var configGenerateSyncCmd = &cobra.Command{
 			return nil
 		}
 		if len(st.Formats) == 0 {
-			fmt.Println("no formats configured — add one with `asdf config generate add <format>`")
+			fmt.Println("no formats configured — add one with `adlg config generate add <format>`")
 			return nil
 		}
 		fmt.Printf("synced %s: %d written, %d removed\n", strings.Join(st.Formats, ", "), st.Written, st.Removed)
@@ -140,7 +140,7 @@ var configGenerateSyncCmd = &cobra.Command{
 }
 
 func init() {
-	configGenerateAddCmd.Flags().StringVar(&configOutDir, "out", "", "output directory (default .asdf/artifacts/<format>)")
+	configGenerateAddCmd.Flags().StringVar(&configOutDir, "out", "", "output directory (default .adlg/artifacts/<format>)")
 	configGenerateCmd.AddCommand(configGenerateEnableCmd, configGenerateDisableCmd, configGenerateAddCmd, configGenerateRemoveCmd, configGenerateSyncCmd)
 	configCmd.AddCommand(configShowCmd, configGenerateCmd)
 	rootCmd.AddCommand(configCmd)
@@ -160,7 +160,7 @@ func canonicalFormat(format string) (string, error) {
 	}
 }
 
-// configDir resolves the workspace `.asdf` directory for config-file edits, which need no
+// configDir resolves the workspace `.adlg` directory for config-file edits, which need no
 // database connection. It requires the workspace to exist.
 func configDir() (string, error) {
 	asdfDir, err := workspace.ResolveASDFDir()
@@ -168,7 +168,7 @@ func configDir() (string, error) {
 		return "", err
 	}
 	if _, statErr := os.Stat(asdfDir); statErr != nil {
-		return "", fmt.Errorf("no ASDF workspace at %s — run `asdf init` first", asdfDir)
+		return "", fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", asdfDir)
 	}
 	return asdfDir, nil
 }

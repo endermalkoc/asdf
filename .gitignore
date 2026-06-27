@@ -1,5 +1,5 @@
 # ── Generated knowledge artifacts ──────────────────────────────────────────
-# ASDF renders Markdown + HTML from the Dolt DB (the source of truth).
+# ADLG renders Markdown + HTML from the Dolt DB (the source of truth).
 # These are disposable, always-regenerable, and MUST NOT be committed or edited.
 /generated/
 *.generated.md
@@ -10,7 +10,7 @@
 .dolt/
 
 # ── Go build output ────────────────────────────────────────────────────────
-/asdf
+/adlg
 /dist/
 *.exe
 *.test

@@ -11,18 +11,18 @@ import (
 
 // DefaultCredentialsPath returns the platform-appropriate default credentials file path.
 // Linux/macOS: ~/.config/asdf/credentials
-// Windows: %APPDATA%\asdf\credentials
+// Windows: %APPDATA%\adlg\credentials
 func DefaultCredentialsPath() string {
 	if runtime.GOOS == "windows" {
 		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "asdf", "credentials")
+			return filepath.Join(appdata, "adlg", "credentials")
 		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "asdf", "credentials")
+	return filepath.Join(home, ".config", "adlg", "credentials")
 }
 
 // LookupCredentialsPassword reads a password from an INI-style credentials file,
@@ -33,14 +33,14 @@ func DefaultCredentialsPath() string {
 //	[127.0.0.1:3307]
 //	password=localDevPassword
 //
-//	[asdf.company.com:3307]
+//	[adlg.company.com:3307]
 //	password=teamServerPassword
 //
 // The file path is determined by:
-//  1. ASDF_CREDENTIALS_FILE env var (if set)
+//  1. ADLG_CREDENTIALS_FILE env var (if set)
 //  2. Default platform path (see DefaultCredentialsPath)
 func LookupCredentialsPassword(host string, port int) string {
-	credFile := os.Getenv("ASDF_CREDENTIALS_FILE")
+	credFile := os.Getenv("ADLG_CREDENTIALS_FILE")
 	if credFile == "" {
 		credFile = DefaultCredentialsPath()
 	}

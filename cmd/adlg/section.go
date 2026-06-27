@@ -103,7 +103,7 @@ func (ns sectionNS) sectionCmd() *cobra.Command {
 					if _, ok, e := ns.typeByKey(vctx, r, flagSectionType); e != nil {
 						return e
 					} else if !ok {
-						return fmt.Errorf("unknown section type %q — create it first:\n  asdf %s section-type add %s --title <t> --position <n>",
+						return fmt.Errorf("unknown section type %q — create it first:\n  adlg %s section-type add %s --title <t> --position <n>",
 							flagSectionType, ns.noun, flagSectionType)
 					}
 					return nil

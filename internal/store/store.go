@@ -1,4 +1,4 @@
-// Package store is ASDF's entity store. Its functions operate on an Execer (a
+// Package store is ADLG's entity store. Its functions operate on an Execer (a
 // *sql.DB, *sql.Conn, or *sql.Tx), so the caller controls the connection and
 // transaction — reads run on a pinned *sql.Conn, writes run inside the *sql.Tx
 // the mutation wrapper (internal/app) owns. IDs are minted client-side: ULIDs

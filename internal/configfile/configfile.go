@@ -22,7 +22,7 @@ type Config struct {
 	// Deletions configuration
 	DeletionsRetentionDays int `json:"deletions_retention_days,omitempty"` // 0 means use default (3 days)
 
-	// Dolt connection mode configuration (asdf-dolt.2.2)
+	// Dolt connection mode configuration (adlg-dolt.2.2)
 	// "embedded" (default for standalone) runs Dolt in-process.
 	// "server" connects to an external dolt sql-server (required for orchestrator / multi-writer).
 	DoltMode           string `json:"dolt_mode,omitempty"`            // "embedded" (default) or "server"
@@ -30,13 +30,13 @@ type Config struct {
 	DoltServerPort     int    `json:"dolt_server_port,omitempty"`     // Server port (default: 3307)
 	DoltServerSocket   string `json:"dolt_server_socket,omitempty"`   // Unix domain socket path (overrides host/port)
 	DoltServerUser     string `json:"dolt_server_user,omitempty"`     // MySQL user (default: root)
-	DoltDatabase       string `json:"dolt_database,omitempty"`        // SQL database name (default: asdf)
+	DoltDatabase       string `json:"dolt_database,omitempty"`        // SQL database name (default: adlg)
 	DoltServerTLS      bool   `json:"dolt_server_tls,omitempty"`      // Enable TLS for server connections (required for Hosted Dolt)
-	DoltDataDir        string `json:"dolt_data_dir,omitempty"`        // Custom dolt data directory (absolute path; default: .asdf/dolt)
+	DoltDataDir        string `json:"dolt_data_dir,omitempty"`        // Custom dolt data directory (absolute path; default: .adlg/dolt)
 	DoltRemotesAPIPort int    `json:"dolt_remotesapi_port,omitempty"` // Dolt remotesapi port for federation (default: 8080)
-	// Note: Password should be set via ASDF_DOLT_PASSWORD env var for security
+	// Note: Password should be set via ADLG_DOLT_PASSWORD env var for security
 
-	// Project identity — unique ID generated at asdf init time.
+	// Project identity — unique ID generated at adlg init time.
 	// Used to detect cross-project data leakage when a client connects
 	// to the wrong Dolt server (GH#2372).
 	ProjectID string `json:"project_id,omitempty"`
@@ -51,13 +51,13 @@ type Config struct {
 	// Deprecated: LastBdVersion is no longer used for version tracking.
 	// Version is now stored in .local_version (gitignored) to prevent
 	// upgrade notifications firing after git operations reset metadata.json.
-	// asdf-tok: This field is kept for backwards compatibility when reading old configs.
+	// adlg-tok: This field is kept for backwards compatibility when reading old configs.
 	LastBdVersion string `json:"last_bd_version,omitempty"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		Database: "asdf.db",
+		Database: "adlg.db",
 	}
 }
 
@@ -130,7 +130,7 @@ func (c *Config) Save(asdfDir string) error {
 
 func (c *Config) DatabasePath(asdfDir string) string {
 	// Check for custom dolt data directory (absolute path on a faster filesystem).
-	// This is useful on WSL where .asdf/ lives on NTFS (slow 9P mount) but
+	// This is useful on WSL where .adlg/ lives on NTFS (slow 9P mount) but
 	// dolt data can be placed on native ext4 for 5-10x I/O speedup.
 	if customDir := c.GetDoltDataDir(); customDir != "" {
 		if filepath.IsAbs(customDir) {
@@ -182,7 +182,7 @@ const (
 // single-process-only unless using server mode.
 type BackendCapabilities struct {
 	// SingleProcessOnly indicates the backend must not be accessed from multiple
-	// ASDF OS processes concurrently.
+	// ADLG OS processes concurrently.
 	SingleProcessOnly bool
 }
 
@@ -221,7 +221,7 @@ const (
 	DefaultDoltServerHost     = "127.0.0.1"
 	DefaultDoltServerPort     = 3307 // Use 3307 to avoid conflict with MySQL on 3306
 	DefaultDoltServerUser     = "root"
-	DefaultDoltDatabase       = "asdf"
+	DefaultDoltDatabase       = "adlg"
 	DefaultDoltRemotesAPIPort = 8080 // Default dolt remotesapi port for federation
 )
 
@@ -229,8 +229,8 @@ const (
 // Server mode is the standard connection method.
 //
 // Checks (in priority order):
-//  1. ASDF_DOLT_SERVER_MODE=1 env var
-//  2. ASDF_DOLT_SHARED_SERVER env var (shared-server implies server mode)
+//  1. ADLG_DOLT_SERVER_MODE=1 env var
+//  2. ADLG_DOLT_SHARED_SERVER env var (shared-server implies server mode)
 //  3. dolt_mode field in metadata.json (project-local, explicit)
 //  4. dolt.mode in config.yaml (user-global fallback, only when metadata.json has no mode)
 //
@@ -240,12 +240,12 @@ func (c *Config) IsDoltServerMode() bool {
 	if c.GetBackend() != BackendDolt {
 		return false
 	}
-	if os.Getenv("ASDF_DOLT_SERVER_MODE") == "1" {
+	if os.Getenv("ADLG_DOLT_SERVER_MODE") == "1" {
 		return true
 	}
 	// Shared-server mode implies server-backed storage. Check env var
 	// directly to avoid circular import with doltserver package.
-	if v := os.Getenv("ASDF_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
+	if v := os.Getenv("ADLG_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
 		return true
 	}
 	if c.DoltMode != "" {
@@ -275,13 +275,13 @@ func (c *Config) GetDoltMode() string {
 }
 
 // GetDoltServerHost returns the Dolt server host.
-// Priority: ASDF_DOLT_SERVER_HOST env var > metadata.json dolt_server_host
+// Priority: ADLG_DOLT_SERVER_HOST env var > metadata.json dolt_server_host
 // > config.yaml / global config dolt.host > DefaultDoltServerHost.
 // The config.yaml layer mirrors the dolt.port fix (GH#2073) so a shared
 // team / user-level Dolt server can be configured once without per-clone
 // metadata.json edits.
 func (c *Config) GetDoltServerHost() string {
-	if h := os.Getenv("ASDF_DOLT_SERVER_HOST"); h != "" {
+	if h := os.Getenv("ADLG_DOLT_SERVER_HOST"); h != "" {
 		return h
 	}
 	if c.DoltServerHost != "" {
@@ -299,15 +299,15 @@ func (c *Config) GetDoltServerHost() string {
 // Kept for backward compatibility with external consumers.
 //
 // GetDoltServerPort returns the Dolt server port.
-// Checks ASDF_DOLT_SERVER_PORT env var first, then ASDF_DOLT_PORT (orchestrator sets this),
+// Checks ADLG_DOLT_SERVER_PORT env var first, then ADLG_DOLT_PORT (orchestrator sets this),
 // then config, then default.
 func (c *Config) GetDoltServerPort() int {
-	if p := os.Getenv("ASDF_DOLT_SERVER_PORT"); p != "" {
+	if p := os.Getenv("ADLG_DOLT_SERVER_PORT"); p != "" {
 		if port, err := strconv.Atoi(p); err == nil {
 			return port
 		}
 	}
-	if p := os.Getenv("ASDF_DOLT_PORT"); p != "" {
+	if p := os.Getenv("ADLG_DOLT_PORT"); p != "" {
 		if port, err := strconv.Atoi(p); err == nil {
 			return port
 		}
@@ -319,18 +319,18 @@ func (c *Config) GetDoltServerPort() int {
 }
 
 // GetDoltServerSocket returns the Dolt server Unix domain socket path.
-// Checks ASDF_DOLT_SERVER_SOCKET env var first, then config. Empty means use TCP.
+// Checks ADLG_DOLT_SERVER_SOCKET env var first, then config. Empty means use TCP.
 func (c *Config) GetDoltServerSocket() string {
-	if s := os.Getenv("ASDF_DOLT_SERVER_SOCKET"); s != "" {
+	if s := os.Getenv("ADLG_DOLT_SERVER_SOCKET"); s != "" {
 		return s
 	}
 	return c.DoltServerSocket
 }
 
 // GetDoltServerUser returns the Dolt server MySQL user.
-// Checks ASDF_DOLT_SERVER_USER env var first, then config, then default.
+// Checks ADLG_DOLT_SERVER_USER env var first, then config, then default.
 func (c *Config) GetDoltServerUser() string {
-	if u := os.Getenv("ASDF_DOLT_SERVER_USER"); u != "" {
+	if u := os.Getenv("ADLG_DOLT_SERVER_USER"); u != "" {
 		return u
 	}
 	if c.DoltServerUser != "" {
@@ -340,9 +340,9 @@ func (c *Config) GetDoltServerUser() string {
 }
 
 // GetDoltDatabase returns the Dolt SQL database name.
-// Checks ASDF_DOLT_SERVER_DATABASE env var first, then config, then default.
+// Checks ADLG_DOLT_SERVER_DATABASE env var first, then config, then default.
 func (c *Config) GetDoltDatabase() string {
-	if d := os.Getenv("ASDF_DOLT_SERVER_DATABASE"); d != "" {
+	if d := os.Getenv("ADLG_DOLT_SERVER_DATABASE"); d != "" {
 		return d
 	}
 	if c.DoltDatabase != "" {
@@ -363,9 +363,9 @@ func (c *Config) GetGlobalProjectID() string {
 
 // GetDoltServerPassword returns the Dolt server password.
 // Checks in order:
-//  1. ASDF_DOLT_PASSWORD env var (highest priority, existing behavior)
+//  1. ADLG_DOLT_PASSWORD env var (highest priority, existing behavior)
 //  2. Credentials file lookup by [host:port] section
-//     (path from ASDF_CREDENTIALS_FILE env var, or ~/.config/asdf/credentials)
+//     (path from ADLG_CREDENTIALS_FILE env var, or ~/.config/asdf/credentials)
 //  3. Empty string (no password)
 //
 // Note: uses the port from configfile (metadata.json / env var), which may differ
@@ -383,7 +383,7 @@ func (c *Config) GetDoltServerPassword() string {
 // doltserver port file says 3307 (local), causing the credentials file lookup
 // to use the wrong [host:port] section.
 func (c *Config) GetDoltServerPasswordForPort(port int) string {
-	if p := os.Getenv("ASDF_DOLT_PASSWORD"); p != "" {
+	if p := os.Getenv("ADLG_DOLT_PASSWORD"); p != "" {
 		return p
 	}
 	host := c.GetDoltServerHost()
@@ -395,30 +395,30 @@ func (c *Config) GetDoltServerPasswordForPort(port int) string {
 
 // GetDoltServerTLS returns whether TLS is enabled for server connections.
 // Required for Hosted Dolt instances.
-// Checks ASDF_DOLT_SERVER_TLS env var first ("1" or "true"), then config.
+// Checks ADLG_DOLT_SERVER_TLS env var first ("1" or "true"), then config.
 func (c *Config) GetDoltServerTLS() bool {
-	if t := os.Getenv("ASDF_DOLT_SERVER_TLS"); t != "" {
+	if t := os.Getenv("ADLG_DOLT_SERVER_TLS"); t != "" {
 		return t == "1" || strings.ToLower(t) == "true"
 	}
 	return c.DoltServerTLS
 }
 
 // GetDoltDataDir returns the custom dolt data directory path.
-// When set, dolt stores its data in this directory instead of .asdf/dolt/.
+// When set, dolt stores its data in this directory instead of .adlg/dolt/.
 // This is useful on WSL where the project lives on a slow NTFS mount (9P)
 // but dolt data can be placed on native ext4 for significantly better I/O.
-// Checks ASDF_DOLT_DATA_DIR env var first, then config.
+// Checks ADLG_DOLT_DATA_DIR env var first, then config.
 func (c *Config) GetDoltDataDir() string {
-	if d := os.Getenv("ASDF_DOLT_DATA_DIR"); d != "" {
+	if d := os.Getenv("ADLG_DOLT_DATA_DIR"); d != "" {
 		return d
 	}
 	return c.DoltDataDir
 }
 
 // GetDoltRemotesAPIPort returns the Dolt remotesapi port used for federation.
-// Checks ASDF_DOLT_REMOTESAPI_PORT env var first, then config, then default (8080).
+// Checks ADLG_DOLT_REMOTESAPI_PORT env var first, then config, then default (8080).
 func (c *Config) GetDoltRemotesAPIPort() int {
-	if p := os.Getenv("ASDF_DOLT_REMOTESAPI_PORT"); p != "" {
+	if p := os.Getenv("ADLG_DOLT_REMOTESAPI_PORT"); p != "" {
 		if port, err := strconv.Atoi(p); err == nil {
 			return port
 		}

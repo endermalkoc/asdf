@@ -1,13 +1,13 @@
-# ASDF — Agentic Software Development Framework
+# ADLG — Agentic Delivery Lifecycle Graph
 
 > **Status: early implementation.** The Dolt infrastructure (salvaged from
-> [beads](https://github.com/steveyegge/beads), MIT; see [NOTICE](NOTICE)), the schema, **`asdf
+> [beads](https://github.com/steveyegge/beads), MIT; see [NOTICE](NOTICE)), the schema, **`adlg
 > init`**, the command contract, the core verbs (`domain`/`spec`/`req`/`edge`), and the
 > **changeset (PR) flow** are built and verified against real Dolt. Generation, `check`/`impact`,
 > remote sync, the MCP server, and import are next — see [ROADMAP.md](docs/ROADMAP.md). Some
 > commands in the table below run today; others are still the *planned* surface.
 
-ASDF is a command-line tool, backed by a [Dolt](https://www.dolthub.com/) database, that
+ADLG is a command-line tool, backed by a [Dolt](https://www.dolthub.com/) database, that
 serves as the **version-controlled system of record for everything a software project knows
 about itself** — domains, specs, user stories, functional requirements, tests, milestones,
 deliverables, and the links between them. It is built to be driven equally by **humans and
@@ -35,7 +35,7 @@ is one queryable graph, and nothing reads or writes across all of it.
 
 ## The idea
 
-Put it all in one place, as one graph, in a database that branches and merges like code. ASDF
+Put it all in one place, as one graph, in a database that branches and merges like code. ADLG
 **inverts the model**: the database is the first-class artifact, and the Markdown is the
 throwaway scaffolding — the exact opposite of treating generated `.md` files as the spec. That
 inversion is what fixes the four failures above:
@@ -51,15 +51,15 @@ inversion is what fixes the four failures above:
 - **Two interfaces, one store.** Humans and agents **read, write, and validate through the
   CLI or an MCP server**. The generated Markdown is an optional *fast read path* for
   agents; it is never a write path.
-- **Traceability & impact.** Because everything is one linked graph, ASDF can **validate**
+- **Traceability & impact.** Because everything is one linked graph, ADLG can **validate**
   (e.g. every requirement covered by a test, every deliverable linked) and answer
   **impact** questions ("what breaks if this requirement changes?"). *(traceable + verifiable)*
-- **Generic core.** ASDF is domain-agnostic. Its data model was pressure-tested against a
+- **Generic core.** ADLG is domain-agnostic. Its data model was pressure-tested against a
   real corpus, but the core carries no project- or tenant-specific assumptions.
 
 ## Who it's for (and who it isn't)
 
-ASDF is infrastructure, and infrastructure is overhead until the thing it manages gets big
+ADLG is infrastructure, and infrastructure is overhead until the thing it manages gets big
 enough to lose track of. Below that line, skip it:
 
 - **Not** a weekend project or a vibe-coding session — the ceremony will only slow you down.
@@ -104,20 +104,20 @@ The full intended surface. For the subset that **runs today** — with examples 
 
 | Command | Purpose |
 |---|---|
-| `asdf init` | Create / connect the Dolt database |
-| `asdf spec` · `asdf req` · `asdf test` … | Create, link, and query nodes |
-| `asdf query <…>` | Ad-hoc queries over the graph |
-| `asdf generate` | Regenerate Markdown + HTML from the DB |
-| `asdf check` | Validate traceability / consistency |
-| `asdf impact <id>` | Show what a change affects |
-| `asdf import <source>` | Generic migration import |
-| `asdf serve --mcp` | Run the MCP server |
+| `adlg init` | Create / connect the Dolt database |
+| `adlg spec` · `adlg req` · `adlg test` … | Create, link, and query nodes |
+| `adlg query <…>` | Ad-hoc queries over the graph |
+| `adlg generate` | Regenerate Markdown + HTML from the DB |
+| `adlg check` | Validate traceability / consistency |
+| `adlg impact <id>` | Show what a change affects |
+| `adlg import <source>` | Generic migration import |
+| `adlg serve --mcp` | Run the MCP server |
 
 ## Install
 
 > Releases are cut by [GoReleaser](https://goreleaser.com) on every `v*` tag and published to
 > [GitHub Releases](https://github.com/endermalkoc/asdf/releases) as static, single-file
-> binaries for Linux/macOS/Windows (amd64 + arm64). The CLI surface is still early — `asdf
+> binaries for Linux/macOS/Windows (amd64 + arm64). The CLI surface is still early — `adlg
 > version` works today; data commands need a running Dolt server (see [build/run](CLAUDE.md#build--run)).
 
 **Install script** (Linux/macOS — downloads the right binary and verifies its checksum):
@@ -126,51 +126,50 @@ The full intended surface. For the subset that **runs today** — with examples 
 curl -fsSL https://raw.githubusercontent.com/endermalkoc/asdf/main/install.sh | sh
 ```
 
-Pin a version or change the location with `ASDF_VERSION=v0.1.0` / `ASDF_INSTALL_DIR=~/.local/bin`.
+Pin a version or change the location with `ADLG_VERSION=v0.1.0` / `ADLG_INSTALL_DIR=~/.local/bin`.
 
 **With Go** (any platform):
 
 ```sh
-go install github.com/endermalkoc/asdf/cmd/asdf@latest
+go install github.com/endermalkoc/asdf/cmd/adlg@latest
 ```
 
 **From source:**
 
 ```sh
 git clone https://github.com/endermalkoc/asdf && cd asdf
-make build   # → ./asdf   (make install puts it on your PATH)
+make build   # → ./adlg   (make install puts it on your PATH)
 ```
 
-> The binary is named `asdf`, which collides with the [asdf version manager](https://asdf-vm.com)
-> (see the name note below); use `ASDF_INSTALL_DIR` to control PATH precedence.
+> The binary is named `adlg`. Use `ADLG_INSTALL_DIR` to control where it lands on `PATH`.
 
 ## Usage
 
 What runs today. (For the full planned surface see the [illustrative table](#planned-commands-illustrative) above.)
 
-> **Prerequisite:** the [`dolt`](https://github.com/dolthub/dolt) binary on your `PATH`. `asdf init`
+> **Prerequisite:** the [`dolt`](https://github.com/dolthub/dolt) binary on your `PATH`. `adlg init`
 > starts and manages a `dolt sql-server` for you — no separate database setup. To use a server you
-> run yourself, pass `--dsn` (or set `ASDF_DSN`). From a source checkout, every `asdf <cmd>` below
-> can be run as `go run ./cmd/asdf <cmd>`.
+> run yourself, pass `--dsn` (or set `ADLG_DSN`). From a source checkout, every `adlg <cmd>` below
+> can be run as `go run ./cmd/adlg <cmd>`.
 
 ### Quickstart
 
 ```sh
 # 1. Create a workspace in your repo (starts a managed Dolt server, applies the schema)
-asdf init
+adlg init
 
 # 2. Add a domain, a spec under it, and a requirement
-asdf domain add enrollment Enrollment --description "Student lifecycle"
-asdf spec   add enrollment/add-student.md --domain enrollment --prefix ADDS --title "Add Student"
-asdf req    add ADDS "System MUST require first and last name" --delivery covered
+adlg domain add enrollment Enrollment --description "Student lifecycle"
+adlg spec   add enrollment/add-student.md --domain enrollment --prefix ADDS --title "Add Student"
+adlg req    add ADDS "System MUST require first and last name" --delivery covered
 
 # 3. List what you created
-asdf domain ls
-asdf req ls ADDS
+adlg domain ls
+adlg req ls ADDS
 
 # 4. Link two requirements in the cross-reference graph
-asdf req  add ADDS "System MUST default Student Type to Child"
-asdf edge add ADDS-FR-002 refines ADDS-FR-001
+adlg req  add ADDS "System MUST default Student Type to Child"
+adlg edge add ADDS-FR-002 refines ADDS-FR-001
 ```
 
 Each write becomes **one Dolt commit** attributed to you (`--actor`, else your git user / `$USER`).
@@ -180,25 +179,25 @@ Each write becomes **one Dolt commit** attributed to you (`--actor`, else your g
 Bundle many edits onto one reviewable branch instead of committing each to `main`:
 
 ```sh
-asdf changeset start "wave 1"     # opens changeset/wave-1 and makes it the active target
-asdf req add ADDS "..."           # subsequent edits land on the changeset, not main
-asdf changeset diff               # combined diff vs base (the PR view)
-asdf changeset submit             # mark open for review (records the head commit)
-asdf changeset merge              # merge into main   (or: abandon to discard + delete the branch)
-asdf changeset ls                 # list changesets (* marks the active one); alias: asdf cs
+adlg changeset start "wave 1"     # opens changeset/wave-1 and makes it the active target
+adlg req add ADDS "..."           # subsequent edits land on the changeset, not main
+adlg changeset diff               # combined diff vs base (the PR view)
+adlg changeset submit             # mark open for review (records the head commit)
+adlg changeset merge              # merge into main   (or: abandon to discard + delete the branch)
+adlg changeset ls                 # list changesets (* marks the active one); alias: adlg cs
 ```
 
 Any mutating command also accepts `--changeset <name>` for a one-off target without making it active.
 
 ### Import the tutor corpus
 
-A deterministic, no-LLM parse of the `tutor` documentation corpus into ASDF's entity shapes:
+A deterministic, no-LLM parse of the `tutor` documentation corpus into ADLG's entity shapes:
 
 ```sh
-asdf import tutor ../tutor/docs                    # parse + report (counts, coverage, drift) — no writes
-asdf import tutor ../tutor/docs --json             # the full staged graph + report as JSON
-asdf import tutor ../tutor/docs --apply            # load it through the command contract (one commit)
-asdf import tutor ../tutor/docs --apply --changeset import-tutor   # …onto a changeset branch
+adlg import tutor ../tutor/docs                    # parse + report (counts, coverage, drift) — no writes
+adlg import tutor ../tutor/docs --json             # the full staged graph + report as JSON
+adlg import tutor ../tutor/docs --apply            # load it through the command contract (one commit)
+adlg import tutor ../tutor/docs --apply --changeset import-tutor   # …onto a changeset branch
 ```
 
 `--apply` is idempotent — re-running converges instead of duplicating.
@@ -207,19 +206,19 @@ asdf import tutor ../tutor/docs --apply --changeset import-tutor   # …onto a c
 
 | Command | Purpose |
 |---|---|
-| `asdf init` | Create `.asdf/` + a managed Dolt database in the current repo |
-| `asdf version` | Print version, commit, and build date |
-| `asdf domain add <abbr> <name>` | Add a domain (`--kind`, `--description`) |
-| `asdf domain ls` | List domains |
-| `asdf spec add <path>` | Add a spec doc (`--domain` required; `--prefix`, `--title`, `--kind`) |
-| `asdf req add <spec-prefix> <statement>` | Add a requirement — auto-numbers, derives the FR key (`--delivery`, `--milestone-id`) |
-| `asdf req ls <spec-prefix>` | List a spec's requirements |
-| `asdf edge add <from-fr> <kind> <to-fr>` | Link two requirements (`kind`: references \| refines \| depends_on \| supersedes \| relates \| defers_to) |
-| `asdf changeset start \| diff \| submit \| merge \| abandon \| ls` | The changeset (PR) flow (alias `cs`) |
-| `asdf import tutor <docs>` | Parse the tutor corpus; add `--apply` to load it |
+| `adlg init` | Create `.adlg/` + a managed Dolt database in the current repo |
+| `adlg version` | Print version, commit, and build date |
+| `adlg domain add <abbr> <name>` | Add a domain (`--kind`, `--description`) |
+| `adlg domain ls` | List domains |
+| `adlg spec add <path>` | Add a spec doc (`--domain` required; `--prefix`, `--title`, `--kind`) |
+| `adlg req add <spec-prefix> <statement>` | Add a requirement — auto-numbers, derives the FR key (`--delivery`, `--milestone-id`) |
+| `adlg req ls <spec-prefix>` | List a spec's requirements |
+| `adlg edge add <from-fr> <kind> <to-fr>` | Link two requirements (`kind`: references \| refines \| depends_on \| supersedes \| relates \| defers_to) |
+| `adlg changeset start \| diff \| submit \| merge \| abandon \| ls` | The changeset (PR) flow (alias `cs`) |
+| `adlg import tutor <docs>` | Parse the tutor corpus; add `--apply` to load it |
 
 **Global flags:** `--json` (machine-readable output) · `--actor <handle>` (attribution) ·
-`--changeset <name>` (target a changeset) · `--dsn <dsn>` (use an external Dolt server, env `ASDF_DSN`).
+`--changeset <name>` (target a changeset) · `--dsn <dsn>` (use an external Dolt server, env `ADLG_DSN`).
 
 ## Tech stack
 
@@ -247,8 +246,10 @@ Inspired by — and building on the Dolt infrastructure of — [beads](https://g
 - [docs/build-and-release.md](docs/build-and-release.md) — build, versioning, release, install, `.gitignore` policy
 - [CLAUDE.md](CLAUDE.md) — guidance for agents and contributors
 
-> **Name note:** "asdf" collides with the popular [asdf version manager](https://asdf-vm.com/);
-> the published binary / command name may change.
+> **Name note:** the command is `adlg` (**A**gentic **D**elivery **L**ifecycle **G**raph). It was
+> renamed from `asdf` to avoid colliding with the popular
+> [asdf version manager](https://asdf-vm.com/). The Go module path / repo
+> (`github.com/endermalkoc/asdf`) is unchanged.
 
 ## License
 

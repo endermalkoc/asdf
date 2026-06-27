@@ -132,7 +132,7 @@ func (s *DoltServer) doltConfigure(ctx context.Context) error {
 	if out, err := probe.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
 		return nil
 	}
-	name, email := "asdf", "asdf@localhost"
+	name, email := "adlg", "adlg@localhost"
 	if out, err := exec.CommandContext(ctx, "git", "config", "user.name").Output(); err == nil {
 		if v := strings.TrimSpace(string(out)); v != "" {
 			name = v
