@@ -33,7 +33,7 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
 | **Open Knowledge Format (OKF)** | interop with Google's [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): each concept is one `.md` with a YAML **frontmatter** block (`---`) + markdown body; concept id = file path minus `.md` (`tables/users.md` → `tables/users`); reserved `index.md` (grouped listings / progressive disclosure) + `log.md` (newest-first change history); frontmatter is **required `type`** + recommended `title`/`description`/`resource`/`tags`/`timestamp` (unknown fields preserved); cross-references are **plain markdown links** — bundle-absolute (`/tables/customers.md`) or relative (`./other.md`) — treated as **untyped directed edges** (relationship type lives in prose) | **TODO (requested).** ADLG already aligns closely: generated docs carry YAML frontmatter + H1 + body, we emit `index.md` sitemap pages, and our Dolt history is essentially `log.md` (`adlg log`). **Two options, decision deferred:** (a) an **OKF adapter** — import OKF bundles through the staging core + export an OKF bundle as a `generate` format (`--format okf`, with a generated `log.md` from `dolt_log`); or (b) **make the default Markdown output OKF-shaped** — frontmatter keyed to OKF (`type` ← ADLG layer, plus `title`/`description`/`tags`/`timestamp`) and cross-references rendered as **standard markdown links** (`/path.md`) instead of the current Obsidian wikilinks + `^block` anchors. **Gaps to bridge either way:** wikilink/block-ref → plain markdown link; map ADLG layers (spec/entity/requirement/term) → OKF `type`; add `log.md`; reconcile our `index.md` tree with OKF's listing convention. |
 | **Validation & analysis — remaining** | richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship`, `adlg doctor` (health + auto-fix), drift detection | **`adlg check`** (inline-ref + cycle integrity) and **`adlg impact <ref>`** (graph traversal, `--transitive`) first slices are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship` too, `doctor`/`drift` (adapt beads patterns; we have `schema.CheckForwardDrift`-style hooks). |
 | **Query / inspect — optional extensions** | a higher-level `query` DSL, a standalone `adlg diff <from> <to>` | `adlg sql`/`stats`/`search`/`log` are **done** (see [CHANGELOG.md](CHANGELOG.md)). These extensions are optional, not blocking. |
-| **Agent integration** | `adlg setup` → install into **Claude Code**, Codex, Cursor, Gemini, Aider, opencode; the **MCP server** (`adlg serve --mcp`) | **requested ("initialize into Claude Code").** Mirror beads' `cmd/bd/setup` (same agent targets). MCP is in the README roadmap. |
+| **Agent integration (CLI-first)** | `adlg setup` installs the **skill + instructions** (CLAUDE.md/AGENTS.md/`.cursor/…`) **+ a `prime`-style SessionStart hook** that injects live state (the open changeset, ready work) into context — for **Claude Code**, Codex, Cursor, Gemini, Aider, opencode. The **MCP server** (`adlg serve --mcp`) is **secondary** | **requested.** Mirror beads' `cmd/bd/{setup,prime}` + hooks. **CLI + skill + hooks is the primary path** for shell-capable agents: beads' own [beads-mcp README] measures it at **~1–2k context tokens vs ~10–50k for MCP tool schemas**, and it reuses the single `Mutate` write path the command contract already mandates (no second surface to keep in sync). **MCP is demoted to a fallback** for shell-less hosts (Claude Desktop) — a thin adapter over `Mutate`, not a second source of truth. Valued, kept in the pocket, not required. |
 | **DB maintenance** | `adlg backup`/`restore`, `gc` (Dolt GC), `compact`/`flatten` (history compaction) | Infra lifted in `versioncontrolops` (gc/compact/flatten); wire the CLI. |
 | **CLI polish** | **help system** (rich help + examples, `help-all` overview), shell completion | **requested (help).** Cobra gives base help/completion; add per-command examples and a top-level overview. |
 
@@ -78,6 +78,87 @@ how `check`/validation degrade when a reference points into a **not-installed** 
 dangling). This warrants a new entry in [decisions.md](entities/decisions.md) and likely a `module` entity in
 the model once the design firms up.
 
+## Plan generation (requirements changeset → plan)
+
+**Requested.** A **planning skill** (agent recipe + MCP/CLI surface, installed via the
+[Agent integration](#core-features) `setup`) that reads a **requirements changeset** — the FR/spec delta on a
+[changeset](entities/review.md) branch — and produces an ordered **implementation plan** to deliver it. The
+agent consumes the changeset diff (`adlg diff` / `dolt_diff_*`, already available) and writes the plan back
+through the `Mutate` contract, so the plan is reviewable in the same changeset flow.
+
+**Two altitudes of "planning" — keep them distinct, let them connect.** The existing
+[Planning layer](entities/planning.md) (`Capability → Deliverable → View → Spec`) is **strategic** —
+long-lived, top-down, milestone-scoped *what to build*. A generated plan is **tactical** — bottom-up from a
+specific requirements delta, an ordered task breakdown of *how to deliver this change*. They are **not the same
+entity**; forcing the second into `Deliverable` would distort both. But they should **bridge**: a plan's steps
+can cite the `Requirement`s they implement and roll up into (or create) `Deliverable`s, so execution plans
+ladder back to the strategic layer.
+
+**Do we need a structure to store plans?** Leaning **yes** — a plan is durable knowledge, and invariant #1 says
+the DB is the source of truth (a plan can't live only as a generated `.md`). Sketch a new **`Plan` / `PlanStep`**
+sub-structure in the `planning` module (see [Modules & plugins](#modules--plugins-separable-layers)):
+
+- **`Plan`** — title, status, the originating **`Changeset`** (which requirements delta it plans), optional
+  `Milestone`/`Deliverable` rollup.
+- **`PlanStep`** — ordered steps under a plan, each citing the `Requirement`(s) it satisfies (reuse the
+  polymorphic `Edge`/coverage-style link), with its own status so progress is trackable.
+
+**Open questions (design deferred):** is a `Plan` 1:1 with a changeset or longer-lived (re-planned as
+requirements evolve)?; do steps reuse `Edge` (`plan_step → requirement`) or a dedicated junction?; does a step
+map to a `Deliverable` or obviate one at this altitude?; and is plan generation a pure MCP-driven **skill** or
+also a deterministic `adlg plan` scaffold the agent fills in. Record the outcome in
+[decisions.md](entities/decisions.md) and add the entities to the [model](entities/index.md) once firm.
+
+## Review surface — changeset review (open decision)
+
+Humans (and agents) review the diff a changeset introduces — go section/field by section/field, comment on
+requirements/plans, set a verdict — and an agent revises on the branch in response. **The schema already
+models this:** [Comment](entities/review.md) carries polymorphic `subject` + `locator` + threading +
+`resolved`, and [Review](entities/review.md) carries the `approve|deny|request_changes` verdict. So this is an
+**interface gap, not a data-model gap** — what's missing is the surface(s) that drive those tables and the
+verbs to write them.
+
+**Two separate axes — do not conflate them:**
+
+- **Agent ↔ ADLG = transport.** Settled: **CLI + skill + hooks** primary, MCP secondary (see
+  [Agent integration](#core-features)). The agent half of the loop (read changeset diff → comment → revise)
+  needs **no GUI**.
+- **Human ↔ ADLG = the review *surface*.** This is the **open decision** below, and it is *independent* of the
+  transport choice — MCP is an agent transport, **not** a human review UI, so choosing CLI-over-MCP for agents
+  does not decide this.
+
+**Step 1 (near-term, unblocks the whole loop):** wire `Review`/`Comment` into **CLI + MCP** — comment on
+subject+locator, list/resolve threads, set verdict. Small, contract-shaped, closes the *agent* side
+immediately, and is a prerequisite for every surface below.
+
+**Step 2 (human review UX) — decided: a VS Code extension is the primary surface.**
+
+- **VS Code extension (chosen).** Reuse VS Code's native **diff editor** + **Comments API** (the same API the
+  GitHub PR extension uses for gutter threads + a comments panel), talking to `adlg` over CLI/MCP. The
+  extension holds no state — Dolt stays the source of truth, it's a third front-end over `Mutate`. It gets the
+  hard 70% of a PR UI (diff rendering, thread UI, anchoring interaction) **for free**, leaving only ADLG-glue:
+  a `TreeDataProvider` over `adlg changeset ls`, a virtual-doc provider rendering each entity's base/head, and
+  the **`Comment`-row ↔ thread** mapping. It **preserves semantic anchoring** — a comment binds to a
+  requirement row/field, not a drifting `.md` line — which is *easier* here than in GitHub because re-anchoring
+  rides our deterministic canonical render order ([`SpecSectionType.position`](structure.md)). It's also a
+  natural consumer of the MCP server — **this is where MCP earns its keep**.
+  - **Covers the browser case too:** the same extension runs in Cursor/Windsurf and in **vscode.dev /
+    code-server** (VS Code in a plain browser tab, no install), so it serves both editor and browser reviewers.
+- **CLI / TUI** — `adlg changeset diff` + `adlg review` in the terminal. The Step-1 byproduct and SSH-friendly
+  floor; weakest for careful line-by-line review, kept as a complement, not the main surface.
+- **Federate to GitHub / DoltHub PRs** — *optional interop*, not the primary loop: project the changeset as a
+  real PR and sync `Review`/`Comment` back via interop/federation. Near-zero frontend, but couples out and
+  **loses semantic anchoring** (line comments on generated `.md` drift when requirements reorder). Rides the
+  existing federation roadmap for GitHub-native teams.
+- **Native web app** (`adlg serve --web`) — **deferred, no longer a primary goal.** The VS Code extension
+  (incl. vscode.dev/code-server) covers the developer/agent audience *and* the browser case; the only persona
+  left unserved is a reviewer who refuses any VS Code-flavored UI. Revisit only if that persona materializes —
+  and even then build on a diff library (Monaco/CodeMirror merge, react-diff-view), never reimplement diffing.
+
+**Decision:** Step 1 (wire `Review`/`Comment` into CLI+MCP) → **VS Code extension** as the primary human review
+surface, covering editor + browser via vscode.dev/code-server; CLI/TUI as the terminal floor; GitHub federation
+as optional interop; the from-scratch web app deferred unless a non-editor reviewer surface is demanded.
+
 ## "What am I missing vs beads?" — feature survey
 
 Cross-cutting beads features (not issue-domain), and ADLG's status:
@@ -93,8 +174,8 @@ Cross-cutting beads features (not issue-domain), and ADLG's status:
 | `backup`/`restore` | **roadmap (DB maintenance)** |
 | `doctor`, `drift`, `preflight` | **roadmap (Validation & analysis)** |
 | `gc`, `compact`, `flatten` | infra lifted → **roadmap (DB maintenance)** |
-| `setup` (agent install) | **roadmap (Agent integration)** |
-| MCP server | **roadmap (Agent integration)** |
+| `setup` (agent install) + `prime`/hooks | **roadmap (Agent integration)** — **primary** agent path (skill + instructions + SessionStart `prime` hook) |
+| MCP server | **roadmap (Agent integration)** — **secondary**, shell-less hosts only (Claude Desktop); thin adapter over `Mutate`. CLI+skill+hooks is primary |
 | `config` (get/set) | **Finish the command contract** |
 | `version`/`upgrade` (self-update) | **DONE** — `adlg version` + `adlg upgrade` (download + checksum-verify + replace in place) |
 | shell completion | **roadmap (CLI polish)** — cobra-provided |
