@@ -1,0 +1,10 @@
+# Files excluded from the packaged .vsix (everything ships pre-bundled in dist/).
+.vscode/**
+.vscode-test/**
+src/**
+node_modules/**
+.gitignore
+esbuild.js
+tsconfig.json
+**/*.ts
+**/*.map

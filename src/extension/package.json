@@ -1,0 +1,91 @@
+{
+  "name": "cusp",
+  "displayName": "Cusp",
+  "description": "Review Cusp changesets (specs, requirements, plans) inside VS Code.",
+  "version": "0.0.1",
+  "publisher": "endermalkoc",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/endermalkoc/cusp"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onView:cuspChangesets"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cusp",
+          "title": "Cusp",
+          "icon": "media/cusp.svg"
+        }
+      ]
+    },
+    "views": {
+      "cusp": [
+        {
+          "id": "cuspChangesets",
+          "name": "Changesets",
+          "icon": "media/cusp.svg",
+          "contextualTitle": "Cusp Changesets"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "cusp.refreshChangesets",
+        "title": "Refresh Changesets",
+        "category": "Cusp",
+        "icon": "$(refresh)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "cusp.refreshChangesets",
+          "when": "view == cuspChangesets",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Cusp",
+      "properties": {
+        "cusp.cliPath": {
+          "type": "string",
+          "default": "cusp",
+          "markdownDescription": "Path to the `cusp` CLI binary. Leave as `cusp` to use the one on `PATH`."
+        },
+        "cusp.workspaceFolder": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Absolute path to the Cusp workspace (the directory that contains `.cusp`). When empty, the first open workspace folder is used."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production",
+    "check-types": "tsc --noEmit",
+    "vsce:package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.95.0",
+    "@vscode/vsce": "^3.2.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.6.0"
+  }
+}
