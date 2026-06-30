@@ -10,11 +10,11 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/ids"
-	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/adlg/internal/store"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/ids"
+	"github.com/endermalkoc/cusp/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/cusp/internal/store"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
 var changesetCmd = &cobra.Command{
@@ -46,7 +46,7 @@ func resolveChangeset(ws *workspace.Workspace, args []string) (string, error) {
 	if b := ws.ActiveChangeset(); b != "" {
 		return b, nil
 	}
-	return "", fmt.Errorf("no changeset specified and none active (use `adlg changeset start` or pass a name)")
+	return "", fmt.Errorf("no changeset specified and none active (use `cusp changeset start` or pass a name)")
 }
 
 var changesetStartCmd = &cobra.Command{
@@ -99,7 +99,7 @@ var changesetStartCmd = &cobra.Command{
 			return err
 		}
 		emit(map[string]any{"branch": branch, "status": enums.ChangesetDraft, "base_commit": base},
-			fmt.Sprintf("started changeset %s (now active) — edits go here until `adlg changeset submit`/`merge`", branch))
+			fmt.Sprintf("started changeset %s (now active) — edits go here until `cusp changeset submit`/`merge`", branch))
 		return nil
 	},
 }

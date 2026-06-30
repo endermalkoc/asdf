@@ -1,10 +1,10 @@
-# ADLG Architecture
+# Cusp Architecture
 
-How ADLG is put together and the principles that constrain it. For the data model see
+How Cusp is put together and the principles that constrain it. For the data model see
 the [data model](entities/index.md); for the overview see [README.md](../README.md).
 
 > **Status: early implementation.** The Dolt infrastructure (salvaged from
-> [beads](https://github.com/steveyegge/beads), MIT), the schema, `adlg init`, the command
+> [beads](https://github.com/steveyegge/beads), MIT), the schema, `cusp init`, the command
 > contract, the `domain`/`spec`/`req`/`edge` verbs, and the changeset (PR) flow are built and
 > verified against real Dolt. Generation, `check`/`impact`, remote sync, MCP, and import are
 > next — see [ROADMAP.md](ROADMAP.md), [Status / next step](#status--next-step), and
@@ -31,7 +31,7 @@ Dolt DB ──(renderers)──▶ generated/   ├── *.md    (agent + human
    │ writes only via CLI / MCP
 ```
 
-- Generation runs on demand (`adlg generate`) and/or after mutations.
+- Generation runs on demand (`cusp generate`) and/or after mutations.
 - The output directory (default `generated/`) is **git-ignored** — see [.gitignore](../.gitignore).
 - Markdown/HTML are **never inputs.** Nothing reads them back into the DB. This is what
   lets us treat them as disposable and always-regenerable.
@@ -63,7 +63,7 @@ ways of connecting to the same database**, selected by configuration:
 - **Embedded** (`ServerModeEmbedded`) — Dolt linked in-process via `dolthub/driver/v2`; no
   separate binary or server. This is the path that delivers the "single static binary, no
   separate runtime" promise and is the intended default.
-- **Owned** (`ServerModeOwned`) — ADLG spawns and supervises its own `dolt sql-server`
+- **Owned** (`ServerModeOwned`) — Cusp spawns and supervises its own `dolt sql-server`
   subprocess (requires the `dolt` binary on `PATH`), talking to it over the MySQL wire
   protocol. Implemented by [`internal/doltserver`](../internal/doltserver): cross-platform port
   detection, PID/lock files, log rotation, and manifest/corruption recovery.
@@ -81,7 +81,7 @@ invariant. See [NOTICE](../NOTICE) for attribution and the full salvaged-package
 ## Interfaces
 
 - **CLI** — the primary surface; scriptable, with a JSON output mode for agents.
-- **MCP server** — the same operations exposed to agents as MCP tools (`adlg serve --mcp`).
+- **MCP server** — the same operations exposed to agents as MCP tools (`cusp serve --mcp`).
 - **Read fast-path** — agents may read the generated Markdown directly for speed.
 - **Write path** — CLI/MCP only; all mutations land in the DB, which then regenerates views.
 
@@ -110,7 +110,7 @@ or breakage affects. For a `Requirement`: dependent FRs (`refines` / `depends_on
 ## Import / migration
 
 A **generic, source-agnostic importer** with pluggable adapters that map an external source
-into the ADLG schema. It is explicitly **not** tutor-tailored.
+into the Cusp schema. It is explicitly **not** tutor-tailored.
 
 - First real migration: the `tutor/docs` corpus — markdown specs + the FR-traceability
   registry + the former planning databases + Qase test management — normalized into
@@ -152,28 +152,28 @@ server modes](#storage-engine--server-modes)). Rationale:
 
 (The former TypeScript/Bun alternative is moot now that Go infrastructure has landed.)
 
-Module path: `github.com/endermalkoc/adlg` (Go 1.26.2). `go.mod`/`go.sum` were brought over
+Module path: `github.com/endermalkoc/cusp` (Go 1.26.2). `go.mod`/`go.sum` were brought over
 from beads and still need a `go mod tidy` to prune dependencies down to the salvaged subset.
 
 ## Repository layout
 
 Source layout mirrors beads (the salvage came from there). The Dolt infrastructure plus a
-first domain-layer vertical slice (`ids` → `store` → `cmd/adlg`) are in place:
+first domain-layer vertical slice (`ids` → `store` → `cmd/cusp`) are in place:
 
 ```
-cmd/adlg/            CLI (cobra): init · domain/spec/req/edge add|ls · changeset start/diff/submit/merge
+cmd/cusp/            CLI (cobra): init · domain/spec/req/edge add|ls · changeset start/diff/submit/merge
 internal/
   app/               the mutation wrapper (Mutate) every command routes through (the command contract)
-  workspace/         .adlg resolution + managed connect (owned/external/embedded) + actor + active-changeset + retry + diff
+  workspace/         .cusp resolution + managed connect (owned/external/embedded) + actor + active-changeset + retry + diff
   enums/             allowed enum value sets (schema is VARCHAR by design; app validates)
   ids/               PK minting: ULID (authored) + deterministic uuidv5 (relationships)
-  store/             ADLG entity store — executor-based (runs on the wrapper's *sql.Tx / a pinned conn)
+  store/             Cusp entity store — executor-based (runs on the wrapper's *sql.Tx / a pinned conn)
   doltserver/        owned-mode dolt sql-server supervision (lifecycle, recovery, logs)
   storage/
     storage.go       severance shim: the DoltStorage handle (composed of the contracts below)
     version_control.go versioned.go remote.go sync.go federation.go
     compaction.go history_viewer.go   VC / remote / sync / federation contracts + value types
-    schema/          migration runner + migrations/0001_init.{up,down}.sql (the ADLG DDL)
+    schema/          migration runner + migrations/0001_init.{up,down}.sql (the Cusp DDL)
     versioncontrolops/ Dolt branch/commit/merge/clone/gc/flatten/backup over a DBConn
     kvkeys/          config-key prefixes (merge auto-resolution policy)
     dberrors/        Dolt/SQL error classification
@@ -199,13 +199,13 @@ Working end-to-end (verified against real Dolt):
 
 - **Schema** — `0001_init` (26 entities + 6 junctions) applies on real Dolt; FK/UNIQUE/
   deterministic-PK enforcement verified.
-- **`adlg init`** — creates `.adlg/`, starts a managed (owned) `dolt sql-server`, runs
+- **`cusp init`** — creates `.cusp/`, starts a managed (owned) `dolt sql-server`, runs
   `MigrateUp`, seeds an actor, and records the initial Dolt commit.
 - **Command contract** — every mutating command routes through `internal/app.Mutate`:
   managed connect → resolve changeset/`main` target → validate → transaction → mint → commit
   as a real Dolt commit with actor + message (working set left clean). Bad input fails before
   any write.
-- **Changesets** — `adlg changeset start/diff/submit/merge/abandon/ls` give the PR flow:
+- **Changesets** — `cusp changeset start/diff/submit/merge/abandon/ls` give the PR flow:
   a changeset is a Dolt branch, edits route to the active changeset, `diff` is the combined
   PR view (`dolt_diff_stat`), edits stay isolated from `main` until `merge`; the `changeset`
   metadata rows live on `main`.
@@ -217,7 +217,7 @@ server, and the generic import. See [ROADMAP.md](ROADMAP.md) and [docs/command-c
 
 The schema is validated end-to-end against real Dolt (32 tables / 43 FKs / 17 UNIQUEs, with
 FK/UNIQUE/deterministic-PK enforcement verified), and a first vertical slice is live: the
-`adlg` CLI creates Domain/Spec/Requirement/Edge through `internal/store` into a running
+`cusp` CLI creates Domain/Spec/Requirement/Edge through `internal/store` into a running
 `dolt sql-server` (so writes appear immediately in a connected UI like Dolt Workbench). ULID
 minting and the deterministic relationship-PK both work (re-adding an edge converges to one row).
 

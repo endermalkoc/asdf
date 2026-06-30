@@ -1,10 +1,10 @@
-# ADLG Entity-Relationship Model
+# Cusp Entity-Relationship Model
 
-Data model for **ADLG** (Agentic Delivery Lifecycle Graph) — the entities ADLG stores
+Data model for **Cusp** (Agentic Delivery Lifecycle Graph) — the entities Cusp stores
 and manages in its [Dolt](https://www.dolthub.com/) database. The model is split across the
 files listed below; this index holds the layer overview and the master diagram.
 
-> Status: **draft (v2)**. ADLG is the **system of record**: it owns this data outright rather
+> Status: **draft (v2)**. Cusp is the **system of record**: it owns this data outright rather
 > than mirroring any external tool. Domain-specific prose stays in text fields. Column types
 > are suggestions (Dolt is MySQL-compatible). Naming follows the corpus convention:
 > `snake_case`, lowercase enum values. Keys follow one scheme — see

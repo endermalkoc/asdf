@@ -13,7 +13,7 @@ import (
 //	-ldflags "-X main.version=v0.1.0 -X main.commit=abc1234 -X main.date=2026-06-24T00:00:00Z"
 //
 // (the Makefile and .goreleaser.yaml both set these). For a plain
-// `go install …/cmd/adlg@v0.1.0` build the flags are absent, so init() below
+// `go install …/cmd/cusp@v0.1.0` build the flags are absent, so init() below
 // recovers the version and VCS stamp from the embedded module build info.
 var (
 	version = "dev"
@@ -68,7 +68,7 @@ var versionCmd = &cobra.Command{
 			"os":      runtime.GOOS,
 			"arch":    runtime.GOARCH,
 		}
-		human := fmt.Sprintf("adlg %s\n  commit: %s\n  built:  %s\n  go:     %s %s/%s",
+		human := fmt.Sprintf("cusp %s\n  commit: %s\n  built:  %s\n  go:     %s %s/%s",
 			version, c, d, runtime.Version(), runtime.GOOS, runtime.GOARCH)
 		emit(info, human)
 	},

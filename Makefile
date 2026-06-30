@@ -1,5 +1,5 @@
-BINARY  := adlg
-PKG     := ./cmd/adlg
+BINARY  := cusp
+PKG     := ./cmd/cusp
 
 # Version metadata baked into the binary (mirrors what GoReleaser injects).
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -16,7 +16,7 @@ GO_BUILD := CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)"
 
 all: build ## Build the binary (default)
 
-build: ## Build ./adlg for the host platform
+build: ## Build ./cusp for the host platform
 	$(GO_BUILD) -o $(BINARY) $(PKG)
 
 install: ## go install the binary into GOBIN/GOPATH

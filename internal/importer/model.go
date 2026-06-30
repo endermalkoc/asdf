@@ -1,5 +1,5 @@
-// Package importer holds the source-agnostic core of ADLG's import pipeline:
-// the staging Graph (a corpus parsed into ADLG's entity shapes, keyed by
+// Package importer holds the source-agnostic core of Cusp's import pipeline:
+// the staging Graph (a corpus parsed into Cusp's entity shapes, keyed by
 // business identifiers rather than minted DB ids) and the Report a read-only
 // parse produces. Source adapters (e.g. internal/importer/tutor) populate a
 // Graph; a later write pass resolves the business keys to rows through the
@@ -8,7 +8,7 @@
 // This first cut is parse-and-report only: nothing here touches the database.
 package importer
 
-// Graph is a source corpus parsed into ADLG's entity shapes. Rows are keyed by
+// Graph is a source corpus parsed into Cusp's entity shapes. Rows are keyed by
 // business identifiers (domain slug, spec prefix, fr_key, …) because at
 // parse time no ULIDs or foreign keys exist yet.
 type Graph struct {
@@ -115,7 +115,7 @@ type Spec struct {
 	Title     string `json:"title"`      // frontmatter title
 	Domain    string `json:"domain"`     // domain slug (registry column)
 	RawStatus string `json:"raw_status"` // source status verbatim: Draft|Reviewed|Active
-	Status    string `json:"status"`     // mapped to ADLG spec.status (draft|active|obsolete)
+	Status    string `json:"status"`     // mapped to Cusp spec.status (draft|active|obsolete)
 	Created   string `json:"created"`    // source "Created" date (YYYY-MM-DD) → spec.created_at; "" if absent
 
 	// Prose sections → req_spec_section, each addressed by a curated section key

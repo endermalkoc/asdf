@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 func hasFinding(rep *importer.Report, category string) bool {

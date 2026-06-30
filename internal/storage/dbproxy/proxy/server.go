@@ -18,10 +18,10 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/endermalkoc/adlg/internal/lockfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/pidfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/server"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/cusp/internal/lockfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/pidfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/server"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/util"
 )
 
 type ProxyOpts struct {

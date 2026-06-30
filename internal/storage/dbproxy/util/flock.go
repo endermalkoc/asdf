@@ -6,7 +6,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/endermalkoc/adlg/internal/lockfile"
+	"github.com/endermalkoc/cusp/internal/lockfile"
 )
 
 // Unlocker is the interface for releasing an acquired lock.

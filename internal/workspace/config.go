@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-// Workspace configuration is project-local, stored as `.adlg/config.json` (alongside
+// Workspace configuration is project-local, stored as `.cusp/config.json` (alongside
 // `active_changeset`). It is a local preference — where and in which formats to materialize
 // generated artifacts — not version-controlled source of truth, so it lives in a file rather
 // than the database. The Dolt server config (`metadata.json`) is separate and unrelated.
@@ -29,26 +29,26 @@ type GenerateConfig struct {
 }
 
 // FormatConfig is one auto-generated output: a format and the directory it renders into. An
-// empty Out means the default, `.adlg/artifacts/<format>`.
+// empty Out means the default, `.cusp/artifacts/<format>`.
 type FormatConfig struct {
 	Format string `json:"format"`
 	Out    string `json:"out,omitempty"`
 }
 
-func (w *Workspace) configPath() string { return filepath.Join(w.ADLGDir, configFileName) }
+func (w *Workspace) configPath() string { return filepath.Join(w.CuspDir, configFileName) }
 
-// LoadConfig reads `.adlg/config.json`. A missing file is the zero Config (auto-gen off).
+// LoadConfig reads `.cusp/config.json`. A missing file is the zero Config (auto-gen off).
 func (w *Workspace) LoadConfig() (*Config, error) {
-	return loadConfig(w.ADLGDir)
+	return loadConfig(w.CuspDir)
 }
 
-// SaveConfig writes `.adlg/config.json`.
-func (w *Workspace) SaveConfig(c *Config) error { return saveConfig(w.ADLGDir, c) }
+// SaveConfig writes `.cusp/config.json`.
+func (w *Workspace) SaveConfig(c *Config) error { return saveConfig(w.CuspDir, c) }
 
-// loadConfig / saveConfig operate on a bare `.adlg` dir so callers (e.g. the `config`
+// loadConfig / saveConfig operate on a bare `.cusp` dir so callers (e.g. the `config`
 // command) can read or edit config without standing up a database connection.
-func loadConfig(adlgDir string) (*Config, error) {
-	b, err := os.ReadFile(filepath.Join(adlgDir, configFileName))
+func loadConfig(cuspDir string) (*Config, error) {
+	b, err := os.ReadFile(filepath.Join(cuspDir, configFileName))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &Config{}, nil
@@ -62,43 +62,43 @@ func loadConfig(adlgDir string) (*Config, error) {
 	return &c, nil
 }
 
-func saveConfig(adlgDir string, c *Config) error {
+func saveConfig(cuspDir string, c *Config) error {
 	b, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(adlgDir, configFileName), append(b, '\n'), 0o644)
+	return os.WriteFile(filepath.Join(cuspDir, configFileName), append(b, '\n'), 0o644)
 }
 
-// LoadConfigDir reads the workspace config given just the `.adlg` directory — for commands
-// that operate on config files without a live database (see cmd/adlg/config.go).
-func LoadConfigDir(adlgDir string) (*Config, error) { return loadConfig(adlgDir) }
+// LoadConfigDir reads the workspace config given just the `.cusp` directory — for commands
+// that operate on config files without a live database (see cmd/cusp/config.go).
+func LoadConfigDir(cuspDir string) (*Config, error) { return loadConfig(cuspDir) }
 
-// SaveConfigDir writes the workspace config given just the `.adlg` directory.
-func SaveConfigDir(adlgDir string, c *Config) error { return saveConfig(adlgDir, c) }
+// SaveConfigDir writes the workspace config given just the `.cusp` directory.
+func SaveConfigDir(cuspDir string, c *Config) error { return saveConfig(cuspDir, c) }
 
 // OutDir resolves a format's output directory: the configured Out if set (relative paths are
-// resolved against the project root, the parent of `.adlg`), else the default
-// `.adlg/artifacts/<format>`.
+// resolved against the project root, the parent of `.cusp`), else the default
+// `.cusp/artifacts/<format>`.
 func (w *Workspace) OutDir(f FormatConfig) string {
-	return resolveOutDir(w.ADLGDir, f)
+	return resolveOutDir(w.CuspDir, f)
 }
 
-func resolveOutDir(adlgDir string, f FormatConfig) string {
+func resolveOutDir(cuspDir string, f FormatConfig) string {
 	if strings.TrimSpace(f.Out) == "" {
-		return filepath.Join(adlgDir, "artifacts", f.Format)
+		return filepath.Join(cuspDir, "artifacts", f.Format)
 	}
 	if filepath.IsAbs(f.Out) {
 		return f.Out
 	}
-	return filepath.Join(filepath.Dir(adlgDir), f.Out)
+	return filepath.Join(filepath.Dir(cuspDir), f.Out)
 }
 
-// DefaultOutDir is the out directory a format gets with no override (`.adlg/artifacts/<fmt>`).
-func DefaultOutDir(adlgDir, format string) string {
-	return resolveOutDir(adlgDir, FormatConfig{Format: format})
+// DefaultOutDir is the out directory a format gets with no override (`.cusp/artifacts/<fmt>`).
+func DefaultOutDir(cuspDir, format string) string {
+	return resolveOutDir(cuspDir, FormatConfig{Format: format})
 }
 
-// EffectiveOutDir resolves a format target's output directory given just the `.adlg` dir
+// EffectiveOutDir resolves a format target's output directory given just the `.cusp` dir
 // (the configured override if set, else the default).
-func EffectiveOutDir(adlgDir string, f FormatConfig) string { return resolveOutDir(adlgDir, f) }
+func EffectiveOutDir(cuspDir string, f FormatConfig) string { return resolveOutDir(cuspDir, f) }

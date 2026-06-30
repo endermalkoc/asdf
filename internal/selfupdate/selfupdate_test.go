@@ -14,12 +14,12 @@ func TestAssetName(t *testing.T) {
 	cases := []struct {
 		goos, goarch, version, want string
 	}{
-		{"linux", "amd64", "v0.1.0", "adlg_0.1.0_linux_amd64.tar.gz"},
-		{"darwin", "arm64", "0.2.3", "adlg_0.2.3_darwin_arm64.tar.gz"},
-		{"windows", "amd64", "v1.0.0", "adlg_1.0.0_windows_amd64.zip"},
+		{"linux", "amd64", "v0.1.0", "cusp_0.1.0_linux_amd64.tar.gz"},
+		{"darwin", "arm64", "0.2.3", "cusp_0.2.3_darwin_arm64.tar.gz"},
+		{"windows", "amd64", "v1.0.0", "cusp_1.0.0_windows_amd64.zip"},
 	}
 	for _, c := range cases {
-		if got := AssetName("adlg", c.version, c.goos, c.goarch); got != c.want {
+		if got := AssetName("cusp", c.version, c.goos, c.goarch); got != c.want {
 			t.Errorf("AssetName(%q,%q,%q) = %q, want %q", c.version, c.goos, c.goarch, got, c.want)
 		}
 	}
@@ -27,18 +27,18 @@ func TestAssetName(t *testing.T) {
 
 func TestParseChecksum(t *testing.T) {
 	body := []byte("" +
-		"aaaa1111  adlg_0.1.0_darwin_arm64.tar.gz\n" +
-		"bbbb2222  adlg_0.1.0_linux_amd64.tar.gz\n" +
-		"CCCC3333  adlg_0.1.0_windows_amd64.zip\n")
+		"aaaa1111  cusp_0.1.0_darwin_arm64.tar.gz\n" +
+		"bbbb2222  cusp_0.1.0_linux_amd64.tar.gz\n" +
+		"CCCC3333  cusp_0.1.0_windows_amd64.zip\n")
 
-	if got, err := ParseChecksum(body, "adlg_0.1.0_linux_amd64.tar.gz"); err != nil || got != "bbbb2222" {
+	if got, err := ParseChecksum(body, "cusp_0.1.0_linux_amd64.tar.gz"); err != nil || got != "bbbb2222" {
 		t.Errorf("linux: got %q, err %v", got, err)
 	}
 	// hex is normalized to lower-case.
-	if got, err := ParseChecksum(body, "adlg_0.1.0_windows_amd64.zip"); err != nil || got != "cccc3333" {
+	if got, err := ParseChecksum(body, "cusp_0.1.0_windows_amd64.zip"); err != nil || got != "cccc3333" {
 		t.Errorf("windows: got %q, err %v", got, err)
 	}
-	if _, err := ParseChecksum(body, "adlg_9.9.9_linux_arm64.tar.gz"); err == nil {
+	if _, err := ParseChecksum(body, "cusp_9.9.9_linux_arm64.tar.gz"); err == nil {
 		t.Error("expected error for a missing asset")
 	}
 }
@@ -64,15 +64,15 @@ func TestSameVersion(t *testing.T) {
 
 func TestExtractBinaryTarGz(t *testing.T) {
 	dir := t.TempDir()
-	want := []byte("#!/bin/sh\necho fake adlg binary\n")
+	want := []byte("#!/bin/sh\necho fake cusp binary\n")
 
-	archive := filepath.Join(dir, "adlg_0.1.0_linux_amd64.tar.gz")
+	archive := filepath.Join(dir, "cusp_0.1.0_linux_amd64.tar.gz")
 	writeTarGz(t, archive, map[string][]byte{
 		"README.md": []byte("docs"),
-		"adlg":      want, // the binary, possibly alongside other files
+		"cusp":      want, // the binary, possibly alongside other files
 	})
 
-	got := extractAndRead(t, archive, "adlg_0.1.0_linux_amd64.tar.gz", "adlg", dir)
+	got := extractAndRead(t, archive, "cusp_0.1.0_linux_amd64.tar.gz", "cusp", dir)
 	if !bytes.Equal(got, want) {
 		t.Errorf("extracted contents mismatch:\n got %q\nwant %q", got, want)
 	}
@@ -82,12 +82,12 @@ func TestExtractBinaryZipWithExe(t *testing.T) {
 	dir := t.TempDir()
 	want := []byte("MZ fake windows binary")
 
-	archive := filepath.Join(dir, "adlg_0.1.0_windows_amd64.zip")
+	archive := filepath.Join(dir, "cusp_0.1.0_windows_amd64.zip")
 	writeZip(t, archive, map[string][]byte{
-		"adlg.exe": want, // windows archives carry the .exe name
+		"cusp.exe": want, // windows archives carry the .exe name
 	})
 
-	got := extractAndRead(t, archive, "adlg_0.1.0_windows_amd64.zip", "adlg", dir)
+	got := extractAndRead(t, archive, "cusp_0.1.0_windows_amd64.zip", "cusp", dir)
 	if !bytes.Equal(got, want) {
 		t.Errorf("extracted contents mismatch:\n got %q\nwant %q", got, want)
 	}
@@ -95,17 +95,17 @@ func TestExtractBinaryZipWithExe(t *testing.T) {
 
 func TestExtractBinaryMissing(t *testing.T) {
 	dir := t.TempDir()
-	archive := filepath.Join(dir, "adlg_0.1.0_linux_amd64.tar.gz")
+	archive := filepath.Join(dir, "cusp_0.1.0_linux_amd64.tar.gz")
 	writeTarGz(t, archive, map[string][]byte{"README.md": []byte("no binary here")})
 
-	if _, err := extractBinary(archive, "adlg_0.1.0_linux_amd64.tar.gz", "adlg", dir); err == nil {
+	if _, err := extractBinary(archive, "cusp_0.1.0_linux_amd64.tar.gz", "cusp", dir); err == nil {
 		t.Error("expected an error when the binary is absent from the archive")
 	}
 }
 
 func TestReplaceExecutable(t *testing.T) {
 	dir := t.TempDir()
-	dst := filepath.Join(dir, "adlg")
+	dst := filepath.Join(dir, "cusp")
 	if err := os.WriteFile(dst, []byte("old"), 0o755); err != nil {
 		t.Fatal(err)
 	}

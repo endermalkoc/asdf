@@ -4,13 +4,13 @@ Guidance for Claude Code (and other agents) working in this repository.
 
 ## What this project is
 
-**ADLG (Agentic Delivery Lifecycle Graph)** — a [Dolt](https://www.dolthub.com/)-backed
+**Cusp (Agentic Delivery Lifecycle Graph)** — a [Dolt](https://www.dolthub.com/)-backed
 CLI + MCP server that is the version-controlled source of truth for a software project's
 specs, requirements, tests, plans, and the relationships between them, used by humans and
 agents alike. See [README.md](README.md) and [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 **Status:** early implementation. The Dolt infrastructure (salvaged from
-[beads](https://github.com/steveyegge/beads), MIT), the **schema** (`0001_init`), **`adlg init`**,
+[beads](https://github.com/steveyegge/beads), MIT), the **schema** (`0001_init`), **`cusp init`**,
 the **command contract** (`internal/app.Mutate`), the `domain`/`spec`/`req`/`edge` verbs, and the
 **changeset (PR) flow** are built and verified against real Dolt. Still to come: generation,
 `check`/`impact`, remote sync, the MCP server, import — see [ROADMAP.md](docs/ROADMAP.md). The
@@ -104,7 +104,7 @@ organized and current:
 
 ## Tech stack (Go — locked)
 
-Go single static binary + an MCP server. Module `github.com/endermalkoc/adlg`, Go 1.26.2.
+Go single static binary + an MCP server. Module `github.com/endermalkoc/cusp`, Go 1.26.2.
 Storage is Dolt, reached three ways (embedded / owned / external) — see
 [ARCHITECTURE.md](docs/ARCHITECTURE.md#storage-engine--server-modes).
 
@@ -116,7 +116,7 @@ issue-domain dependency severed to a minimal shim
 
 - **Keep the core generic.** Do not reintroduce a dependency on a domain (issue/spec/etc.)
   model inside `doltserver`, `dbproxy`, `doltutil`, `remotecache`, or `doltremote`. Widen
-  `DoltStorage` in the shim instead; that's where ADLG's real store contract grows.
+  `DoltStorage` in the shim instead; that's where Cusp's real store contract grows.
 - `go.mod`/`go.sum` came over from beads wholesale — run **`go mod tidy`** to prune to the
   salvaged subset before relying on the dependency list.
 ## Command contract — every CLI command follows it
@@ -133,7 +133,7 @@ is a **Resolved decision** in [docs/entities/decisions.md](docs/entities/decisio
 ## Build / run
 
 - Build: `go build ./...` · vet: `go vet ./...` · test: `go test ./...` (all green).
-- CLI: `go run ./cmd/adlg <cmd>` (or `go build -o adlg ./cmd/adlg`). `adlg init` creates `.adlg/`
+- CLI: `go run ./cmd/cusp <cmd>` (or `go build -o cusp ./cmd/cusp`). `cusp init` creates `.cusp/`
   and auto-starts a managed `dolt sql-server` (needs the **`dolt` binary on PATH**); `--dsn` /
-  `ADLG_DSN` connects to an external server instead.
+  `CUSP_DSN` connects to an external server instead.
 - Package layout: see [ARCHITECTURE.md](docs/ARCHITECTURE.md#repository-layout).

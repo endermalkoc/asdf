@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 var (
@@ -59,7 +59,7 @@ var reqAddCmd = &cobra.Command{
 					if _, ok, e := store.PriorityByLevel(vctx, r, reqPriority); e != nil {
 						return e
 					} else if !ok {
-						return fmt.Errorf("invalid priority %d (see `adlg priority ls`)", reqPriority)
+						return fmt.Errorf("invalid priority %d (see `cusp priority ls`)", reqPriority)
 					}
 				}
 				if !flagForce {
@@ -220,7 +220,7 @@ var reqEditCmd = &cobra.Command{
 					if _, ok, e := store.PriorityByLevel(vctx, r, reqPriority); e != nil {
 						return e
 					} else if !ok {
-						return fmt.Errorf("invalid priority %d (see `adlg priority ls`)", reqPriority)
+						return fmt.Errorf("invalid priority %d (see `cusp priority ls`)", reqPriority)
 					}
 					p := reqPriority
 					cur.Priority = &p

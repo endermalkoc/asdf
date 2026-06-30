@@ -10,9 +10,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/endermalkoc/adlg/internal/doltremote"
-	"github.com/endermalkoc/adlg/internal/remotecache"
-	"github.com/endermalkoc/adlg/internal/storage"
+	"github.com/endermalkoc/cusp/internal/doltremote"
+	"github.com/endermalkoc/cusp/internal/remotecache"
+	"github.com/endermalkoc/cusp/internal/storage"
 )
 
 var cliRemoteLocks sync.Map
@@ -50,7 +50,7 @@ func IsGitProtocolURL(url string) bool {
 // PersistedRemotes reads the Dolt remotes recorded in
 // <dbPath>/.dolt/repo_state.json directly, without shelling out to the dolt
 // CLI — so it works when the dolt binary is absent and its failure modes are
-// distinguishable (adlg-6dnrw.33). A missing .dolt directory or repo_state.json
+// distinguishable (cusp-6dnrw.33). A missing .dolt directory or repo_state.json
 // means "not a dolt repository here" and returns (nil, nil); an unreadable or
 // unparseable file returns an error so callers can tell "definitely none"
 // from "could not tell". Results are sorted by name.

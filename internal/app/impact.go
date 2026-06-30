@@ -4,8 +4,8 @@ import (
 	"context"
 	"sort"
 
-	"github.com/endermalkoc/adlg/internal/refs"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/refs"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 // ImpactLink is one relationship touching the subject: the other endpoint (resolved to a

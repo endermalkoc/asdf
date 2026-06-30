@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 // Target is one configured output: a format rendered into a directory. The directory carries
@@ -44,7 +44,7 @@ type SyncStats struct {
 
 // manifestName is the per-out-dir content-hash index that lets Sync write only files whose
 // content actually changed (and, on a full rebuild, delete files whose source rows are gone).
-const manifestName = ".adlg-manifest.json"
+const manifestName = ".cusp-manifest.json"
 
 // Sync brings the configured targets up to date with the database state on x, doing the
 // least work the DirtySet allows. On a Full set it rebuilds the whole graph and reconciles

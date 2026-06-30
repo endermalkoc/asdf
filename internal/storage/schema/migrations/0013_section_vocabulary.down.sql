@@ -1,5 +1,5 @@
 -- 0013_section_vocabulary.down.sql — restore the req_doc_section shape (not the
--- content; section content is git-ignored and reproducible via `adlg import`, like
+-- content; section content is git-ignored and reproducible via `cusp import`, like
 -- every prior section migration). A rollback is followed by a re-import. Drop the
 -- instance tables (they FK the type tables) before the type tables.
 

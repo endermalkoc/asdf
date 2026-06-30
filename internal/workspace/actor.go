@@ -16,18 +16,18 @@ type Actor struct {
 
 // ResolveActor determines the current actor, in precedence order:
 //
-//	handleOverride (--actor) > $ADLG_ACTOR > `git config user.name` > $USER > "unknown".
+//	handleOverride (--actor) > $CUSP_ACTOR > `git config user.name` > $USER > "unknown".
 //
-// Email comes from `git config user.email`, else "<name>@adlg.local".
+// Email comes from `git config user.email`, else "<name>@cusp.local".
 func ResolveActor(handleOverride string) Actor {
 	name := firstNonEmpty(
 		handleOverride,
-		os.Getenv("ADLG_ACTOR"),
+		os.Getenv("CUSP_ACTOR"),
 		gitConfig("user.name"),
 		os.Getenv("USER"),
 		"unknown",
 	)
-	email := firstNonEmpty(gitConfig("user.email"), name+"@adlg.local")
+	email := firstNonEmpty(gitConfig("user.email"), name+"@cusp.local")
 	return Actor{Handle: name, Name: name, Email: email}
 }
 

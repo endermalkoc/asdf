@@ -8,21 +8,21 @@ import (
 )
 
 const (
-	// ADLGDirPerm is the permission mode for .adlg/ directories (owner-only).
-	ADLGDirPerm fs.FileMode = 0700
-	// ADLGFilePerm is the permission mode for state files inside .adlg/ (owner-only).
-	ADLGFilePerm fs.FileMode = 0600
+	// CuspDirPerm is the permission mode for .cusp/ directories (owner-only).
+	CuspDirPerm fs.FileMode = 0700
+	// CuspFilePerm is the permission mode for state files inside .cusp/ (owner-only).
+	CuspFilePerm fs.FileMode = 0600
 )
 
-// EnsureADLGDir creates the .adlg directory with secure permissions.
-func EnsureADLGDir(path string) error {
-	return os.MkdirAll(path, ADLGDirPerm)
+// EnsureCuspDir creates the .cusp directory with secure permissions.
+func EnsureCuspDir(path string) error {
+	return os.MkdirAll(path, CuspDirPerm)
 }
 
-// CheckADLGDirPermissions is a no-op on Windows where filesystem
+// CheckCuspDirPermissions is a no-op on Windows where filesystem
 // permissions use ACLs rather than Unix permission bits.
-func CheckADLGDirPermissions(path string) {}
+func CheckCuspDirPermissions(path string) {}
 
-// FixADLGDirPermissions is a no-op on Windows where filesystem
+// FixCuspDirPermissions is a no-op on Windows where filesystem
 // permissions use ACLs rather than Unix permission bits.
-func FixADLGDirPermissions(path string) (bool, error) { return false, nil }
+func FixCuspDirPermissions(path string) (bool, error) { return false, nil }

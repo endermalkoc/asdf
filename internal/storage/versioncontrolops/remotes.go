@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/endermalkoc/adlg/internal/storage"
+	"github.com/endermalkoc/cusp/internal/storage"
 )
 
 // ListRemotes returns all configured Dolt remotes (name and URL).

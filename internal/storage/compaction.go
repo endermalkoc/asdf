@@ -21,7 +21,7 @@ type CompactionCandidate struct {
 // before compaction destructively overwrites it.
 //
 // Genericized from beads' IssueSnapshot: where beads hard-coded issue fields
-// (title/description/design/notes/acceptance_criteria), ADLG keeps the archived
+// (title/description/design/notes/acceptance_criteria), Cusp keeps the archived
 // content opaque so each entity type (Spec, Requirement, TestCase, …) decides
 // its own snapshot shape.
 type NodeSnapshot struct {

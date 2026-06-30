@@ -1,5 +1,5 @@
 // Package doltserver manages the lifecycle of a local dolt sql-server process.
-// It provides transparent auto-start so that `adlg init` and `adlg <command>` work
+// It provides transparent auto-start so that `cusp init` and `cusp <command>` work
 // without manual server management.
 //
 // Port assignment uses OS-assigned ephemeral ports by default. When no explicit
@@ -8,11 +8,11 @@
 // the actual port to dolt-server.port. This eliminates the birthday-problem
 // collisions that plagued the old hash-derived port scheme (GH#2098, GH#2372).
 //
-// Users with explicit port config via ADLG_DOLT_SERVER_PORT env var or
+// Users with explicit port config via CUSP_DOLT_SERVER_PORT env var or
 // config.yaml always use that port instead, with conflict detection via
 // reclaimPort.
 //
-// Server state files (PID, port, log, lock) live in the .adlg/ directory.
+// Server state files (PID, port, log, lock) live in the .cusp/ directory.
 package doltserver
 
 import (
@@ -30,11 +30,11 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
-	"github.com/endermalkoc/adlg/internal/config"
-	"github.com/endermalkoc/adlg/internal/configfile"
-	"github.com/endermalkoc/adlg/internal/debug"
-	"github.com/endermalkoc/adlg/internal/lockfile"
-	"github.com/endermalkoc/adlg/internal/storage/doltutil"
+	"github.com/endermalkoc/cusp/internal/config"
+	"github.com/endermalkoc/cusp/internal/configfile"
+	"github.com/endermalkoc/cusp/internal/debug"
+	"github.com/endermalkoc/cusp/internal/lockfile"
+	"github.com/endermalkoc/cusp/internal/storage/doltutil"
 )
 
 // ErrServerNotRunning is returned by Stop when the Dolt server is not running.
@@ -90,7 +90,7 @@ const DefaultSharedServerPort = 3308
 
 // GlobalDatabaseName is the SQL database name for the project-agnostic
 // global issue database in shared-server mode.
-const GlobalDatabaseName = "adlg_global"
+const GlobalDatabaseName = "cusp_global"
 
 // GlobalIssuePrefix is the issue prefix used in the global database.
 const GlobalIssuePrefix = "global"
@@ -102,28 +102,28 @@ const GlobalProjectID = "00000000-0000-0000-0000-000000000000"
 
 // IsSharedServerMode returns true if shared server mode is enabled.
 // Checks (in priority order):
-//  1. ADLG_DOLT_SHARED_SERVER env var ("1" or "true")
+//  1. CUSP_DOLT_SHARED_SERVER env var ("1" or "true")
 //  2. dolt.shared-server in config.yaml
 //
 // Shared server mode means all projects on this machine share a single
 // dolt sql-server process at SharedServerDir(), each using its own
-// database (already unique via prefix-based naming in adlg init).
+// database (already unique via prefix-based naming in cusp init).
 func IsSharedServerMode() bool {
-	if v := os.Getenv("ADLG_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
+	if v := os.Getenv("CUSP_DOLT_SHARED_SERVER"); v == "1" || strings.EqualFold(v, "true") {
 		return true
 	}
 	return config.GetBool("dolt.shared-server")
 }
 
 func IsDebugMode() bool {
-	if v := os.Getenv("ADLG_DOLT_DEBUG"); v == "1" || strings.EqualFold(v, "true") {
+	if v := os.Getenv("CUSP_DOLT_DEBUG"); v == "1" || strings.EqualFold(v, "true") {
 		return true
 	}
 	return config.GetBool("dolt.debug")
 }
 
-func DebugProfileDir(adlgDir string) string {
-	p := filepath.Join(resolveServerDir(adlgDir), "dolt-pprof")
+func DebugProfileDir(cuspDir string) string {
+	p := filepath.Join(resolveServerDir(cuspDir), "dolt-pprof")
 	if abs, err := filepath.Abs(p); err == nil {
 		return abs
 	}
@@ -132,8 +132,8 @@ func DebugProfileDir(adlgDir string) string {
 
 const debugProfileFilename = "cpu.pprof"
 
-func rotateDebugProfile(adlgDir string) {
-	profDir := DebugProfileDir(adlgDir)
+func rotateDebugProfile(cuspDir string) {
+	profDir := DebugProfileDir(cuspDir)
 	src := filepath.Join(profDir, debugProfileFilename)
 	info, err := os.Stat(src)
 	if err != nil || info.Size() == 0 {
@@ -150,7 +150,7 @@ func rotateDebugProfile(adlgDir string) {
 }
 
 // IsAutoStartDisabled returns true if the dolt server should NOT be
-// auto-started or managed by adlg. When true, KillStaleServers and
+// auto-started or managed by cusp. When true, KillStaleServers and
 // auto-start are suppressed — the server is externally managed (e.g.,
 // by systemd).
 //
@@ -163,7 +163,7 @@ func rotateDebugProfile(adlgDir string) {
 // This is used by KillStaleServers and Start to avoid killing or
 // interfering with externally-managed dolt processes (GH#2641).
 func IsAutoStartDisabled() bool {
-	if isFalsyBool(os.Getenv("ADLG_DOLT_AUTO_START")) {
+	if isFalsyBool(os.Getenv("CUSP_DOLT_AUTO_START")) {
 		return true
 	}
 	return isFalsyBool(config.GetString("dolt.auto-start"))
@@ -183,20 +183,20 @@ func isFalsyBool(s string) bool {
 
 // readyTimeout returns the timeout used by waitForReady when starting the
 // dolt sql-server. Defaults to 10 seconds, but can be overridden via the
-// ADLG_DOLT_READY_TIMEOUT environment variable (positive integer seconds).
+// CUSP_DOLT_READY_TIMEOUT environment variable (positive integer seconds).
 // First-run Dolt SQL engine initialization can take ~60s on slower hardware
 // where the privileges.db, stats subrepo, and other bootstrap work must
 // happen before the MySQL listener accepts TCP connections. See GH#3142.
 func readyTimeout() time.Duration {
 	const defaultTimeout = 10 * time.Second
-	v := strings.TrimSpace(os.Getenv("ADLG_DOLT_READY_TIMEOUT"))
+	v := strings.TrimSpace(os.Getenv("CUSP_DOLT_READY_TIMEOUT"))
 	if v == "" {
 		return defaultTimeout
 	}
 	secs, err := strconv.Atoi(v)
 	if err != nil || secs < 1 {
 		fmt.Fprintf(os.Stderr,
-			"Warning: ADLG_DOLT_READY_TIMEOUT=%q is not a positive integer; using default %s\n",
+			"Warning: CUSP_DOLT_READY_TIMEOUT=%q is not a positive integer; using default %s\n",
 			v, defaultTimeout)
 		return defaultTimeout
 	}
@@ -204,69 +204,69 @@ func readyTimeout() time.Duration {
 }
 
 // SharedServerDir returns the directory for shared server state files.
-// Returns ~/.adlg/shared-server/ (created on first use).
-// Override with ADLG_SHARED_SERVER_DIR env var for testing or custom layouts.
+// Returns ~/.cusp/shared-server/ (created on first use).
+// Override with CUSP_SHARED_SERVER_DIR env var for testing or custom layouts.
 func SharedServerDir() (string, error) {
 	var dir string
-	if d := os.Getenv("ADLG_SHARED_SERVER_DIR"); d != "" {
+	if d := os.Getenv("CUSP_SHARED_SERVER_DIR"); d != "" {
 		dir = d
 	} else {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("cannot determine home directory: %w", err)
 		}
-		dir = filepath.Join(home, ".adlg", "shared-server")
+		dir = filepath.Join(home, ".cusp", "shared-server")
 	}
-	if err := os.MkdirAll(dir, config.ADLGDirPerm); err != nil {
+	if err := os.MkdirAll(dir, config.CuspDirPerm); err != nil {
 		return "", fmt.Errorf("cannot create shared server directory %s: %w", dir, err)
 	}
 	return dir, nil
 }
 
 // SharedDoltDir returns the dolt data directory for the shared server.
-// Returns ~/.adlg/shared-server/dolt/ (created on first use).
+// Returns ~/.cusp/shared-server/dolt/ (created on first use).
 func SharedDoltDir() (string, error) {
 	serverDir, err := SharedServerDir()
 	if err != nil {
 		return "", err
 	}
 	dir := filepath.Join(serverDir, "dolt")
-	if err := os.MkdirAll(dir, config.ADLGDirPerm); err != nil {
+	if err := os.MkdirAll(dir, config.CuspDirPerm); err != nil {
 		return "", fmt.Errorf("cannot create shared dolt directory %s: %w", dir, err)
 	}
 	return dir, nil
 }
 
 // resolveServerDir returns the canonical server directory for dolt state files.
-// In shared server mode, returns ~/.adlg/shared-server/ instead of the
-// project's .adlg/ directory.
-func resolveServerDir(adlgDir string) string {
+// In shared server mode, returns ~/.cusp/shared-server/ instead of the
+// project's .cusp/ directory.
+func resolveServerDir(cuspDir string) string {
 	if IsSharedServerMode() {
 		dir, err := SharedServerDir()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Warning: shared server directory unavailable, using per-project mode: %v\n", err)
-			return adlgDir
+			return cuspDir
 		}
 		return dir
 	}
-	return adlgDir
+	return cuspDir
 }
 
 // ResolveServerDir is the exported version of resolveServerDir.
 // CLI commands use this to resolve the server directory before calling
 // Start, Stop, or IsRunning.
-func ResolveServerDir(adlgDir string) string {
-	return resolveServerDir(adlgDir)
+func ResolveServerDir(cuspDir string) string {
+	return resolveServerDir(cuspDir)
 }
 
-// ResolveDoltDir returns the dolt data directory for the given adlgDir.
-// It checks the ADLG_DOLT_DATA_DIR env var and metadata.json for a custom
-// dolt_data_dir, falling back to the default .adlg/dolt/ path.
+// ResolveDoltDir returns the dolt data directory for the given cuspDir.
+// It checks the CUSP_DOLT_DATA_DIR env var and metadata.json for a custom
+// dolt_data_dir, falling back to the default .cusp/dolt/ path.
 //
 // Note: we check for metadata.json existence before calling configfile.Load
 // to avoid triggering the config.json → metadata.json migration side effect,
-// which would create files in the .adlg/ directory unexpectedly.
-func ResolveDoltDir(adlgDir string) string {
+// which would create files in the .cusp/ directory unexpectedly.
+func ResolveDoltDir(cuspDir string) string {
 	// Shared server mode: use centralized dolt data directory
 	if IsSharedServerMode() {
 		dir, err := SharedDoltDir()
@@ -278,25 +278,25 @@ func ResolveDoltDir(adlgDir string) string {
 	}
 
 	// Check env var first (highest priority)
-	if d := os.Getenv("ADLG_DOLT_DATA_DIR"); d != "" {
+	if d := os.Getenv("CUSP_DOLT_DATA_DIR"); d != "" {
 		if filepath.IsAbs(d) {
 			return d
 		}
-		return filepath.Join(adlgDir, d)
+		return filepath.Join(cuspDir, d)
 	}
 	// Only load config if metadata.json exists (avoids legacy migration side effect)
-	metadataPath := filepath.Join(adlgDir, "metadata.json")
+	metadataPath := filepath.Join(cuspDir, "metadata.json")
 	if _, err := os.Stat(metadataPath); err == nil {
-		if cfg, err := configfile.Load(adlgDir); err == nil && cfg != nil {
-			return cfg.DatabasePath(adlgDir)
+		if cfg, err := configfile.Load(cuspDir); err == nil && cfg != nil {
+			return cfg.DatabasePath(cuspDir)
 		}
 	}
-	return filepath.Join(adlgDir, "dolt")
+	return filepath.Join(cuspDir, "dolt")
 }
 
 // Config holds the server configuration.
 type Config struct {
-	ADLGDir string     // Path to .adlg/ directory
+	CuspDir string     // Path to .cusp/ directory
 	Port    int        // MySQL protocol port (0 = allocate ephemeral port on Start)
 	Host    string     // Bind address (default: 127.0.0.1)
 	Mode    ServerMode // Server ownership mode (Owned, External, Embedded)
@@ -310,11 +310,11 @@ type State struct {
 	DataDir string `json:"data_dir"`
 }
 
-// file paths within .adlg/
-func pidPath(adlgDir string) string  { return filepath.Join(adlgDir, PIDFileName) }
-func logPath(adlgDir string) string  { return filepath.Join(adlgDir, "dolt-server.log") }
-func lockPath(adlgDir string) string { return filepath.Join(adlgDir, "dolt-server.lock") }
-func portPath(adlgDir string) string { return filepath.Join(adlgDir, PortFileName) }
+// file paths within .cusp/
+func pidPath(cuspDir string) string  { return filepath.Join(cuspDir, PIDFileName) }
+func logPath(cuspDir string) string  { return filepath.Join(cuspDir, "dolt-server.log") }
+func lockPath(cuspDir string) string { return filepath.Join(cuspDir, "dolt-server.lock") }
+func portPath(cuspDir string) string { return filepath.Join(cuspDir, PortFileName) }
 
 // MaxDoltServers is the hard ceiling on concurrent dolt sql-server processes.
 // Allows up to 3 (e.g., multiple projects).
@@ -357,7 +357,7 @@ func isPortAvailable(host string, port int) bool {
 // Returns (adoptPID, nil) when an existing server should be adopted.
 // Returns (0, nil) when the port is free for a new server.
 // Returns (0, err) when the port can't be used.
-func reclaimPort(host string, port int, adlgDir string) (adoptPID int, err error) {
+func reclaimPort(host string, port int, cuspDir string) (adoptPID int, err error) {
 	if isPortAvailable(host, port) {
 		return 0, nil // port is free
 	}
@@ -376,20 +376,20 @@ func reclaimPort(host string, port int, adlgDir string) (adoptPID int, err error
 
 	// Check if it's a dolt sql-server process
 	if !isDoltProcess(pid) {
-		return 0, fmt.Errorf("port %d is in use by a non-dolt process (PID %d).\n\nFree the port or configure a different one with: adlg dolt set port <port>", port, pid)
+		return 0, fmt.Errorf("port %d is in use by a non-dolt process (PID %d).\n\nFree the port or configure a different one with: cusp dolt set port <port>", port, pid)
 	}
 
 	// It's a dolt process. Check if it's one we should adopt.
 
 	// Check if the process is using our data directory (CWD matches our dolt dir).
 	// dolt sql-server is started with cmd.Dir = doltDir, so CWD is the data dir.
-	doltDir := ResolveDoltDir(adlgDir)
+	doltDir := ResolveDoltDir(cuspDir)
 	if isProcessInDir(pid, doltDir) {
 		return pid, nil // our server — adopt it
 	}
 
-	// Another adlg project's Dolt server is on this port.
-	return 0, fmt.Errorf("port %d is in use by another project's dolt server (PID %d).\n\nFree the port or use a different one with: adlg dolt set port <port>", port, pid)
+	// Another cusp project's Dolt server is on this port.
+	return 0, fmt.Errorf("port %d is in use by another project's dolt server (PID %d).\n\nFree the port or use a different one with: cusp dolt set port <port>", port, pid)
 }
 
 // countDoltProcesses returns the number of running dolt sql-server processes.
@@ -407,8 +407,8 @@ func isDoltProcess(pid int) bool {
 
 // readPortFile reads the actual port from the port file, if it exists.
 // Returns 0 if the file doesn't exist or is unreadable.
-func readPortFile(adlgDir string) int {
-	data, err := os.ReadFile(portPath(adlgDir))
+func readPortFile(cuspDir string) int {
+	data, err := os.ReadFile(portPath(cuspDir))
 	if err != nil {
 		return 0
 	}
@@ -420,32 +420,32 @@ func readPortFile(adlgDir string) int {
 }
 
 // writePortFile records the actual port the server is listening on.
-func writePortFile(adlgDir string, port int) error {
-	return os.WriteFile(portPath(adlgDir), []byte(strconv.Itoa(port)), 0600)
+func writePortFile(cuspDir string, port int) error {
+	return os.WriteFile(portPath(cuspDir), []byte(strconv.Itoa(port)), 0600)
 }
 
 // EnsurePortFile makes the repo-local port file match the connected server port.
 // This is a best-effort repair path for upgraded repos that are missing
-// .adlg/dolt-server.port even though commands can still connect.
-func EnsurePortFile(adlgDir string, port int) error {
-	if adlgDir == "" || port <= 0 {
+// .cusp/dolt-server.port even though commands can still connect.
+func EnsurePortFile(cuspDir string, port int) error {
+	if cuspDir == "" || port <= 0 {
 		return nil
 	}
-	existing := readPortFile(adlgDir)
+	existing := readPortFile(cuspDir)
 	if existing == port {
 		return nil
 	}
 	if existing > 0 {
-		fmt.Fprintf(os.Stderr, "Info: updating port file %d → %d in %s\n", existing, port, adlgDir)
+		fmt.Fprintf(os.Stderr, "Info: updating port file %d → %d in %s\n", existing, port, cuspDir)
 	}
-	return writePortFile(adlgDir, port)
+	return writePortFile(cuspDir, port)
 }
 
 // ReadPortFile returns the port from the project's dolt-server.port file,
-// or 0 if the file doesn't exist or is invalid. Exported for use by adlg init
+// or 0 if the file doesn't exist or is invalid. Exported for use by cusp init
 // to detect whether this project has its own running server (GH#2336).
-func ReadPortFile(adlgDir string) int {
-	return readPortFile(adlgDir)
+func ReadPortFile(cuspDir string) int {
+	return readPortFile(cuspDir)
 }
 
 // DefaultConfig returns config with sensible defaults.
@@ -456,22 +456,22 @@ func ReadPortFile(adlgDir string) int {
 // The port file (dolt-server.port) is written by Start() with the actual port
 // the server is listening on. Consulting it here ensures that commands
 // connecting to an already-running server use the correct port.
-func DefaultConfig(adlgDir string) *Config {
+func DefaultConfig(cuspDir string) *Config {
 	// In shared mode, use the shared server directory for port resolution
 	if IsSharedServerMode() {
 		if sharedDir, err := SharedServerDir(); err == nil {
-			adlgDir = sharedDir
+			cuspDir = sharedDir
 		}
 	}
 
 	cfg := &Config{
-		ADLGDir: adlgDir,
+		CuspDir: cuspDir,
 		Host:    "127.0.0.1",
-		Mode:    ResolveServerMode(adlgDir),
+		Mode:    ResolveServerMode(cuspDir),
 	}
 
 	// Check env var override first (used by tests and manual overrides)
-	if p := os.Getenv("ADLG_DOLT_SERVER_PORT"); p != "" {
+	if p := os.Getenv("CUSP_DOLT_SERVER_PORT"); p != "" {
 		if port, err := strconv.Atoi(p); err == nil {
 			cfg.Port = port
 			return cfg
@@ -482,12 +482,12 @@ func DefaultConfig(adlgDir string) *Config {
 	// persistent source. Start() writes the actual listening port here.
 	// Elevated to top priority (after env var) to prevent git-tracked values
 	// from causing cross-project data leakage (GH#2372).
-	if p := readPortFile(adlgDir); 0 < p {
+	if p := readPortFile(cuspDir); 0 < p {
 		cfg.Port = p
 		return cfg
 	}
 
-	// Check config.yaml / global config (~/.config/adlg/config.yaml) (GH#2073)
+	// Check config.yaml / global config (~/.config/cusp/config.yaml) (GH#2073)
 	// Note: project-level config.yaml dolt.port is git-tracked and could
 	// propagate to collaborators. Prefer the gitignored port file above.
 	if cfg.Port == 0 {
@@ -503,11 +503,11 @@ func DefaultConfig(adlgDir string) *Config {
 	// Emit a one-time warning but still use the value as a fallback so
 	// existing setups don't break silently.
 	if cfg.Port == 0 {
-		if metaCfg, err := configfile.Load(adlgDir); err == nil && metaCfg != nil {
+		if metaCfg, err := configfile.Load(cuspDir); err == nil && metaCfg != nil {
 			if metaCfg.DoltServerPort > 0 {
 				fmt.Fprintf(os.Stderr, "Warning: dolt_server_port in metadata.json is deprecated (can cause cross-project data leakage).\n")
-				fmt.Fprintf(os.Stderr, "  The port file (.adlg/dolt-server.port) is now the primary source.\n")
-				fmt.Fprintf(os.Stderr, "  Remove dolt_server_port from .adlg/metadata.json to silence this warning.\n")
+				fmt.Fprintf(os.Stderr, "  The port file (.cusp/dolt-server.port) is now the primary source.\n")
+				fmt.Fprintf(os.Stderr, "  Remove dolt_server_port from .cusp/metadata.json to silence this warning.\n")
 				cfg.Port = metaCfg.DoltServerPort
 			}
 		}
@@ -523,10 +523,10 @@ func DefaultConfig(adlgDir string) *Config {
 	return cfg
 }
 
-// IsRunning checks if a managed server is running for this adlgDir.
+// IsRunning checks if a managed server is running for this cuspDir.
 // Returns a State with Running=true if a valid dolt process is found.
-func IsRunning(adlgDir string) (*State, error) {
-	data, err := os.ReadFile(pidPath(adlgDir))
+func IsRunning(cuspDir string) (*State, error) {
+	data, err := os.ReadFile(pidPath(cuspDir))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &State{Running: false}, nil
@@ -537,31 +537,31 @@ func IsRunning(adlgDir string) (*State, error) {
 	pid, err := strconv.Atoi(strings.TrimSpace(string(data)))
 	if err != nil {
 		// Corrupt PID file implies stale state; clear the port file too.
-		_ = os.Remove(pidPath(adlgDir))
-		_ = os.Remove(portPath(adlgDir))
+		_ = os.Remove(pidPath(cuspDir))
+		_ = os.Remove(portPath(cuspDir))
 		return &State{Running: false}, nil
 	}
 
 	// Check if process is alive
 	if !isProcessAlive(pid) {
 		// Process is dead — clear all tracked state for this server.
-		_ = os.Remove(pidPath(adlgDir))
-		_ = os.Remove(portPath(adlgDir))
+		_ = os.Remove(pidPath(cuspDir))
+		_ = os.Remove(portPath(cuspDir))
 		return &State{Running: false}, nil
 	}
 
 	// Verify it's actually a dolt sql-server process
 	if !isDoltProcess(pid) {
 		// PID was reused by another process
-		_ = os.Remove(pidPath(adlgDir))
-		_ = os.Remove(portPath(adlgDir))
+		_ = os.Remove(pidPath(cuspDir))
+		_ = os.Remove(portPath(cuspDir))
 		return &State{Running: false}, nil
 	}
 
 	// Read actual port from port file; fall back to config-derived port.
-	port := readPortFile(adlgDir)
+	port := readPortFile(cuspDir)
 	if port == 0 {
-		cfg := DefaultConfig(adlgDir)
+		cfg := DefaultConfig(cuspDir)
 		port = cfg.Port
 	}
 	if port == 0 {
@@ -575,14 +575,14 @@ func IsRunning(adlgDir string) (*State, error) {
 				_ = proc.Kill()
 			}
 		}
-		_ = os.Remove(pidPath(adlgDir))
+		_ = os.Remove(pidPath(cuspDir))
 		return &State{Running: false}, nil
 	}
 	return &State{
 		Running: true,
 		PID:     pid,
 		Port:    port,
-		DataDir: ResolveDoltDir(adlgDir),
+		DataDir: ResolveDoltDir(cuspDir),
 	}, nil
 }
 
@@ -592,11 +592,11 @@ func IsRunning(adlgDir string) (*State, error) {
 //
 // When metadata.json specifies an explicit dolt_server_port (indicating an
 // external/shared server, e.g. managed by systemd), EnsureRunning will NOT
-// start a new server. The external server's lifecycle is not adlg's
+// start a new server. The external server's lifecycle is not cusp's
 // responsibility — starting a per-project server would conflict with (or
 // kill) the shared server. See GH#2554.
-func EnsureRunning(adlgDir string) (int, error) {
-	port, _, err := EnsureRunningDetailed(adlgDir)
+func EnsureRunning(cuspDir string) (int, error) {
+	port, _, err := EnsureRunningDetailed(cuspDir)
 	return port, err
 }
 
@@ -604,8 +604,8 @@ func EnsureRunning(adlgDir string) (int, error) {
 // server was started (startedByUs=true) vs. an already-running server was
 // adopted (startedByUs=false). Callers that need to clean up auto-started
 // servers (e.g. test teardown) should use this variant.
-func EnsureRunningDetailed(adlgDir string) (port int, startedByUs bool, err error) {
-	serverDir := resolveServerDir(adlgDir)
+func EnsureRunningDetailed(cuspDir string) (port int, startedByUs bool, err error) {
+	serverDir := resolveServerDir(cuspDir)
 
 	// Inform when an orchestrator is also running on this machine
 	if IsSharedServerMode() && os.Getenv("GT_ROOT") != "" {
@@ -624,26 +624,26 @@ func EnsureRunningDetailed(adlgDir string) (port int, startedByUs bool, err erro
 	// If the server mode is External (explicit port in metadata.json,
 	// shared server mode, etc.), do not start a per-project server —
 	// it would conflict with the external one.
-	mode := ResolveServerMode(adlgDir)
+	mode := ResolveServerMode(cuspDir)
 	if mode == ServerModeExternal {
-		cfg := DefaultConfig(adlgDir)
+		cfg := DefaultConfig(cuspDir)
 		return 0, false, fmt.Errorf("Dolt server is not running on port %d, and auto-start is suppressed "+
 			"because the server is externally managed (dolt.auto-start: false or explicit port configured).\n\n"+
-			"Start the external server, or enable auto-start to allow adlg to manage the server.\n"+
-			"  To start manually: adlg dolt start\n"+
-			"  To check status: adlg dolt status", cfg.Port)
+			"Start the external server, or enable auto-start to allow cusp to manage the server.\n"+
+			"  To start manually: cusp dolt start\n"+
+			"  To check status: cusp dolt status", cfg.Port)
 	}
 
 	// Defense-in-depth: if dolt.auto-start is explicitly disabled in
 	// config.yaml or env, never spawn a server even if the caller
 	// somehow reached this point (e.g. stale AutoStart=true in config).
 	if IsAutoStartDisabled() {
-		cfg := DefaultConfig(adlgDir)
+		cfg := DefaultConfig(cuspDir)
 		return 0, false, fmt.Errorf("Dolt server unreachable (port %d) and auto-start is disabled "+
-			"(dolt.auto-start: false in config.yaml or ADLG_DOLT_AUTO_START=0).\n\n"+
+			"(dolt.auto-start: false in config.yaml or CUSP_DOLT_AUTO_START=0).\n\n"+
 			"Start the server manually or enable auto-start.\n"+
-			"  To start manually: adlg dolt start\n"+
-			"  To check status: adlg dolt status", cfg.Port)
+			"  To start manually: cusp dolt start\n"+
+			"  To check status: cusp dolt status", cfg.Port)
 	}
 
 	s, err := Start(serverDir)
@@ -656,8 +656,8 @@ func EnsureRunningDetailed(adlgDir string) (port int, startedByUs bool, err erro
 // doltServerLogLevel is the --loglevel value passed to `dolt sql-server`.
 //
 // Dolt's sql-server logs every new connection and connection close at INFO
-// level (`msg=NewConnection` / `msg=ConnectionClosed`). Because adlg opens
-// a fresh MySQL connection for each `adlg` invocation, a busy project can
+// level (`msg=NewConnection` / `msg=ConnectionClosed`). Because cusp opens
+// a fresh MySQL connection for each `cusp` invocation, a busy project can
 // produce millions of lines of connection churn noise, which in one field
 // report filled dolt-server.log with ~380 MB of useless entries, generated
 // significant btrfs write pressure, and buried real error signals.
@@ -704,12 +704,12 @@ func buildDoltServerArgs(host string, port int, debug bool, profDir string) []st
 
 // Start explicitly starts a dolt sql-server for the project.
 // Returns the State of the started server, or an error.
-func Start(adlgDir string) (*State, error) {
-	cfg := DefaultConfig(adlgDir)
-	doltDir := ResolveDoltDir(adlgDir)
+func Start(cuspDir string) (*State, error) {
+	cfg := DefaultConfig(cuspDir)
+	doltDir := ResolveDoltDir(cuspDir)
 
 	// Acquire exclusive lock to prevent concurrent starts
-	lockF, err := os.OpenFile(lockPath(adlgDir), os.O_CREATE|os.O_RDWR, 0600)
+	lockF, err := os.OpenFile(lockPath(cuspDir), os.O_CREATE|os.O_RDWR, 0600)
 	if err != nil {
 		return nil, fmt.Errorf("creating lock file: %w", err)
 	}
@@ -717,14 +717,14 @@ func Start(adlgDir string) (*State, error) {
 
 	if err := lockfile.FlockExclusiveNonBlocking(lockF); err != nil {
 		if lockfile.IsLocked(err) {
-			// Another adlg process is starting the server — wait for it
+			// Another cusp process is starting the server — wait for it
 			if err := lockfile.FlockExclusiveBlocking(lockF); err != nil {
 				return nil, fmt.Errorf("waiting for server start lock: %w", err)
 			}
 			defer func() { _ = lockfile.FlockUnlock(lockF) }()
 
 			// Lock acquired — check if server is now running
-			state, err := IsRunning(adlgDir)
+			state, err := IsRunning(cuspDir)
 			if err != nil {
 				return nil, err
 			}
@@ -740,16 +740,16 @@ func Start(adlgDir string) (*State, error) {
 	}
 
 	// Re-check after acquiring lock (double-check pattern)
-	if state, _ := IsRunning(adlgDir); state != nil && state.Running {
+	if state, _ := IsRunning(cuspDir); state != nil && state.Running {
 		return state, nil
 	}
 
 	// Clean up orphaned dolt sql-server processes INSIDE the lock.
 	// This MUST happen under the lock to prevent a race where one process
 	// kills a server that another process is in the middle of starting
-	// (PID file not yet written). Without this, concurrent adlg processes
+	// (PID file not yet written). Without this, concurrent cusp processes
 	// can cause journal corruption (GH#2430).
-	if killed, killErr := KillStaleServers(adlgDir); killErr == nil && len(killed) > 0 {
+	if killed, killErr := KillStaleServers(cuspDir); killErr == nil && len(killed) > 0 {
 		fmt.Fprintf(os.Stderr, "Info: cleaned up %d orphaned dolt sql-server process(es)\n", len(killed))
 	}
 
@@ -769,8 +769,8 @@ func Start(adlgDir string) (*State, error) {
 	debug := IsDebugMode()
 	var profDir string
 	if debug {
-		profDir = DebugProfileDir(adlgDir)
-		if err := os.MkdirAll(profDir, config.ADLGDirPerm); err != nil {
+		profDir = DebugProfileDir(cuspDir)
+		if err := os.MkdirAll(profDir, config.CuspDirPerm); err != nil {
 			return nil, fmt.Errorf("creating pprof directory %s: %w", profDir, err)
 		}
 	}
@@ -791,10 +791,10 @@ func Start(adlgDir string) (*State, error) {
 		// Rotate the log if it has grown past the configured ceiling. This is a
 		// startup-only check — dolt owns the fd directly once launched, so we can
 		// only intervene between runs. See logrotate.go for the caveat discussion.
-		maybeRotateLog(adlgDir)
+		maybeRotateLog(cuspDir)
 
 		// Open log file
-		logFile, err := os.OpenFile(logPath(adlgDir), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) //nolint:gosec // G304: logPath derives from user-configured adlgDir
+		logFile, err := os.OpenFile(logPath(cuspDir), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600) //nolint:gosec // G304: logPath derives from user-configured cuspDir
 		if err != nil {
 			return nil, fmt.Errorf("opening log file: %w", err)
 		}
@@ -807,15 +807,15 @@ func Start(adlgDir string) (*State, error) {
 
 		if explicitPort {
 			// Explicit port: check for conflicts and adopt existing servers.
-			adoptPID, reclaimErr := reclaimPort(cfg.Host, actualPort, adlgDir)
+			adoptPID, reclaimErr := reclaimPort(cfg.Host, actualPort, cuspDir)
 			if reclaimErr != nil {
 				_ = logFile.Close()
 				return nil, fmt.Errorf("cannot start dolt server on port %d: %w", actualPort, reclaimErr)
 			}
 			if adoptPID > 0 {
 				_ = logFile.Close()
-				_ = os.WriteFile(pidPath(adlgDir), []byte(strconv.Itoa(adoptPID)), 0600)
-				_ = writePortFile(adlgDir, actualPort)
+				_ = os.WriteFile(pidPath(cuspDir), []byte(strconv.Itoa(adoptPID)), 0600)
+				_ = writePortFile(cuspDir, actualPort)
 				return &State{Running: true, PID: adoptPID, Port: actualPort, DataDir: doltDir}, nil
 			}
 		}
@@ -875,32 +875,32 @@ func Start(adlgDir string) (*State, error) {
 		_ = logFile.Close()
 
 		if lastErr != nil {
-			// GH#3290 / adlg-6dnrw.6: unclean-shutdown manifest corruption is
+			// GH#3290 / cusp-6dnrw.6: unclean-shutdown manifest corruption is
 			// detected here but never auto-repaired — reinitializing .dolt is
-			// destructive, so repair stays behind explicit adlg doctor --fix.
-			if dirs, detErr := detectCorruptManifest(adlgDir, doltDir); detErr == nil && len(dirs) > 0 {
+			// destructive, so repair stays behind explicit cusp doctor --fix.
+			if dirs, detErr := detectCorruptManifest(cuspDir, doltDir); detErr == nil && len(dirs) > 0 {
 				return nil, fmt.Errorf("failed to start dolt server after %d attempts: %w\n"+
 					"Corrupt manifest with no recoverable data detected (GH#3290) in:\n  %s\n"+
-					"Run 'adlg doctor --fix' to back up the corrupt database(s) and reinitialize.\nCheck logs: %s",
-					attempts, lastErr, strings.Join(dirs, "\n  "), logPath(adlgDir))
+					"Run 'cusp doctor --fix' to back up the corrupt database(s) and reinitialize.\nCheck logs: %s",
+					attempts, lastErr, strings.Join(dirs, "\n  "), logPath(cuspDir))
 			}
 			return nil, fmt.Errorf("failed to start dolt server after %d attempts: %w\nCheck logs: %s",
-				attempts, lastErr, logPath(adlgDir))
+				attempts, lastErr, logPath(cuspDir))
 		}
 	}
 
 	// Write PID and port files
-	if err := os.WriteFile(pidPath(adlgDir), []byte(strconv.Itoa(pid)), 0600); err != nil {
+	if err := os.WriteFile(pidPath(cuspDir), []byte(strconv.Itoa(pid)), 0600); err != nil {
 		if proc, findErr := os.FindProcess(pid); findErr == nil {
 			_ = proc.Kill()
 		}
 		return nil, fmt.Errorf("writing PID file: %w", err)
 	}
-	if err := writePortFile(adlgDir, actualPort); err != nil {
+	if err := writePortFile(cuspDir, actualPort); err != nil {
 		if proc, findErr := os.FindProcess(pid); findErr == nil {
 			_ = proc.Kill()
 		}
-		_ = os.Remove(pidPath(adlgDir))
+		_ = os.Remove(pidPath(cuspDir))
 		return nil, fmt.Errorf("writing port file: %w", err)
 	}
 
@@ -909,14 +909,14 @@ func Start(adlgDir string) (*State, error) {
 		if proc, findErr := os.FindProcess(pid); findErr == nil {
 			_ = proc.Kill()
 		}
-		_ = os.Remove(pidPath(adlgDir))
-		_ = os.Remove(portPath(adlgDir))
-		if hasJournalCorruption, logErr := logHasCorruptJournalError(logPath(adlgDir)); logErr == nil && hasJournalCorruption {
+		_ = os.Remove(pidPath(cuspDir))
+		_ = os.Remove(portPath(cuspDir))
+		if hasJournalCorruption, logErr := logHasCorruptJournalError(logPath(cuspDir)); logErr == nil && hasJournalCorruption {
 			return nil, fmt.Errorf("server started (PID %d) but not accepting connections on port %d: %w\n\n%s",
-				pid, actualPort, err, corruptJournalRecoveryHint(adlgDir))
+				pid, actualPort, err, corruptJournalRecoveryHint(cuspDir))
 		}
 		return nil, fmt.Errorf("server started (PID %d) but not accepting connections on port %d: %w\nCheck logs: %s",
-			pid, actualPort, err, logPath(adlgDir))
+			pid, actualPort, err, logPath(cuspDir))
 	}
 
 	return &State{
@@ -928,7 +928,7 @@ func Start(adlgDir string) (*State, error) {
 }
 
 // EnsureGlobalDatabase connects to the shared Dolt server and creates the
-// adlg_global database if it doesn't already exist. This is idempotent and
+// cusp_global database if it doesn't already exist. This is idempotent and
 // safe to call on every shared server init. Schema initialization and config
 // seeding (issue prefix, project ID) are handled by the store layer when the
 // global database is first opened with CreateIfMissing=true.
@@ -957,7 +957,7 @@ func EnsureGlobalDatabase(host string, port int, user, password string) error {
 	}
 
 	// CREATE DATABASE IF NOT EXISTS is idempotent — safe on every call.
-	// GlobalDatabaseName is a constant ("adlg_global"), not user input.
+	// GlobalDatabaseName is a constant ("cusp_global"), not user input.
 	_, err = db.ExecContext(ctx, fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", GlobalDatabaseName)) //nolint:gosec // G201: constant database name
 	if err != nil {
 		errLower := strings.ToLower(err.Error())
@@ -1023,7 +1023,7 @@ func FlushWorkingSet(host string, port int) error {
 		var hasChanges bool
 		row := db.QueryRowContext(ctx, fmt.Sprintf("SELECT COUNT(*) > 0 FROM `%s`.dolt_status", dbName))
 		if err := row.Scan(&hasChanges); err != nil {
-			// dolt_status may not exist for non-adlg databases; skip
+			// dolt_status may not exist for non-cusp databases; skip
 			continue
 		}
 		if !hasChanges {
@@ -1058,34 +1058,34 @@ func FlushWorkingSet(host string, port int) error {
 // ErrServerNotRunning after cleaning up any leftover state files.
 // Callers should use errors.Is(err, ErrServerNotRunning) to distinguish
 // this expected condition from real failures.
-func Stop(adlgDir string) error {
-	return StopWithForce(adlgDir, false)
+func Stop(cuspDir string) error {
+	return StopWithForce(cuspDir, false)
 }
 
 // StopWithForce is like Stop but with an optional force flag.
-func StopWithForce(adlgDir string, force bool) error {
-	state, err := IsRunning(adlgDir)
+func StopWithForce(cuspDir string, force bool) error {
+	state, err := IsRunning(cuspDir)
 	if err != nil {
 		return err
 	}
 	if !state.Running {
 		// Server not running — still clean up any leftover state files
-		// so adlg dolt status won't report stale state (GH#2670).
+		// so cusp dolt status won't report stale state (GH#2670).
 		// Join cleanup errors with the sentinel so callers can still use
 		// errors.Is(err, ErrServerNotRunning) while operators see filesystem issues.
-		cleanupErr := cleanupStateFiles(adlgDir)
+		cleanupErr := cleanupStateFiles(cuspDir)
 		return errors.Join(ErrServerNotRunning, cleanupErr)
 	}
 
 	// Flush uncommitted working set changes before stopping the server.
 	// This prevents data loss when changes have been written but not yet committed.
-	cfg := DefaultConfig(adlgDir)
+	cfg := DefaultConfig(cuspDir)
 	if flushErr := FlushWorkingSet(cfg.Host, state.Port); flushErr != nil {
 		fmt.Fprintf(os.Stderr, "Warning: could not flush working set before stop: %v\n", flushErr)
 	}
 
 	if err := gracefulStop(state.PID, 5*time.Second); err != nil {
-		return errors.Join(err, cleanupStateFiles(adlgDir))
+		return errors.Join(err, cleanupStateFiles(cuspDir))
 	}
 
 	// In debug mode, rotate cpu.pprof → cpu-<timestamp>.pprof so the next
@@ -1093,19 +1093,19 @@ func StopWithForce(adlgDir string, force bool) error {
 	// after a graceful (SIGTERM) exit — SIGKILL skips pkg/profile's
 	// deferred flush, leaving nothing to rotate. Best-effort.
 	if IsDebugMode() {
-		rotateDebugProfile(adlgDir)
+		rotateDebugProfile(cuspDir)
 	}
 
-	return cleanupStateFiles(adlgDir)
+	return cleanupStateFiles(cuspDir)
 }
 
 // cleanupStateFiles removes all server state files (PID and port).
 // Returns a joined error for non-NotExist removal failures so callers
 // can surface filesystem problems while still treating "already clean"
 // as success. Logs non-NotExist errors at debug level (GH#2670).
-func cleanupStateFiles(adlgDir string) error {
+func cleanupStateFiles(cuspDir string) error {
 	var errs []error
-	for _, path := range []string{pidPath(adlgDir), portPath(adlgDir)} {
+	for _, path := range []string{pidPath(cuspDir), portPath(cuspDir)} {
 		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 			debug.Logf("failed to remove server state file %s: %v", path, err)
 			errs = append(errs, err)
@@ -1115,36 +1115,36 @@ func cleanupStateFiles(adlgDir string) error {
 }
 
 // LogPath returns the path to the server log file.
-func LogPath(adlgDir string) string {
-	return logPath(adlgDir)
+func LogPath(cuspDir string) string {
+	return logPath(cuspDir)
 }
 
 // killStaleServersForDir finds and kills orphan dolt sql-server processes for
 // the current repo's Dolt data directory that are not tracked by the canonical
-// PID file. Only processes that adlg started (tracked via the PID file) are
+// PID file. Only processes that cusp started (tracked via the PID file) are
 // eligible for cleanup. Externally-managed servers are never killed.
 //
 // A process is considered "external" (never kill) when any of:
 //   - ResolveServerMode() returns ServerModeExternal (explicit port, shared server, etc.)
-//   - No PID file exists (adlg has no record of starting a server)
-func killStaleServersForDir(adlgDir string, allPIDs []int, inDir func(int, string) bool, kill func(int) error) ([]int, error) {
+//   - No PID file exists (cusp has no record of starting a server)
+func killStaleServersForDir(cuspDir string, allPIDs []int, inDir func(int, string) bool, kill func(int) error) ([]int, error) {
 	if len(allPIDs) == 0 {
 		return nil, nil
 	}
 
 	// If auto-start is disabled the server is externally managed (e.g., by
-	// systemd or a manual adlg dolt start), so we must not kill any processes.
-	// IsAutoStartDisabled covers the ADLG_DOLT_AUTO_START env var and
+	// systemd or a manual cusp dolt start), so we must not kill any processes.
+	// IsAutoStartDisabled covers the CUSP_DOLT_AUTO_START env var and
 	// dolt.auto-start config; ResolveServerMode covers explicit port/shared
 	// server/embedded configurations. Both indicate "not our server" (GH#2641).
-	if IsAutoStartDisabled() || ResolveServerMode(adlgDir) == ServerModeExternal {
+	if IsAutoStartDisabled() || ResolveServerMode(cuspDir) == ServerModeExternal {
 		return nil, nil
 	}
 
-	serverDir := resolveServerDir(adlgDir)
+	serverDir := resolveServerDir(cuspDir)
 
 	// Read the canonical PID from the PID file. If there is no PID file,
-	// adlg has no record of having started a server for this directory,
+	// cusp has no record of having started a server for this directory,
 	// so there is nothing stale to clean up. This prevents killing
 	// externally-started servers (systemd, other repos sharing a data dir).
 	var canonicalPID int
@@ -1154,14 +1154,14 @@ func killStaleServersForDir(adlgDir string, allPIDs []int, inDir func(int, strin
 		}
 	}
 	if canonicalPID == 0 {
-		// No valid PID file → no adlg-owned server to compare against.
+		// No valid PID file → no cusp-owned server to compare against.
 		// Nothing is stale from our perspective.
 		return nil, nil
 	}
 
 	// The canonical PID itself is alive and tracked — never kill it.
 	// Only kill OTHER dolt processes in our data dir (orphans from a
-	// previous adlg-started server that lost its PID file tracking).
+	// previous cusp-started server that lost its PID file tracking).
 	ownedDoltDir := ResolveDoltDir(serverDir)
 
 	var killed []int
@@ -1186,16 +1186,16 @@ func killStaleServersForDir(adlgDir string, allPIDs []int, inDir func(int, strin
 // current repo's Dolt data directory that are not tracked by the canonical PID
 // file. Returns the PIDs of killed processes.
 //
-// When auto-start is disabled (ADLG_DOLT_AUTO_START=0 or dolt.auto-start:
+// When auto-start is disabled (CUSP_DOLT_AUTO_START=0 or dolt.auto-start:
 // false), this function is a no-op — the dolt server is externally managed
-// and must not be killed by adlg (GH#2641).
-func KillStaleServers(adlgDir string) ([]int, error) {
+// and must not be killed by cusp (GH#2641).
+func KillStaleServers(cuspDir string) ([]int, error) {
 	if IsAutoStartDisabled() {
 		return nil, nil
 	}
 	allPIDs := listDoltProcessPIDs()
 	return killStaleServersForDir(
-		adlgDir,
+		cuspDir,
 		allPIDs,
 		isProcessInDir,
 		func(pid int) error {
@@ -1234,8 +1234,8 @@ func ensureDoltIdentity() error {
 	}
 
 	// Try to get identity from git
-	gitName := "adlg"
-	gitEmail := "adlg@localhost"
+	gitName := "cusp"
+	gitEmail := "cusp@localhost"
 
 	if out, err := exec.Command("git", "config", "user.name").Output(); err == nil {
 		if name := strings.TrimSpace(string(out)); name != "" {
@@ -1258,13 +1258,13 @@ func ensureDoltIdentity() error {
 	return nil
 }
 
-// bdDoltMarker is written after a current adlg process creates or acknowledges a
+// bdDoltMarker is written after a current cusp process creates or acknowledges a
 // local Dolt repository. Its absence in an existing .dolt/ directory indicates
-// the database was created by a pre-0.56 adlg version (which used embedded mode).
+// the database was created by a pre-0.56 cusp version (which used embedded mode).
 // Those databases are incompatible with the current server-only architecture.
-const bdDoltMarker = ".adlg-dolt-ok"
+const bdDoltMarker = ".cusp-dolt-ok"
 
-// MarkDoltDirCompatible writes the canonical adlg compatibility marker when
+// MarkDoltDirCompatible writes the canonical cusp compatibility marker when
 // doltDir contains a local Dolt repository. It no-ops when there is no .dolt/
 // directory, which lets server and repair paths call it defensively.
 func MarkDoltDirCompatible(doltDir string) error {
@@ -1293,10 +1293,10 @@ func MarkDoltDirCompatible(doltDir string) error {
 }
 
 // ensureDoltInit initializes a dolt database directory if .dolt/ doesn't exist.
-// If .dolt/ exists, seeds the .adlg-dolt-ok marker for existing working databases.
+// If .dolt/ exists, seeds the .cusp-dolt-ok marker for existing working databases.
 // See GH#2137 for background on pre-0.56 database compatibility.
 func ensureDoltInit(doltDir string) error {
-	if err := os.MkdirAll(doltDir, config.ADLGDirPerm); err != nil {
+	if err := os.MkdirAll(doltDir, config.CuspDirPerm); err != nil {
 		return fmt.Errorf("creating dolt directory: %w", err)
 	}
 
@@ -1324,7 +1324,7 @@ func ensureDoltInit(doltDir string) error {
 }
 
 // RecoverPreV56DoltDir removes and reinitializes a dolt database that was
-// created by a pre-0.56 adlg version. Call this during version upgrade detection
+// created by a pre-0.56 cusp version. Call this during version upgrade detection
 // (e.g., from autoMigrateOnVersionBump when previousVersion < 0.56).
 //
 // Pre-0.56 databases used embedded Dolt mode with a different Dolt library
@@ -1343,7 +1343,7 @@ func RecoverPreV56DoltDir(doltDir string) (bool, error) {
 		return false, nil // Marker exists — database is from 0.56+
 	}
 
-	fmt.Fprintf(os.Stderr, "Detected dolt database from an older adlg version (pre-0.56).\n")
+	fmt.Fprintf(os.Stderr, "Detected dolt database from an older cusp version (pre-0.56).\n")
 	fmt.Fprintf(os.Stderr, "Rebuilding dolt database at %s ...\n", doltDir)
 
 	if err := os.RemoveAll(dotDolt); err != nil {
@@ -1360,7 +1360,7 @@ func RecoverPreV56DoltDir(doltDir string) (bool, error) {
 }
 
 // IsPreV56DoltDir returns true if doltDir contains a .dolt/ directory that
-// was NOT created by adlg 0.56+ (missing .adlg-dolt-ok marker). These databases
+// was NOT created by cusp 0.56+ (missing .cusp-dolt-ok marker). These databases
 // were created by the old embedded Dolt mode and may be incompatible.
 // Used by doctor checks to detect potentially problematic dolt databases.
 func IsPreV56DoltDir(doltDir string) bool {

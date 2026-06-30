@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // drizzle.go extracts entity relationships from the tutor app's Drizzle schema

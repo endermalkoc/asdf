@@ -5,14 +5,14 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/importer"
-	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/cusp/internal/importer"
+	"github.com/endermalkoc/cusp/internal/refs"
 )
 
 // mdLinkRe matches a standard Markdown link `[label](url)`.
 var mdLinkRe = regexp.MustCompile(`\[([^\]]+)\]\(([^)]+)\)`)
 
-// convertRefs canonicalizes the corpus's prose into ADLG's inline-link grammar and
+// convertRefs canonicalizes the corpus's prose into Cusp's inline-link grammar and
 // derives the staging EntityRef set from it. It runs in two phases:
 //
 //  1. Rewrite every body-text field to canonical `[[TYPE:key]]` tokens. The corpus's

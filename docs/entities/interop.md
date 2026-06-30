@@ -3,8 +3,8 @@
 [← index](index.md) · see the [master diagram](index.md#master-diagram).
 
 ## ExternalRef
-A pointer from an ADLG node to its identity in an external system — a task tracker, or the
-source a node was imported from. ADLG is the system of record; this is interop only and is
+A pointer from a Cusp node to its identity in an external system — a task tracker, or the
+source a node was imported from. Cusp is the system of record; this is interop only and is
 deliberately **not** tied to any single tool. Polymorphic subject — the confirmed subjects
 are **`Deliverable`** (the work unit), **`Requirement`** (FR ↔ external requirement/issue),
 **`TestResult`** (imported result ↔ external run/result), and the planning rows

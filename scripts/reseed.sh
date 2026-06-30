@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
-# reseed.sh — rebuild the adlg binary and reset a workspace from scratch:
+# reseed.sh — rebuild the cusp binary and reset a workspace from scratch:
 # delete the database, reinitialize (applies the current schema), and re-import the
 # tutor corpus. This is the fast iteration loop while the schema is still churning —
 # we don't bother with forward migrations; we just rebuild from the source of truth.
 #
-# The managed dolt server is pinned to a fixed port (ADLG_DOLT_SERVER_PORT) so Dolt
+# The managed dolt server is pinned to a fixed port (CUSP_DOLT_SERVER_PORT) so Dolt
 # Workbench keeps the same connection across reseeds — no manual server, no handoff.
 #
 # Usage:   scripts/reseed.sh
 # Tunables (env vars, with defaults):
-#   WORKSPACE   workspace dir to (re)seed         (default: $HOME/adlg-tutor)
+#   WORKSPACE   workspace dir to (re)seed         (default: $HOME/cusp-tutor)
 #   CORPUS      tutor docs corpus to import       (default: $HOME/repos/endermalkoc/tutor/docs)
 #   PORT        managed dolt server port          (default: 3306)
-#   NO_GENERATE set to 1 to skip `adlg generate`  (default: generate runs)
+#   NO_GENERATE set to 1 to skip `cusp generate`  (default: generate runs)
 set -euo pipefail
 
-WORKSPACE="${WORKSPACE:-$HOME/adlg-tutor}"
+WORKSPACE="${WORKSPACE:-$HOME/cusp-tutor}"
 CORPUS="${CORPUS:-$HOME/repos/endermalkoc/tutor/docs}"
 PORT="${PORT:-3306}"
 
@@ -30,8 +30,8 @@ command -v go   >/dev/null || { echo "reseed: 'go' not found on PATH" >&2; exit 
 command -v dolt >/dev/null || { echo "reseed: 'dolt' not found on PATH" >&2; exit 1; }
 [ -d "$CORPUS/specs" ] || { echo "reseed: corpus not found at $CORPUS (no specs/)" >&2; exit 1; }
 
-echo "==> building adlg from $REPO"
-go build -C "$REPO" -o "$WORKSPACE/adlg" ./cmd/adlg
+echo "==> building cusp from $REPO"
+go build -C "$REPO" -o "$WORKSPACE/cusp" ./cmd/cusp
 
 # Free the port: stop a dolt server still bound to it (managed or hand-started), so the
 # data dir lock is released before init --force wipes and rebinds. Only kills dolt.
@@ -42,20 +42,20 @@ if [ -n "${pid:-}" ] && tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -q
   sleep 2
 fi
 
-export ADLG_DOLT_SERVER_PORT="$PORT"
+export CUSP_DOLT_SERVER_PORT="$PORT"
 cd "$WORKSPACE"
 
-echo "==> adlg init --force  (port $PORT)"
-./adlg init --force
+echo "==> cusp init --force  (port $PORT)"
+./cusp init --force
 
-echo "==> adlg import tutor --apply"
-./adlg import tutor "$CORPUS" --apply
+echo "==> cusp import tutor --apply"
+./cusp import tutor "$CORPUS" --apply
 
 if [ "${NO_GENERATE:-0}" != "1" ]; then
-  echo "==> adlg generate"
-  ./adlg generate
+  echo "==> cusp generate"
+  ./cusp generate
 fi
 
 echo
 echo "reseed complete — workspace $WORKSPACE is live on 127.0.0.1:$PORT"
-echo "  Dolt Workbench / DSN:  root@tcp(127.0.0.1:$PORT)/adlg"
+echo "  Dolt Workbench / DSN:  root@tcp(127.0.0.1:$PORT)/cusp"

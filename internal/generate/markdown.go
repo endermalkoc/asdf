@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/refs"
+	"github.com/endermalkoc/cusp/internal/refs"
 )
 
 // The Markdown renderer: Model → Obsidian-flavored Markdown documents. It is pure (no

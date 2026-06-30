@@ -6,15 +6,15 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/selfupdate"
+	"github.com/endermalkoc/cusp/internal/selfupdate"
 )
 
 var flagUpgradeCheck bool
 
 var upgradeCmd = &cobra.Command{
 	Use:   "upgrade [version]",
-	Short: "Download and install the latest adlg release in place",
-	Long: `Self-update adlg.
+	Short: "Download and install the latest cusp release in place",
+	Long: `Self-update cusp.
 
 Resolves the latest GitHub release (or the given [version] tag, e.g. v0.1.0),
 downloads the archive for this OS/arch, verifies its SHA-256 against the release's
@@ -22,13 +22,13 @@ checksums.txt, and atomically replaces the running binary.
 
 Use --check to report whether a newer release is available without installing it.
 Requires write access to the directory the binary lives in (use sudo, or pin
-ADLG_INSTALL_DIR via the install script, if it sits in a system path).
+CUSP_INSTALL_DIR via the install script, if it sits in a system path).
 
 Examples:
-  adlg upgrade
-  adlg upgrade --check
-  adlg upgrade v0.1.0
-  adlg upgrade --json`,
+  cusp upgrade
+  cusp upgrade --check
+  cusp upgrade v0.1.0
+  cusp upgrade --json`,
 	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
@@ -54,9 +54,9 @@ Examples:
 				"up_to_date": upToDate,
 			}
 			if upToDate {
-				emit(info, fmt.Sprintf("adlg %s is up to date.", version))
+				emit(info, fmt.Sprintf("cusp %s is up to date.", version))
 			} else {
-				emit(info, fmt.Sprintf("A different release is available: %s (current: %s).\nRun 'adlg upgrade' to install it.", resolved, version))
+				emit(info, fmt.Sprintf("A different release is available: %s (current: %s).\nRun 'cusp upgrade' to install it.", resolved, version))
 			}
 			return nil
 		}
@@ -75,12 +75,12 @@ Examples:
 		}
 		if res.UpToDate {
 			emit(map[string]any{"upgraded": false, "version": version, "latest": res.Latest},
-				fmt.Sprintf("adlg %s is already up to date.", version))
+				fmt.Sprintf("cusp %s is already up to date.", version))
 			return nil
 		}
 		emit(
 			map[string]any{"upgraded": true, "previous": res.Previous, "version": res.Latest, "path": res.Path},
-			fmt.Sprintf("Upgraded adlg %s → %s\n  %s\nRun 'adlg version' to confirm.", res.Previous, res.Latest, res.Path),
+			fmt.Sprintf("Upgraded cusp %s → %s\n  %s\nRun 'cusp version' to confirm.", res.Previous, res.Latest, res.Path),
 		)
 		return nil
 	},

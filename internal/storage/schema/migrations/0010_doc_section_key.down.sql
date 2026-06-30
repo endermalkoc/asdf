@@ -1,5 +1,5 @@
 -- 0010_doc_section_key.down.sql — restore the column shape (not the content; doc
--- content is git-ignored and reproducible via `adlg import`, like every prior
+-- content is git-ignored and reproducible via `cusp import`, like every prior
 -- section migration). A rollback is followed by a re-import.
 ALTER TABLE `doc_section`
     DROP KEY `uk_doc_section_owner_key`,

@@ -1,5 +1,5 @@
-ADLG — Agentic Delivery Lifecycle Graph
-Copyright (c) 2026 ADLG Contributors
+Cusp — Agentic Delivery Lifecycle Graph
+Copyright (c) 2026 Cusp Contributors
 
 This product includes software developed by the Beads project.
 
@@ -8,11 +8,11 @@ This product includes software developed by the Beads project.
   Licensed under the MIT License.
 
 The following packages were salvaged from beads (the MIT license terms are
-satisfied by retaining this notice). They provide ADLG's Dolt infrastructure:
+satisfied by retaining this notice). They provide Cusp's Dolt infrastructure:
 embedded/owned/external Dolt SQL server management, the warm "proxied server"
 daemon, and the version-control / remote / sync / federation operations. Import
 paths were rewritten from github.com/steveyegge/beads to
-github.com/endermalkoc/adlg, and dependencies on beads' issue domain were severed
+github.com/endermalkoc/cusp, and dependencies on beads' issue domain were severed
 (see the surgery notes below).
 
   internal/doltserver

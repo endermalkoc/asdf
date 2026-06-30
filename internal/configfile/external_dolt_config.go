@@ -9,7 +9,7 @@ import (
 
 const (
 	ExternalDoltConfigDefaultUser = "root"
-	ExternalDoltPasswordEnvVar    = "ADLG_PROXIED_SERVER_EXTERNAL_PASSWORD" // #nosec G101 -- env var name, not a credential
+	ExternalDoltPasswordEnvVar    = "CUSP_PROXIED_SERVER_EXTERNAL_PASSWORD" // #nosec G101 -- env var name, not a credential
 )
 
 type ExternalDoltConfig struct {

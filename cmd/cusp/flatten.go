@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/cusp/internal/app"
 )
 
 var flattenForce bool
@@ -17,9 +17,9 @@ var flattenCmd = &cobra.Command{
 		"commit, then GC to reclaim space. All commit-level history (time travel) is lost; the\n" +
 		"resulting database has exactly one commit holding the current data. Use it when the Dolt\n" +
 		"store has grown large and you don't need history. For a softer squash that keeps recent\n" +
-		"commits, use `adlg dolt compact`.\n\n" +
-		"  adlg flatten --dry-run    # preview the commit count\n" +
-		"  adlg flatten --force      # actually squash",
+		"commits, use `cusp dolt compact`.\n\n" +
+		"  cusp flatten --dry-run    # preview the commit count\n" +
+		"  cusp flatten --force      # actually squash",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

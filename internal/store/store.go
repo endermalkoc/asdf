@@ -1,4 +1,4 @@
-// Package store is ADLG's entity store. Its functions operate on an Execer (a
+// Package store is Cusp's entity store. Its functions operate on an Execer (a
 // *sql.DB, *sql.Conn, or *sql.Tx), so the caller controls the connection and
 // transaction — reads run on a pinned *sql.Conn, writes run inside the *sql.Tx
 // the mutation wrapper (internal/app) owns. IDs are minted client-side: ULIDs
@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/ids"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/ids"
 )
 
 // Execer is the subset of database/sql satisfied by *sql.DB, *sql.Conn, and
@@ -231,7 +231,7 @@ func ListRequirements(ctx context.Context, x Execer, specPrefix string) ([]Requi
 }
 
 // Edges (the deterministic-PK cross-reference graph) are written via AddEdgeByIDs
-// (import.go) from resolved (type,id) endpoints; see cmd/adlg/edge.go + app/edge.go for
+// (import.go) from resolved (type,id) endpoints; see cmd/cusp/edge.go + app/edge.go for
 // endpoint resolution and the acyclicity check.
 
 // SeedActor inserts the given actor if absent (idempotent on the handle), so

@@ -1,4 +1,4 @@
-// Package selfupdate implements `adlg upgrade`: resolve a GitHub release, download
+// Package selfupdate implements `cusp upgrade`: resolve a GitHub release, download
 // the archive for the running OS/arch, verify its SHA-256 against checksums.txt, and
 // atomically replace the running binary in place.
 //
@@ -28,12 +28,12 @@ import (
 )
 
 // DefaultRepo is the GitHub "owner/name" releases are published under (see install.sh).
-const DefaultRepo = "endermalkoc/adlg"
+const DefaultRepo = "endermalkoc/cusp"
 
 // DefaultBinary is the binary's base name inside a release archive.
-const DefaultBinary = "adlg"
+const DefaultBinary = "cusp"
 
-const userAgent = "adlg-selfupdate"
+const userAgent = "cusp-selfupdate"
 
 // Options configures an upgrade run. Zero values fall back to sensible defaults
 // (the running platform, the canonical repo, os.Executable()).
@@ -171,7 +171,7 @@ func Run(ctx context.Context, o Options, progress func(string)) (*Result, error)
 		return nil, err
 	}
 
-	work, err := os.MkdirTemp("", "adlg-upgrade-")
+	work, err := os.MkdirTemp("", "cusp-upgrade-")
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +267,7 @@ func displayVersion(v string) string {
 // ensureWritable verifies dir accepts new files, so a permission problem surfaces
 // before anything is downloaded rather than after.
 func ensureWritable(dir string) error {
-	f, err := os.CreateTemp(dir, ".adlg-upgrade-perm-*")
+	f, err := os.CreateTemp(dir, ".cusp-upgrade-perm-*")
 	if err != nil {
 		return fmt.Errorf("cannot write to %s — need write access to replace the binary "+
 			"(try sudo, or re-run the install script): %w", dir, err)
@@ -321,7 +321,7 @@ func sha256File(p string) (string, error) {
 // the subsequent rename atomic. The caller owns (and on error this function removes)
 // the temp file.
 func extractBinary(archivePath, asset, binary, destDir string) (string, error) {
-	out, err := os.CreateTemp(destDir, ".adlg-upgrade-*")
+	out, err := os.CreateTemp(destDir, ".cusp-upgrade-*")
 	if err != nil {
 		return "", fmt.Errorf("create staging file in %s: %w", destDir, err)
 	}

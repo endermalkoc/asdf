@@ -1,6 +1,6 @@
 # Changelog
 
-Completed work on **ADLG** (Agentic Delivery Lifecycle Graph) — what's built and verified. The
+Completed work on **Cusp** (Agentic Delivery Lifecycle Graph) — what's built and verified. The
 companion [ROADMAP.md](ROADMAP.md) tracks what's next; this file records what's already done.
 Everything here was verified against real Dolt (most of it manually — see
 [ROADMAP.md](ROADMAP.md#testing--ci)). The project has no tagged releases yet, so all of the below is
@@ -20,7 +20,7 @@ pre-release.
 - **Schema** — `0001_init` (26 entities + 6 junctions) + `0002` (`domain.description`) + a migration
   runner (`internal/storage/schema`); validated against real Dolt (FK/UNIQUE/deterministic-PK enforced).
 - **ID minting** (`internal/ids`) — ULID (authored rows) + deterministic `uuidv5` (relationships).
-- **`adlg init`** — creates `.adlg/`, starts a managed (owned) `dolt sql-server`, applies the
+- **`cusp init`** — creates `.cusp/`, starts a managed (owned) `dolt sql-server`, applies the
   schema, seeds the actor, records the initial Dolt commit.
 
 ### Command contract & CRUD
@@ -32,7 +32,7 @@ pre-release.
   (+ `edge add`/`ls`/`delete`, `section add`/`ls`/`delete`); `edit` re-runs the shared
   canonicalize→validate→reconcile-refs layer; `delete` cleans polymorphic refs + FK cascades. All
   honor `--dry-run` / exit-codes / the active changeset (see **Broaden CRUD** for the detail).
-- **Changesets (the PR model)** — `adlg changeset start/diff/submit/merge/abandon/ls`: a changeset
+- **Changesets (the PR model)** — `cusp changeset start/diff/submit/merge/abandon/ls`: a changeset
   is a Dolt branch; edits route to the active changeset; `diff` is the combined PR view; edits stay
   isolated from `main` until merge; `Changeset`/`Review` rows live on `main`.
 - **Graph integrity** — `edge add` takes `TYPE:key` endpoints (any keyed entity —
@@ -56,8 +56,8 @@ pre-release.
   sections/stories; domain→specs via explicit `deleteSpecByID`; entity→sections) and cleaning non-FK
   junctions (entity relationships, glossary aliases). All honor `--dry-run` + exit codes + the active
   changeset.
-- **`adlg config` (workspace generate config)** — `adlg config show` +
-  `adlg config generate enable/disable/add/remove/sync` drive the workspace `.adlg/config.json`
+- **`cusp config` (workspace generate config)** — `cusp config show` +
+  `cusp config generate enable/disable/add/remove/sync` drive the workspace `.cusp/config.json`
   (the `generate` section powering incremental auto-gen).
 - **Reads honor the active changeset** — `ls`/`show` reads (and the `Mutate` validation hook's
   existence/ref checks) run on the resolved target branch (`--changeset` → active changeset →
@@ -68,8 +68,8 @@ pre-release.
 
 ### Generation & cross-references
 
-- **Generate** — `adlg generate --format md|json|html`: DB → git-ignored read artifacts.
-  **md/json/html. ADLG-original** — beads has no generate; it exports JSONL. Core to the "generated,
+- **Generate** — `cusp generate --format md|json|html`: DB → git-ignored read artifacts.
+  **md/json/html. Cusp-original** — beads has no generate; it exports JSONL. Core to the "generated,
   never edited" principle. **Renderer architecture:** `Load` assembles the graph once into a
   format-agnostic view `Model` ([model.go](../internal/generate/model.go)); a `Renderer` turns it
   into output files. Two families: **document** (Markdown — Obsidian wikilinks+block-refs; HTML —
@@ -123,16 +123,16 @@ pre-release.
   full `Load`. **Full path:** a structural change (spec/entity/domain/term/section-type or fr_key
   added/removed/renamed) can move indexes or the inline-ref target set, so it rebuilds the whole
   graph. **Either way** `Sync` ([incremental.go](../internal/generate/incremental.go)) writes only
-  files whose content **hash** changed against a per-out-dir `.adlg-manifest.json` (full rebuild also
+  files whose content **hash** changed against a per-out-dir `.cusp-manifest.json` (full rebuild also
   deletes orphans). Pure non-render commits (`edge add`, ref index) generate nothing. **Config:**
-  `.adlg/config.json` `generate.enabled` + `formats:[{format, out}]`, out defaults to
-  `.adlg/artifacts/<format>`; driven by `adlg config generate enable/disable/add/remove/sync`.
+  `.cusp/config.json` `generate.enabled` + `formats:[{format, out}]`, out defaults to
+  `.cusp/artifacts/<format>`; driven by `cusp config generate enable/disable/add/remove/sync`.
   **Correctness gate (verified live):** a full `config generate sync` immediately after any
   incremental edit writes **0 files** — i.e. incremental output ≡ a full rebuild.
 - **Cross-references** — inline **entity links** inside Markdown / description text fields, stored
   as canonical refs (e.g. `[[REQ:ATT-FR-012]]`), rendered by `generate` as **Obsidian wikilinks +
   block references** (`[[path#^fr-key|label]]`) for Markdown and as **relative `<a href>` links**
-  for HTML (the data formats leave the raw `[[TYPE:key]]` tokens). **md/html/json. ADLG-original.**
+  for HTML (the data formats leave the raw `[[TYPE:key]]` tokens). **md/html/json. Cusp-original.**
   Design ratified in [decisions.md](entities/decisions.md); the queryable form is
   [`EntityRef`](entities/requirements.md#entityref). Targets any keyed entity
   (Domain/Spec/Requirement/Milestone/Entity/Glossary term). A dangling ref blocks an interactive
@@ -143,8 +143,8 @@ pre-release.
   `generate` emits the glossary page as the link target) are done.
 - **Glossary / terms** — a `GlossaryTerm` store (slug, term, definition, aliases, optional domain
   scope) — shared vocabulary so humans & agents define a concept **once** and reference it
-  everywhere. **ADLG-original.** Data model ([glossary.md](entities/glossary.md): `GlossaryTerm`
-  + `GlossaryAlias`); `adlg term add/ls/show/edit/delete` (with aliases); `[[TERM:slug]]` resolves
+  everywhere. **Cusp-original.** Data model ([glossary.md](entities/glossary.md): `GlossaryTerm`
+  + `GlossaryAlias`); `cusp term add/ls/show/edit/delete` (with aliases); `[[TERM:slug]]` resolves
   (slug + aliases) and `generate` emits the `glossary.md` page (block-anchor per term) as the link
   target. Distinct from the business **Entity** layer (domain *documents*) — a term is project
   *vocabulary*. **Note:** the tutor corpus seeds no terms, so the page is empty until terms are
@@ -153,16 +153,16 @@ pre-release.
 ### Import
 
 - **Import pipeline + `tutor` source adapter** — a source-agnostic staging core (`internal/importer`:
-  a `Graph` of ADLG entity shapes + a drift/ER-gap `Report` + an idempotent `Apply` writer keyed on
+  a `Graph` of Cusp entity shapes + a drift/ER-gap `Report` + an idempotent `Apply` writer keyed on
   business identifiers) and the deterministic, **no-LLM** `tutor` adapter (`internal/importer/tutor`).
-  `adlg import tutor <docs>` parses **Domain/Spec/Requirement/UserStory/AcceptanceScenario/Edge/
+  `cusp import tutor <docs>` parses **Domain/Spec/Requirement/UserStory/AcceptanceScenario/Edge/
   Milestone/Entity** and reports counts + coverage + drift; `--apply` loads the graph
   through `app.Mutate` (one changeset/`main` commit), idempotent on re-run. Validated against the
   real corpus (~2.2k FRs, 123 specs, 23 entities). The five ER refinements it
   surfaced are resolved in [decisions.md](entities/decisions.md). The structured authorization
   layer (`Privilege`/`AccessRule`) was **removed** — a tutor-specific, never-consumed paradigm;
   access rules stay as entity-doc prose (migration `0012`, [decisions.md](entities/decisions.md)).
-- **Notion source adapter (planning layer)** — `adlg import notion` ingests the Notion
+- **Notion source adapter (planning layer)** — `cusp import notion` ingests the Notion
   Capabilities / Deliverables / Views databases into the [planning layer](entities/planning.md)
   (`internal/importer/notion`). Maps each page → `Capability` (3-tier `level`, self-nested via
   `parent_id`), `Deliverable` (`size`/`status`/`ai_ready`, milestone-scoped — Notion's `—`
@@ -175,7 +175,7 @@ pre-release.
   page URL), and a deliverable's `Bead IDs` → a `system=beads` ref. **Idempotency:** planning rows
   have no natural unique key, so each row id is **deterministic** (`ids.Rel` over the stable Notion
   page id) — re-import converges (0 inserts on the second run) instead of duplicating. Source is the
-  **Notion API** (`--token`, or `$ADLG_NOTION_TOKEN` / `$NOTION_API_KEY`, paginated) or saved query
+  **Notion API** (`--token`, or `$CUSP_NOTION_TOKEN` / `$NOTION_API_KEY`, paginated) or saved query
   responses (`--from <dir>`) for an offline/testable path. Read-only report by default; `--apply`
   rides `app.Mutate` (one transaction, one Dolt commit). Verified end-to-end against the live
   workspace (392 capabilities, 252 deliverables, 20 views; idempotent re-run). The pure mapping is
@@ -184,9 +184,9 @@ pre-release.
 
 ### Remote sync
 
-- **Remote sync — push/pull/remote/fetch + sync.** `adlg dolt remote add/remove/ls`,
-  `adlg dolt push/pull/fetch [remote] [branch]` (default origin/main, `--force`, `--user` +
-  `DOLT_REMOTE_PASSWORD`), and `adlg sync` (pull-then-push the canonical branch). Orchestration in
+- **Remote sync — push/pull/remote/fetch + sync.** `cusp dolt remote add/remove/ls`,
+  `cusp dolt push/pull/fetch [remote] [branch]` (default origin/main, `--force`, `--user` +
+  `DOLT_REMOTE_PASSWORD`), and `cusp sync` (pull-then-push the canonical branch). Orchestration in
   [app/remote.go](../internal/app/remote.go) pins one connection (branch state is connection-scoped;
   a pull's merge needs one session — runs through `MergeAndSettle`) over the lifted
   `versioncontrolops` primitives; a pull/sync that advanced the branch **refreshes the generated
@@ -196,21 +196,21 @@ pre-release.
 
 ### Server, branches & DB maintenance
 
-- **Dolt server lifecycle — `adlg dolt start/stop/status`** ([dolt.go](../cmd/adlg/dolt.go)).
+- **Dolt server lifecycle — `cusp dolt start/stop/status`** ([dolt.go](../cmd/cusp/dolt.go)).
   `start` starts (or adopts, idempotently) the managed owned server; `stop` gracefully shuts it
   down (flush → SIGTERM → SIGKILL, `--force` to skip the wait); `status` reports mode + pid/port/
   data-dir/logs (text or `--json`). `start`/`stop` refuse when the workspace targets an external
-  server (`--dsn`/`$ADLG_DSN` or an explicit port). Closes the gap where owned mode could auto-start
+  server (`--dsn`/`$CUSP_DSN` or an explicit port). Closes the gap where owned mode could auto-start
   a server but offered no clean stop — wraps the lifted `doltserver.Start/StopWithForce/IsRunning`.
-- **Raw branch escape hatch — `adlg branch ls/create/delete/checkout`**
-  ([branch.go](../cmd/adlg/branch.go), [app/branch.go](../internal/app/branch.go)). The low-level
+- **Raw branch escape hatch — `cusp branch ls/create/delete/checkout`**
+  ([branch.go](../cmd/cusp/branch.go), [app/branch.go](../internal/app/branch.go)). The low-level
   view beneath the changeset model: `ls` lists Dolt branches (marks the active target, tags
   `changeset/*`), `create` branches off the active target, `delete` removes one (refuses `main` and
   the active target), `checkout` retargets the ambient read/write branch (reusing the active-changeset
-  pointer; `main` clears it). For the tracked PR workflow use `adlg changeset`; these are for
+  pointer; `main` clears it). For the tracked PR workflow use `cusp changeset`; these are for
   diagnostics and manual surgery.
-- **History maintenance — `adlg flatten` + `adlg dolt compact`**
-  ([flatten.go](../cmd/adlg/flatten.go), [app/maintenance.go](../internal/app/maintenance.go)).
+- **History maintenance — `cusp flatten` + `cusp dolt compact`**
+  ([flatten.go](../cmd/cusp/flatten.go), [app/maintenance.go](../internal/app/maintenance.go)).
   `flatten` squashes all Dolt history into one snapshot (irreversible; `--force`/`--dry-run`);
   `dolt compact --days N` squashes commits older than the window into one base, cherry-picking the
   recent ones on top (`--force`/`--dry-run`), driving the lifted `versioncontrolops.Compact` from the
@@ -219,34 +219,34 @@ pre-release.
 
 ### Query & inspect
 
-- **Query / inspect — `sql`/`stats`/`search`/`log`** ([query.go](../cmd/adlg/query.go)).
-  **`adlg sql <query>`** — read-only passthrough (SELECT/SHOW/DESCRIBE/EXPLAIN/WITH only; writes
+- **Query / inspect — `sql`/`stats`/`search`/`log`** ([query.go](../cmd/cusp/query.go)).
+  **`cusp sql <query>`** — read-only passthrough (SELECT/SHOW/DESCRIBE/EXPLAIN/WITH only; writes
   rejected with exit 2, so the attributed write path is never bypassed — invariant #3),
   dynamic-column table output or `--json` array, honors the active changeset, and reaches the
-  `dolt_*` system tables (history/diff/blame) and Dolt `AS OF` time-travel for free. **`adlg stats`**
-  — counts per layer. **`adlg search <text>`** — LIKE across domain names / spec titles /
+  `dolt_*` system tables (history/diff/blame) and Dolt `AS OF` time-travel for free. **`cusp stats`**
+  — counts per layer. **`cusp search <text>`** — LIKE across domain names / spec titles /
   requirement fr_keys+statements / entity names+descriptions / glossary terms (`store.Search`).
-  **`adlg log`** — recent commits from `dolt_log`. A shared dynamic row-printer (`writeRows`) backs
+  **`cusp log`** — recent commits from `dolt_log`. A shared dynamic row-printer (`writeRows`) backs
   them.
 
 ### Validation & analysis
 
-- **`adlg check` (first slice)** — read-only whole-graph integrity: scans every prose field
+- **`cusp check` (first slice)** — read-only whole-graph integrity: scans every prose field
   (`store.ListProseFields`) for inline `[[TYPE:key]]` tokens that don't resolve (`app.Check`), audits
   each acyclic edge kind for cycles (`findCycle`), honors the active changeset, exits nonzero on
   findings (gates CI/agents).
-- **`adlg impact <ref>`** — graph traversal around an entity (TYPE:key): inbound (what references /
+- **`cusp impact <ref>`** — graph traversal around an entity (TYPE:key): inbound (what references /
   points an edge at it = what's affected if it changes) and outbound (what it relies on), over
   entity_refs + edges, with `--transitive` for the reverse-edge blast radius (`app.Impact` +
   `store.ListAllEdges`/`ListEntityRefsFor`); honors the active changeset.
 
 ### Distribution & self-update
 
-- **`adlg version`** ([version.go](../cmd/adlg/version.go)) — reports version / commit / build date /
+- **`cusp version`** ([version.go](../cmd/cusp/version.go)) — reports version / commit / build date /
   Go toolchain / os·arch (human or `--json`). Build metadata is injected at release time via ldflags
   (GoReleaser / Makefile) and falls back to `runtime/debug.ReadBuildInfo()` for `go install` builds.
   See [build-and-release.md](build-and-release.md).
-- **`adlg upgrade [version]`** — self-update in place ([upgrade.go](../cmd/adlg/upgrade.go) +
+- **`cusp upgrade [version]`** — self-update in place ([upgrade.go](../cmd/cusp/upgrade.go) +
   `internal/selfupdate`). Resolves the latest GitHub release (or a pinned tag), downloads the archive
   for the running OS/arch, **verifies its SHA-256 against the release's `checksums.txt`**, then
   atomically replaces the running binary (rename on Unix; move-aside on Windows). `--check` reports
@@ -262,11 +262,20 @@ pre-release.
 
 ### Project & resolved decisions
 
+- **Rename / rebrand — adlg → cusp (full).** The `adlg` acronym (Agentic Delivery Lifecycle
+  Graph) was hard to remember and gave the CLI no memorable handle. Renamed to **Cusp** — a short,
+  brandable name (a *cusp* is the point of transition where one state becomes the next: spec →
+  requirement → test → shipped code), verified collision-free in the dev-tool/agentic space. Applied
+  end-to-end: command/binary `cusp`, the `cmd/cusp` entrypoint, the `.cusp/` config/workspace dir,
+  the `CUSP_*` env prefix, **the Go module path (`github.com/endermalkoc/cusp`), all internal
+  identifiers** (`cuspDir`, `EnsureCuspDir`, …), the shared-server global DB name (`cusp_global`), and
+  all docs/help/output; *Agentic Delivery Lifecycle Graph* is retained as the tagline. The GitHub repo
+  and local folder renames are manual follow-ups.
 - **Rename / rebrand — asdf → adlg (full).** The old `asdf` binary/command name collided with the
   [asdf version manager](https://asdf-vm.com/), a widely-installed CLI of the same name. Renamed to
   **`adlg` (Agentic Delivery Lifecycle Graph)** end-to-end: published binary/command, the `cmd/adlg`
   entrypoint, the `.adlg/` config/workspace dir, the `ADLG_*` env prefix, **the Go module path and
-  GitHub repo (`github.com/endermalkoc/adlg`), all internal identifiers** (`adlgDir`, `EnsureADLGDir`,
+  GitHub repo (`github.com/endermalkoc/adlg`), all internal identifiers** (`adlgDir`, `EnsureAdlgDir`,
   …), and the shared-server global DB name (`adlg_global`); docs/help/output all updated. Kept as
   `asdf` only: references to the *other* tool (asdf-vm) and the developer's personal `~/asdf-tutor`
   sandbox.

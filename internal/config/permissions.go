@@ -9,20 +9,20 @@ import (
 )
 
 const (
-	// ADLGDirPerm is the permission mode for .adlg/ directories (owner-only).
-	ADLGDirPerm fs.FileMode = 0700
-	// ADLGFilePerm is the permission mode for state files inside .adlg/ (owner-only).
-	ADLGFilePerm fs.FileMode = 0600
+	// CuspDirPerm is the permission mode for .cusp/ directories (owner-only).
+	CuspDirPerm fs.FileMode = 0700
+	// CuspFilePerm is the permission mode for state files inside .cusp/ (owner-only).
+	CuspFilePerm fs.FileMode = 0600
 )
 
-// EnsureADLGDir creates the .adlg directory with secure permissions.
-func EnsureADLGDir(path string) error {
-	return os.MkdirAll(path, ADLGDirPerm)
+// EnsureCuspDir creates the .cusp directory with secure permissions.
+func EnsureCuspDir(path string) error {
+	return os.MkdirAll(path, CuspDirPerm)
 }
 
-// CheckADLGDirPermissions warns to stderr if the .adlg directory has
+// CheckCuspDirPermissions warns to stderr if the .cusp directory has
 // group or world-accessible permissions. The check is non-fatal.
-func CheckADLGDirPermissions(path string) {
+func CheckCuspDirPermissions(path string) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return // directory doesn't exist yet
@@ -33,9 +33,9 @@ func CheckADLGDirPermissions(path string) {
 	}
 }
 
-// FixADLGDirPermissions sets the .adlg directory to ADLGDirPerm when it
+// FixCuspDirPermissions sets the .cusp directory to CuspDirPerm when it
 // has group or world-accessible bits. Returns true if permissions changed.
-func FixADLGDirPermissions(path string) (bool, error) {
+func FixCuspDirPermissions(path string) (bool, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return false, nil // directory doesn't exist yet
@@ -44,8 +44,8 @@ func FixADLGDirPermissions(path string) (bool, error) {
 	if perm&0077 == 0 {
 		return false, nil // no group or world-accessible bits
 	}
-	if err := os.Chmod(path, ADLGDirPerm); err != nil {
-		return false, fmt.Errorf("failed to chmod %s to %04o: %w", path, ADLGDirPerm, err)
+	if err := os.Chmod(path, CuspDirPerm); err != nil {
+		return false, fmt.Errorf("failed to chmod %s to %04o: %w", path, CuspDirPerm, err)
 	}
 	return true, nil
 }

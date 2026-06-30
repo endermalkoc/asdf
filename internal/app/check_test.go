@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 func TestFindCycle(t *testing.T) {

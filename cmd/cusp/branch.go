@@ -6,13 +6,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/cusp/internal/app"
 )
 
 var branchCmd = &cobra.Command{
 	Use:   "branch",
-	Short: "Inspect and hand-manage raw Dolt branches (low-level; prefer `adlg changeset`)",
-	Long: "ADLG's tracked, PR-like workflow is `adlg changeset` — branches named changeset/<slug>,\n" +
+	Short: "Inspect and hand-manage raw Dolt branches (low-level; prefer `cusp changeset`)",
+	Long: "Cusp's tracked, PR-like workflow is `cusp changeset` — branches named changeset/<slug>,\n" +
 		"recorded in rev_changeset and made the active target. `branch` is the low-level escape\n" +
 		"hatch over the raw Dolt branch graph: list branches, or create/delete/checkout one by hand.\n" +
 		"A branch created here is untracked (no rev_changeset row), so `changeset submit`/`merge`\n" +
@@ -88,7 +88,7 @@ var branchDeleteCmd = &cobra.Command{
 		}
 		defer ws.Close()
 		if name == app.ResolveBranch(ws, "") {
-			return fmt.Errorf("refusing to delete the active target branch %q — switch away first (`adlg branch checkout main`)", name)
+			return fmt.Errorf("refusing to delete the active target branch %q — switch away first (`cusp branch checkout main`)", name)
 		}
 		if err := app.DeleteBranch(ctx, ws, name); err != nil {
 			return err

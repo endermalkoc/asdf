@@ -10,13 +10,13 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 var logLimit int
 
-// readVerbs are the statement kinds `adlg sql` permits. Writes are rejected so the database
+// readVerbs are the statement kinds `cusp sql` permits. Writes are rejected so the database
 // is only ever mutated through the entity commands (which create attributed Dolt commits) —
 // invariant #3: all writes go through the CLI/MCP, never a raw passthrough.
 var readVerbs = map[string]bool{
@@ -30,7 +30,7 @@ var sqlCmd = &cobra.Command{
 		"Reads honor the active changeset (--changeset → active changeset → main). Only SELECT/SHOW/\n" +
 		"DESCRIBE/EXPLAIN/WITH are allowed — writes must go through the entity commands so every\n" +
 		"change is an attributed Dolt commit. Dolt history/diff/blame are available via the dolt_*\n" +
-		"system tables (e.g. `adlg sql \"SELECT * FROM dolt_log LIMIT 5\"`). Use `-` to read from stdin.",
+		"system tables (e.g. `cusp sql \"SELECT * FROM dolt_log LIMIT 5\"`). Use `-` to read from stdin.",
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		query := strings.Join(args, " ")
@@ -153,7 +153,7 @@ func init() {
 	rootCmd.AddCommand(sqlCmd, statsCmd, searchCmd, logCmd)
 }
 
-// ensureReadOnly rejects any statement that is not a read, so `adlg sql` can never bypass the
+// ensureReadOnly rejects any statement that is not a read, so `cusp sql` can never bypass the
 // attributed write path.
 func ensureReadOnly(query string) error {
 	verb := strings.ToLower(strings.TrimLeft(query, "( \t\r\n"))
@@ -161,7 +161,7 @@ func ensureReadOnly(query string) error {
 		verb = verb[:i]
 	}
 	if !readVerbs[verb] {
-		return app.ValidationFailed(fmt.Errorf("adlg sql is read-only (got %q) — use the entity commands to write", verb))
+		return app.ValidationFailed(fmt.Errorf("cusp sql is read-only (got %q) — use the entity commands to write", verb))
 	}
 	return nil
 }

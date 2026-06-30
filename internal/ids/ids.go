@@ -1,4 +1,4 @@
-// Package ids mints ADLG's primary keys.
+// Package ids mints Cusp's primary keys.
 //
 // Two strategies, per docs/entities/identifiers.md:
 //   - New() — a time-ordered ULID for authored rows (collision-free, offline-mintable).
@@ -14,11 +14,11 @@ import (
 	"github.com/oklog/ulid/v2"
 )
 
-// relNamespace is the fixed UUIDv5 namespace for ADLG relationship ids. It is
+// relNamespace is the fixed UUIDv5 namespace for Cusp relationship ids. It is
 // derived once from a stable URL and must never change: changing it would re-key
 // every relationship row and reintroduce the cross-clone divergence Rel exists to
 // prevent (cf. beads' depid/rowid, the technique this generalizes).
-var relNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/endermalkoc/adlg#rel-id"))
+var relNamespace = uuid.NewSHA1(uuid.NameSpaceURL, []byte("https://github.com/endermalkoc/cusp#rel-id"))
 
 // sep joins identity components. ASCII Unit Separator (0x1f) cannot occur in an
 // id or an enum value, so no two distinct component sequences can collide.

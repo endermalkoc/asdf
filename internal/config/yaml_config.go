@@ -17,11 +17,11 @@ import (
 // rather than the database. These are "startup" settings that are
 // read before the database is opened.
 //
-// This fixes GH#536: users were confused when `adlg config set no-db true`
+// This fixes GH#536: users were confused when `cusp config set no-db true`
 // appeared to succeed but had no effect (because no-db is read from yaml
 // at startup, not from the database).
 var YamlOnlyKeys = map[string]bool{
-	// Bootstrap flags (affect how adlg starts)
+	// Bootstrap flags (affect how cusp starts)
 	"no-db": true,
 	"json":  true,
 
@@ -34,7 +34,7 @@ var YamlOnlyKeys = map[string]bool{
 	"git.author":      true,
 	"git.no-gpg-sign": true,
 	"no-push":         true,
-	"no-git-ops":      true, // Disable git ops in adlg prime session close protocol (GH#593)
+	"no-git-ops":      true, // Disable git ops in cusp prime session close protocol (GH#593)
 
 	// Sync settings
 	"sync.remote":     true, // Primary: any Dolt-compatible remote URL
@@ -50,7 +50,7 @@ var YamlOnlyKeys = map[string]bool{
 	// Create command settings
 	"create.require-description": true,
 
-	// Validation settings (adlg-t7jq)
+	// Validation settings (cusp-t7jq)
 	// Values: "warn" | "error" | "none"
 	"validation.on-create": true,
 	"validation.on-close":  true,
@@ -69,7 +69,7 @@ var YamlOnlyKeys = map[string]bool{
 	"import.path": true,
 
 	// Dolt server settings
-	"dolt.shared-server": true, // Shared Dolt server at ~/.adlg/shared-server/ (GH#2377)
+	"dolt.shared-server": true, // Shared Dolt server at ~/.cusp/shared-server/ (GH#2377)
 	"dolt.max-conns":     true, // Connection pool size override (default 10, GH#3140)
 	"dolt.debug":         true, // Debug-mode dolt sql-server: --loglevel=debug + --prof cpu
 
@@ -176,7 +176,7 @@ func checkSecretGitTracked(configPath, key string) error {
 			"  git rm --cached %s\n"+
 			"  echo \"config.yaml\" >> %s/.gitignore\n\n"+
 			"To override this check (e.g., for testing):\n"+
-			"  adlg config set --force-git-tracked %s \"value\"",
+			"  cusp config set --force-git-tracked %s \"value\"",
 		key, configPath,
 		envVar,
 		configPath,
@@ -217,19 +217,19 @@ func SetYamlConfig(key, value string) error {
 }
 
 // SetYamlConfigInDir sets a configuration value in the config.yaml located in
-// the provided adlgDir, bypassing CWD/worktree discovery. Use this when the
+// the provided cuspDir, bypassing CWD/worktree discovery. Use this when the
 // caller has already resolved the authoritative workspace and needs to avoid
 // local worktree stubs shadowing the real shared config location.
-func SetYamlConfigInDir(adlgDir, key, value string) error {
+func SetYamlConfigInDir(cuspDir, key, value string) error {
 	// Validate specific keys (GH#995)
 	if err := validateYamlConfigValue(key, value); err != nil {
 		return err
 	}
 
-	configPath := filepath.Join(adlgDir, "config.yaml")
+	configPath := filepath.Join(cuspDir, "config.yaml")
 	if _, err := os.Stat(configPath); err != nil {
 		if os.IsNotExist(err) {
-			return fmt.Errorf("no config.yaml found in %s (run 'adlg init' first)", adlgDir)
+			return fmt.Errorf("no config.yaml found in %s (run 'cusp init' first)", cuspDir)
 		}
 		return fmt.Errorf("failed to stat config.yaml: %w", err)
 	}
@@ -249,13 +249,13 @@ func IsUserGlobalKey(key string) bool {
 }
 
 // readUserGlobalYamlValue reads a single dotted key from the user-global
-// config.yaml ONLY, never project or ADLG_DIR config. It accepts both the
+// config.yaml ONLY, never project or CUSP_DIR config. It accepts both the
 // nested form (metrics:\n  disabled: true) and the flat dotted form
 // (metrics.disabled: true). It returns the raw scalar string and whether the
 // key was present.
 //
 // Consent-bearing settings (metrics enablement and endpoint) are resolved
-// through this rather than merged viper so a repository's .adlg/config.yaml can
+// through this rather than merged viper so a repository's .cusp/config.yaml can
 // never re-enable metrics for a user who opted out, nor redirect where metrics
 // are sent. See MetricsDisabledByUserConfig / UserMetricsEndpoint.
 func readUserGlobalYamlValue(key string) (string, bool) {
@@ -297,19 +297,19 @@ func yamlScalarString(v interface{}) (string, bool) {
 }
 
 // GetUserYamlConfig reads a single dotted key from the user-global config.yaml
-// ONLY, never project/ADLG_DIR config, returning "" if unset. It is the read
+// ONLY, never project/CUSP_DIR config, returning "" if unset. It is the read
 // counterpart of SetUserYamlConfig/UnsetUserYamlConfig and the generic form of
 // the per-key consent helpers below. User-global keys (see IsUserGlobalKey —
-// currently metrics.*) must be read through this so `adlg config get` reports the
+// currently metrics.*) must be read through this so `cusp config get` reports the
 // value that actually governs runtime behavior, not the merged value a project's
-// .adlg/config.yaml could shadow.
+// .cusp/config.yaml could shadow.
 func GetUserYamlConfig(key string) string {
 	raw, _ := readUserGlobalYamlValue(key)
 	return strings.TrimSpace(raw)
 }
 
 // MetricsDisabledByUserConfig reports whether the user-global config.yaml sets
-// metrics.disabled: true. Project/ADLG_DIR config is intentionally ignored so a
+// metrics.disabled: true. Project/CUSP_DIR config is intentionally ignored so a
 // repository can never re-enable metrics for a user who opted out globally.
 // Absent or unparseable values read as "not disabled" (the default).
 func MetricsDisabledByUserConfig() bool {
@@ -325,7 +325,7 @@ func MetricsDisabledByUserConfig() bool {
 }
 
 // UserMetricsEndpoint returns the metrics endpoint configured in the user-global
-// config.yaml, or "" if unset. Project/ADLG_DIR config is intentionally ignored
+// config.yaml, or "" if unset. Project/CUSP_DIR config is intentionally ignored
 // so a repository can never redirect a user's metrics endpoint. Callers fall
 // back to the built-in default when this is empty.
 func UserMetricsEndpoint() string {
@@ -336,7 +336,7 @@ func UserMetricsEndpoint() string {
 // MetricsNoticeShownByUserConfig reports whether the user-global config.yaml
 // records that the first-run metrics disclosure was already shown. Like consent
 // and endpoint, it is resolved from the user-global config ONLY: a repository's
-// .adlg/config.yaml must not be able to set metrics.notice_shown: true and
+// .cusp/config.yaml must not be able to set metrics.notice_shown: true and
 // suppress the one-time disclosure for a user who has never actually seen it.
 // Absent or unparseable values read as "not shown" (the default).
 func MetricsNoticeShownByUserConfig() bool {
@@ -456,39 +456,39 @@ func UnsetYamlConfig(key string) error {
 // findProjectConfigYaml finds the active config.yaml path for YAML-only config writes.
 //
 // Resolution order:
-//  1. ADLG_DIR/config.yaml (when ADLG_DIR is set)
-//  2. Walk up from CWD to find .adlg/config.yaml
+//  1. CUSP_DIR/config.yaml (when CUSP_DIR is set)
+//  2. Walk up from CWD to find .cusp/config.yaml
 //
 // This keeps YAML-only config behavior aligned with runtime resolution when
-// ADLG_DIR points to an external runtime directory.
+// CUSP_DIR points to an external runtime directory.
 func findProjectConfigYaml() (string, error) {
-	return findProjectConfigYamlWithFinder(findProjectADLGDir)
+	return findProjectConfigYamlWithFinder(findProjectCuspDir)
 }
 
-func findProjectConfigYamlWithFinder(findADLGDir func() string) (string, error) {
-	// Respect ADLG_DIR first when set.
-	if adlgDir := os.Getenv("ADLG_DIR"); adlgDir != "" {
-		configPath := filepath.Join(adlgDir, "config.yaml")
+func findProjectConfigYamlWithFinder(findCuspDir func() string) (string, error) {
+	// Respect CUSP_DIR first when set.
+	if cuspDir := os.Getenv("CUSP_DIR"); cuspDir != "" {
+		configPath := filepath.Join(cuspDir, "config.yaml")
 		if _, err := os.Stat(configPath); err == nil {
 			return configPath, nil
 		}
-		return "", fmt.Errorf("no config.yaml found in ADLG_DIR (%s) (run 'adlg init' first)", adlgDir)
+		return "", fmt.Errorf("no config.yaml found in CUSP_DIR (%s) (run 'cusp init' first)", cuspDir)
 	}
 
 	if configPath := projectConfigPathFromLoadedState(); configPath != "" {
 		return configPath, nil
 	}
 
-	if findADLGDir != nil {
-		if adlgDir := findADLGDir(); adlgDir != "" {
-			configPath := filepath.Join(adlgDir, "config.yaml")
+	if findCuspDir != nil {
+		if cuspDir := findCuspDir(); cuspDir != "" {
+			configPath := filepath.Join(cuspDir, "config.yaml")
 			if _, err := os.Stat(configPath); err == nil {
 				return configPath, nil
 			}
 		}
 	}
 
-	return "", fmt.Errorf("no .adlg/config.yaml found (run 'adlg init' first)")
+	return "", fmt.Errorf("no .cusp/config.yaml found (run 'cusp init' first)")
 }
 
 func projectConfigPathFromLoadedState() string {
@@ -499,7 +499,7 @@ func projectConfigPathFromLoadedState() string {
 	if filepath.Base(configPath) != "config.yaml" {
 		return ""
 	}
-	if filepath.Base(filepath.Dir(configPath)) != ".adlg" {
+	if filepath.Base(filepath.Dir(configPath)) != ".cusp" {
 		return ""
 	}
 	if _, err := os.Stat(configPath); err != nil {
@@ -510,40 +510,40 @@ func projectConfigPathFromLoadedState() string {
 
 // UserConfigYamlPath returns the platform-appropriate path for the
 // user-level config.yaml file. On Linux this is typically
-// ~/.config/adlg/config.yaml; on macOS it checks ~/.config/adlg/ first
+// ~/.config/cusp/config.yaml; on macOS it checks ~/.config/cusp/ first
 // (the documented cross-platform path) and falls back to
-// ~/Library/Application Support/adlg/.
+// ~/Library/Application Support/cusp/.
 func UserConfigYamlPath() string {
-	// Prefer ~/.config/adlg/config.yaml — it's the documented path and
+	// Prefer ~/.config/cusp/config.yaml — it's the documented path and
 	// works on all platforms after GH#3532.
 	if homeDir, err := os.UserHomeDir(); err == nil {
-		xdgPath := filepath.Join(homeDir, ".config", "adlg", "config.yaml")
+		xdgPath := filepath.Join(homeDir, ".config", "cusp", "config.yaml")
 		if _, err := os.Stat(xdgPath); err == nil {
 			return xdgPath
 		}
 		// If it doesn't exist yet, still prefer it as the recommendation
 		// unless the os.UserConfigDir() path already has a file.
 		if configDir, err := os.UserConfigDir(); err == nil {
-			osPath := filepath.Join(configDir, "adlg", "config.yaml")
+			osPath := filepath.Join(configDir, "cusp", "config.yaml")
 			if _, err := os.Stat(osPath); err == nil {
 				return osPath
 			}
 		}
 		return xdgPath // recommend the cross-platform path
 	}
-	return "~/.config/adlg/config.yaml" // fallback display string
+	return "~/.config/cusp/config.yaml" // fallback display string
 }
 
-func findProjectADLGDir() string {
+func findProjectCuspDir() string {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return ""
 	}
 
 	for dir := cwd; dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
-		adlgDir := filepath.Join(dir, ".adlg")
-		if info, err := os.Stat(adlgDir); err == nil && info.IsDir() {
-			return adlgDir
+		cuspDir := filepath.Join(dir, ".cusp")
+		if info, err := os.Stat(cuspDir); err == nil && info.IsDir() {
+			return cuspDir
 		}
 	}
 

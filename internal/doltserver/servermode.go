@@ -5,21 +5,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/configfile"
+	"github.com/endermalkoc/cusp/internal/configfile"
 )
 
 // ServerMode describes who owns and manages the dolt sql-server lifecycle.
 type ServerMode int
 
 const (
-	// ServerModeOwned means adlg auto-starts and manages the server.
+	// ServerModeOwned means cusp auto-starts and manages the server.
 	// This is the default for standalone users with no explicit port config.
 	ServerModeOwned ServerMode = iota
 
 	// ServerModeExternal means the user manages the server lifecycle
-	// (e.g., systemd, Docker, Hosted Dolt, VPS). ADLG never starts or
+	// (e.g., systemd, Docker, Hosted Dolt, VPS). Cusp never starts or
 	// stops the server. Determined when metadata.json has an explicit
-	// dolt_server_port or ADLG_DOLT_SHARED_SERVER is set.
+	// dolt_server_port or CUSP_DOLT_SHARED_SERVER is set.
 	ServerModeExternal
 
 	// ServerModeEmbedded is the legacy in-process embedded dolt path.
@@ -41,12 +41,12 @@ func (m ServerMode) String() string {
 	}
 }
 
-// ResolveServerMode determines the server mode from the given adlgDir.
+// ResolveServerMode determines the server mode from the given cuspDir.
 // This is the single source of truth for how the server lifecycle is managed.
 //
 // Decision logic (checked in order):
-//  1. ADLG_DOLT_SERVER_MODE=1 env var             -> ServerModeExternal
-//  2. ADLG_DOLT_SHARED_SERVER env var is set       -> ServerModeExternal
+//  1. CUSP_DOLT_SERVER_MODE=1 env var             -> ServerModeExternal
+//  2. CUSP_DOLT_SHARED_SERVER env var is set       -> ServerModeExternal
 //  3. metadata.json dolt_mode == "embedded"         -> ServerModeEmbedded
 //  4. metadata.json has explicit dolt_server_port   -> ServerModeExternal
 //  5. default                                       -> ServerModeOwned
@@ -57,9 +57,9 @@ func (m ServerMode) String() string {
 //
 // The function loads metadata.json only if the file exists, to avoid
 // triggering the legacy config.json -> metadata.json migration side effect.
-func ResolveServerMode(adlgDir string) ServerMode {
-	// 1. ADLG_DOLT_SERVER_MODE=1 env var -> external (explicit server mode)
-	if os.Getenv("ADLG_DOLT_SERVER_MODE") == "1" {
+func ResolveServerMode(cuspDir string) ServerMode {
+	// 1. CUSP_DOLT_SERVER_MODE=1 env var -> external (explicit server mode)
+	if os.Getenv("CUSP_DOLT_SERVER_MODE") == "1" {
 		return ServerModeExternal
 	}
 
@@ -73,9 +73,9 @@ func ResolveServerMode(adlgDir string) ServerMode {
 	var fileCfg *configfile.Config
 
 	// Only load config if metadata.json exists (avoids legacy migration side effect)
-	metadataPath := configfile.ConfigPath(adlgDir)
+	metadataPath := configfile.ConfigPath(cuspDir)
 	if _, err := os.Stat(metadataPath); err == nil {
-		if cfg, loadErr := configfile.Load(adlgDir); loadErr == nil && cfg != nil {
+		if cfg, loadErr := configfile.Load(cuspDir); loadErr == nil && cfg != nil {
 			fileCfg = cfg
 		}
 	}
@@ -91,6 +91,6 @@ func ResolveServerMode(adlgDir string) ServerMode {
 		return ServerModeExternal
 	}
 
-	// 5. Default: adlg owns the server
+	// 5. Default: cusp owns the server
 	return ServerModeOwned
 }

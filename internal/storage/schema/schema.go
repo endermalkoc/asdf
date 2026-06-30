@@ -1,11 +1,11 @@
-// Package schema applies ADLG's numbered SQL migrations to a Dolt database.
+// Package schema applies Cusp's numbered SQL migrations to a Dolt database.
 //
 // The design is lifted from beads' internal/storage/schema (numbered
 // migrations/NNNN_*.up.sql files embedded with go:embed, applied in order past a
 // schema_migrations cursor table). Only the generic core — beads' inner
 // `migrationSource` — is reproduced here; beads' public MigrateUp also runs
 // issue-domain orchestration (ID rekeys, status backfills, a second "ignored"
-// migration stream, Dolt dirty-table staging guards) that is not part of ADLG.
+// migration stream, Dolt dirty-table staging guards) that is not part of Cusp.
 //
 // To add a migration: drop a NNNN_name.up.sql (and .down.sql) into migrations/.
 // The next sequential 4-digit version is auto-discovered via go:embed.
@@ -24,7 +24,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/endermalkoc/adlg/internal/storage/dberrors"
+	"github.com/endermalkoc/cusp/internal/storage/dberrors"
 )
 
 // DBConn is the minimal connection interface the runner needs; satisfied by

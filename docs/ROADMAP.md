@@ -1,4 +1,4 @@
-# ADLG Roadmap
+# Cusp Roadmap
 
 What's next. A living document — pairs with [CHANGELOG.md](CHANGELOG.md) (what's already built),
 [ARCHITECTURE.md](ARCHITECTURE.md) (how it's put together), [docs/entities/](entities/index.md) (the
@@ -12,7 +12,7 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
   Test*, Capability, Deliverable, View, ExternalRef. (The core surface —
   req/spec/domain/entity/glossary-term + `edge ls`/`delete` + `section delete` — is done; see
   [CHANGELOG.md](CHANGELOG.md).)
-- **`adlg config get/set`** — a general typed `config get/set` over the lifted
+- **`cusp config get/set`** — a general typed `config get/set` over the lifted
   `internal/config`/`configfile` (Dolt server settings). (The workspace `generate` config —
   `config show` + `config generate enable/disable/add/remove/sync` — is done.)
 - **Per-kind edge type policy** — which endpoint *types* a given edge kind may link. Left generic for
@@ -24,22 +24,22 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
 
 | Feature | What | Status / notes |
 |---|---|---|
-| **Remote sync — remaining** | `adlg dolt clone`, federation (peers) | push/pull/remote/fetch + `adlg sync` are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** `adlg dolt clone` (bootstrap a workspace from a remote — distinct flow, no existing `.adlg`) and federation/peers. |
-| **Batch add** | `adlg <entity> add --file <f>` and/or `adlg batch <f>` — bulk-create entities from a **JSON/CSV** file in ADLG's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
-| **Generic import** | `adlg import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
-| **Source adapters — remaining** | `adlg import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see [CHANGELOG.md](CHANGELOG.md) — read-only report + `--apply`, Domain→Entity). **Remaining:** `EntityAttribute`/`EntityRelationship` need a non-prose source or an enrichment pass (they live in entity-doc prose, not a structured form); test-management data is covered by the **Qase adapter** below. Future adapters reuse `importer.Apply`. |
-| **Qase adapter (tests)** | `adlg import qase <export\|--token>` — ingest a Qase project into the [testing layer](entities/testing.md) (test cases **and** test runs) | **TODO.** The testing schema is *already modeled on Qase*, so the mapping is near 1:1: suites → `TestSuite` (tree via `parent_id`), cases → `TestCase` (+ `TestStep`, + FR citations → `requirement_test_case` coverage), configurations → `Configuration`, runs → `TestRun` (+ `test_run_configuration`), results → `TestResult` — whose **deterministic** `uuidv5(run_id, test_case_id, configuration_id)` PK makes re-import idempotent. Qase's own **Plan** and **SharedStep** are intentionally omitted ([decision](entities/testing.md)). Source is the **Qase API** (token) or a **Qase export** (CSV/XML); a plain **JUnit/Qase run report** can feed just `TestRun`/`TestResult`. Read-only report + `--apply`; reuses the staging core + `app.Mutate`. The **Notion adapter** (done; see [CHANGELOG.md](CHANGELOG.md)) is the reference pattern. |
-| **Export** | `adlg export` — JSONL snapshot (git-friendly, diffable) | beads' model; useful for backups/interop alongside Dolt history. |
-| **Open Knowledge Format (OKF)** | interop with Google's [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): each concept is one `.md` with a YAML **frontmatter** block (`---`) + markdown body; concept id = file path minus `.md` (`tables/users.md` → `tables/users`); reserved `index.md` (grouped listings / progressive disclosure) + `log.md` (newest-first change history); frontmatter is **required `type`** + recommended `title`/`description`/`resource`/`tags`/`timestamp` (unknown fields preserved); cross-references are **plain markdown links** — bundle-absolute (`/tables/customers.md`) or relative (`./other.md`) — treated as **untyped directed edges** (relationship type lives in prose) | **TODO (requested).** ADLG already aligns closely: generated docs carry YAML frontmatter + H1 + body, we emit `index.md` sitemap pages, and our Dolt history is essentially `log.md` (`adlg log`). **Two options, decision deferred:** (a) an **OKF adapter** — import OKF bundles through the staging core + export an OKF bundle as a `generate` format (`--format okf`, with a generated `log.md` from `dolt_log`); or (b) **make the default Markdown output OKF-shaped** — frontmatter keyed to OKF (`type` ← ADLG layer, plus `title`/`description`/`tags`/`timestamp`) and cross-references rendered as **standard markdown links** (`/path.md`) instead of the current Obsidian wikilinks + `^block` anchors. **Gaps to bridge either way:** wikilink/block-ref → plain markdown link; map ADLG layers (spec/entity/requirement/term) → OKF `type`; add `log.md`; reconcile our `index.md` tree with OKF's listing convention. |
-| **Validation & analysis — remaining** | richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship`, `adlg doctor` (health + auto-fix), drift detection | **`adlg check`** (inline-ref + cycle integrity) and **`adlg impact <ref>`** (graph traversal, `--transitive`) first slices are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship` too, `doctor`/`drift` (adapt beads patterns; we have `schema.CheckForwardDrift`-style hooks). |
-| **Query / inspect — optional extensions** | a higher-level `query` DSL, a standalone `adlg diff <from> <to>` | `adlg sql`/`stats`/`search`/`log` are **done** (see [CHANGELOG.md](CHANGELOG.md)). These extensions are optional, not blocking. |
-| **Agent integration (CLI-first)** | `adlg setup` installs the **skill + instructions** (CLAUDE.md/AGENTS.md/`.cursor/…`) **+ a `prime`-style SessionStart hook** that injects live state (the open changeset, ready work) into context — for **Claude Code**, Codex, Cursor, Gemini, Aider, opencode. The **MCP server** (`adlg serve --mcp`) is **secondary** | **requested.** Mirror beads' `cmd/bd/{setup,prime}` + hooks. **CLI + skill + hooks is the primary path** for shell-capable agents: beads' own [beads-mcp README] measures it at **~1–2k context tokens vs ~10–50k for MCP tool schemas**, and it reuses the single `Mutate` write path the command contract already mandates (no second surface to keep in sync). **MCP is demoted to a fallback** for shell-less hosts (Claude Desktop) — a thin adapter over `Mutate`, not a second source of truth. Valued, kept in the pocket, not required. |
-| **DB maintenance** | `adlg backup`/`restore`, `gc` (standalone Dolt GC) | **`adlg flatten` + `adlg dolt compact` (history compaction) DONE** (see [CHANGELOG.md](CHANGELOG.md)) — both GC after squashing. **Remaining:** `backup`/`restore` and a standalone `gc` command (infra lifted in `versioncontrolops`; wire the CLI). |
+| **Remote sync — remaining** | `cusp dolt clone`, federation (peers) | push/pull/remote/fetch + `cusp sync` are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** `cusp dolt clone` (bootstrap a workspace from a remote — distinct flow, no existing `.cusp`) and federation/peers. |
+| **Batch add** | `cusp <entity> add --file <f>` and/or `cusp batch <f>` — bulk-create entities from a **JSON/CSV** file in Cusp's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
+| **Generic import** | `cusp import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
+| **Source adapters — remaining** | `cusp import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see [CHANGELOG.md](CHANGELOG.md) — read-only report + `--apply`, Domain→Entity). **Remaining:** `EntityAttribute`/`EntityRelationship` need a non-prose source or an enrichment pass (they live in entity-doc prose, not a structured form); test-management data is covered by the **Qase adapter** below. Future adapters reuse `importer.Apply`. |
+| **Qase adapter (tests)** | `cusp import qase <export\|--token>` — ingest a Qase project into the [testing layer](entities/testing.md) (test cases **and** test runs) | **TODO.** The testing schema is *already modeled on Qase*, so the mapping is near 1:1: suites → `TestSuite` (tree via `parent_id`), cases → `TestCase` (+ `TestStep`, + FR citations → `requirement_test_case` coverage), configurations → `Configuration`, runs → `TestRun` (+ `test_run_configuration`), results → `TestResult` — whose **deterministic** `uuidv5(run_id, test_case_id, configuration_id)` PK makes re-import idempotent. Qase's own **Plan** and **SharedStep** are intentionally omitted ([decision](entities/testing.md)). Source is the **Qase API** (token) or a **Qase export** (CSV/XML); a plain **JUnit/Qase run report** can feed just `TestRun`/`TestResult`. Read-only report + `--apply`; reuses the staging core + `app.Mutate`. The **Notion adapter** (done; see [CHANGELOG.md](CHANGELOG.md)) is the reference pattern. |
+| **Export** | `cusp export` — JSONL snapshot (git-friendly, diffable) | beads' model; useful for backups/interop alongside Dolt history. |
+| **Open Knowledge Format (OKF)** | interop with Google's [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): each concept is one `.md` with a YAML **frontmatter** block (`---`) + markdown body; concept id = file path minus `.md` (`tables/users.md` → `tables/users`); reserved `index.md` (grouped listings / progressive disclosure) + `log.md` (newest-first change history); frontmatter is **required `type`** + recommended `title`/`description`/`resource`/`tags`/`timestamp` (unknown fields preserved); cross-references are **plain markdown links** — bundle-absolute (`/tables/customers.md`) or relative (`./other.md`) — treated as **untyped directed edges** (relationship type lives in prose) | **TODO (requested).** Cusp already aligns closely: generated docs carry YAML frontmatter + H1 + body, we emit `index.md` sitemap pages, and our Dolt history is essentially `log.md` (`cusp log`). **Two options, decision deferred:** (a) an **OKF adapter** — import OKF bundles through the staging core + export an OKF bundle as a `generate` format (`--format okf`, with a generated `log.md` from `dolt_log`); or (b) **make the default Markdown output OKF-shaped** — frontmatter keyed to OKF (`type` ← Cusp layer, plus `title`/`description`/`tags`/`timestamp`) and cross-references rendered as **standard markdown links** (`/path.md`) instead of the current Obsidian wikilinks + `^block` anchors. **Gaps to bridge either way:** wikilink/block-ref → plain markdown link; map Cusp layers (spec/entity/requirement/term) → OKF `type`; add `log.md`; reconcile our `index.md` tree with OKF's listing convention. |
+| **Validation & analysis — remaining** | richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship`, `cusp doctor` (health + auto-fix), drift detection | **`cusp check`** (inline-ref + cycle integrity) and **`cusp impact <ref>`** (graph traversal, `--transitive`) first slices are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship` too, `doctor`/`drift` (adapt beads patterns; we have `schema.CheckForwardDrift`-style hooks). |
+| **Query / inspect — optional extensions** | a higher-level `query` DSL, a standalone `cusp diff <from> <to>` | `cusp sql`/`stats`/`search`/`log` are **done** (see [CHANGELOG.md](CHANGELOG.md)). These extensions are optional, not blocking. |
+| **Agent integration (CLI-first)** | `cusp setup` installs the **skill + instructions** (CLAUDE.md/AGENTS.md/`.cursor/…`) **+ a `prime`-style SessionStart hook** that injects live state (the open changeset, ready work) into context — for **Claude Code**, Codex, Cursor, Gemini, Aider, opencode. The **MCP server** (`cusp serve --mcp`) is **secondary** | **requested.** Mirror beads' `cmd/bd/{setup,prime}` + hooks. **CLI + skill + hooks is the primary path** for shell-capable agents: beads' own [beads-mcp README] measures it at **~1–2k context tokens vs ~10–50k for MCP tool schemas**, and it reuses the single `Mutate` write path the command contract already mandates (no second surface to keep in sync). **MCP is demoted to a fallback** for shell-less hosts (Claude Desktop) — a thin adapter over `Mutate`, not a second source of truth. Valued, kept in the pocket, not required. |
+| **DB maintenance** | `cusp backup`/`restore`, `gc` (standalone Dolt GC) | **`cusp flatten` + `cusp dolt compact` (history compaction) DONE** (see [CHANGELOG.md](CHANGELOG.md)) — both GC after squashing. **Remaining:** `backup`/`restore` and a standalone `gc` command (infra lifted in `versioncontrolops`; wire the CLI). |
 | **CLI polish** | **help system** (rich help + examples, `help-all` overview), shell completion | **requested (help).** Cobra gives base help/completion; add per-command examples and a top-level overview. |
 
 ## Modules & plugins (separable layers)
 
-**Requested.** Package ADLG's [data-model layers](entities/index.md#layers) as **modules** a workspace
+**Requested.** Package Cusp's [data-model layers](entities/index.md#layers) as **modules** a workspace
 installs independently — `requirements`, `testing`, `planning`, `entity`, `glossary`, `interop` layered
 on an always-on **core** (Structure + Review/Changeset + identifiers + the `Mutate` contract + the
 generation engine + the Dolt infra). A project that tracks only specs + FRs need not carry the testing or
@@ -64,7 +64,7 @@ domain-free, every layer becomes opt-in.
 
 **Mechanism (sketch — design deferred):**
 
-- `adlg module list` / `install <name>` / `enable|disable <name>` — applies or removes the module's migration,
+- `cusp module list` / `install <name>` / `enable|disable <name>` — applies or removes the module's migration,
   registers its verbs, toggles its renderers. The enabled set is recorded in a **`module` registry** (new core
   table or workspace config) so `generate`, `Mutate` validation, and `check` know what's live.
 - **First-party "modules" vs third-party "plugins":** a single static Go binary has no portable dynamic-load
@@ -83,7 +83,7 @@ the model once the design firms up.
 **Requested.** A **planning skill** (agent recipe + MCP/CLI surface, installed via the
 [Agent integration](#core-features) `setup`) that reads a **requirements changeset** — the FR/spec delta on a
 [changeset](entities/review.md) branch — and produces an ordered **implementation plan** to deliver it. The
-agent consumes the changeset diff (`adlg diff` / `dolt_diff_*`, already available) and writes the plan back
+agent consumes the changeset diff (`cusp diff` / `dolt_diff_*`, already available) and writes the plan back
 through the `Mutate` contract, so the plan is reviewable in the same changeset flow.
 
 **Two altitudes of "planning" — keep them distinct, let them connect.** The existing
@@ -106,7 +106,7 @@ sub-structure in the `planning` module (see [Modules & plugins](#modules--plugin
 **Open questions (design deferred):** is a `Plan` 1:1 with a changeset or longer-lived (re-planned as
 requirements evolve)?; do steps reuse `Edge` (`plan_step → requirement`) or a dedicated junction?; does a step
 map to a `Deliverable` or obviate one at this altitude?; and is plan generation a pure MCP-driven **skill** or
-also a deterministic `adlg plan` scaffold the agent fills in. Record the outcome in
+also a deterministic `cusp plan` scaffold the agent fills in. Record the outcome in
 [decisions.md](entities/decisions.md) and add the entities to the [model](entities/index.md) once firm.
 
 ## Review surface — changeset review (open decision)
@@ -120,10 +120,10 @@ verbs to write them.
 
 **Two separate axes — do not conflate them:**
 
-- **Agent ↔ ADLG = transport.** Settled: **CLI + skill + hooks** primary, MCP secondary (see
+- **Agent ↔ Cusp = transport.** Settled: **CLI + skill + hooks** primary, MCP secondary (see
   [Agent integration](#core-features)). The agent half of the loop (read changeset diff → comment → revise)
   needs **no GUI**.
-- **Human ↔ ADLG = the review *surface*.** This is the **open decision** below, and it is *independent* of the
+- **Human ↔ Cusp = the review *surface*.** This is the **open decision** below, and it is *independent* of the
   transport choice — MCP is an agent transport, **not** a human review UI, so choosing CLI-over-MCP for agents
   does not decide this.
 
@@ -134,23 +134,23 @@ immediately, and is a prerequisite for every surface below.
 **Step 2 (human review UX) — decided: a VS Code extension is the primary surface.**
 
 - **VS Code extension (chosen).** Reuse VS Code's native **diff editor** + **Comments API** (the same API the
-  GitHub PR extension uses for gutter threads + a comments panel), talking to `adlg` over CLI/MCP. The
+  GitHub PR extension uses for gutter threads + a comments panel), talking to `cusp` over CLI/MCP. The
   extension holds no state — Dolt stays the source of truth, it's a third front-end over `Mutate`. It gets the
-  hard 70% of a PR UI (diff rendering, thread UI, anchoring interaction) **for free**, leaving only ADLG-glue:
-  a `TreeDataProvider` over `adlg changeset ls`, a virtual-doc provider rendering each entity's base/head, and
+  hard 70% of a PR UI (diff rendering, thread UI, anchoring interaction) **for free**, leaving only Cusp-glue:
+  a `TreeDataProvider` over `cusp changeset ls`, a virtual-doc provider rendering each entity's base/head, and
   the **`Comment`-row ↔ thread** mapping. It **preserves semantic anchoring** — a comment binds to a
   requirement row/field, not a drifting `.md` line — which is *easier* here than in GitHub because re-anchoring
   rides our deterministic canonical render order ([`SpecSectionType.position`](structure.md)). It's also a
   natural consumer of the MCP server — **this is where MCP earns its keep**.
   - **Covers the browser case too:** the same extension runs in Cursor/Windsurf and in **vscode.dev /
     code-server** (VS Code in a plain browser tab, no install), so it serves both editor and browser reviewers.
-- **CLI / TUI** — `adlg changeset diff` + `adlg review` in the terminal. The Step-1 byproduct and SSH-friendly
+- **CLI / TUI** — `cusp changeset diff` + `cusp review` in the terminal. The Step-1 byproduct and SSH-friendly
   floor; weakest for careful line-by-line review, kept as a complement, not the main surface.
 - **Federate to GitHub / DoltHub PRs** — *optional interop*, not the primary loop: project the changeset as a
   real PR and sync `Review`/`Comment` back via interop/federation. Near-zero frontend, but couples out and
   **loses semantic anchoring** (line comments on generated `.md` drift when requirements reorder). Rides the
   existing federation roadmap for GitHub-native teams.
-- **Native web app** (`adlg serve --web`) — **deferred, no longer a primary goal.** The VS Code extension
+- **Native web app** (`cusp serve --web`) — **deferred, no longer a primary goal.** The VS Code extension
   (incl. vscode.dev/code-server) covers the developer/agent audience *and* the browser case; the only persona
   left unserved is a reviewer who refuses any VS Code-flavored UI. Revisit only if that persona materializes —
   and even then build on a diff library (Monaco/CodeMirror merge, react-diff-view), never reimplement diffing.
@@ -161,12 +161,12 @@ as optional interop; the from-scratch web app deferred unless a non-editor revie
 
 ## "What am I missing vs beads?" — feature survey
 
-Cross-cutting beads features (not issue-domain), and ADLG's status:
+Cross-cutting beads features (not issue-domain), and Cusp's status:
 
-| beads | ADLG status |
+| beads | Cusp status |
 |---|---|
 | `dolt push/pull/remote`, `sync`, `federation` | push/pull/remote/fetch + `sync` **DONE**; `clone` + federation remaining |
-| `dolt start/stop/status` (server lifecycle), `branch` | **DONE** — `adlg dolt start/stop/status` + `adlg branch ls/create/delete/checkout` (see [CHANGELOG.md](CHANGELOG.md)) |
+| `dolt start/stop/status` (server lifecycle), `branch` | **DONE** — `cusp dolt start/stop/status` + `cusp branch ls/create/delete/checkout` (see [CHANGELOG.md](CHANGELOG.md)) |
 | `export` (JSONL) | **roadmap (Export)** |
 | `import` | **roadmap** — Generic import + Source adapters (`tutor`, `notion` done; `qase` planned) |
 | `batch` (bulk create) | **roadmap (Batch add — JSON/CSV)** |
@@ -178,15 +178,15 @@ Cross-cutting beads features (not issue-domain), and ADLG's status:
 | `setup` (agent install) + `prime`/hooks | **roadmap (Agent integration)** — **primary** agent path (skill + instructions + SessionStart `prime` hook) |
 | MCP server | **roadmap (Agent integration)** — **secondary**, shell-less hosts only (Claude Desktop); thin adapter over `Mutate`. CLI+skill+hooks is primary |
 | `config` (get/set) | **Finish the command contract** |
-| `version`/`upgrade` (self-update) | **DONE** — `adlg version` + `adlg upgrade` (download + checksum-verify + replace in place) |
+| `version`/`upgrade` (self-update) | **DONE** — `cusp version` + `cusp upgrade` (download + checksum-verify + replace in place) |
 | shell completion | **roadmap (CLI polish)** — cobra-provided |
 | `hooks` (`on_create`, …) | **deferred** — `internal/hooks` not lifted (needs a node concept) |
 | `worktree` commands | partial — `git.GetMainRepoRoot` is worktree-aware; explicit cmds maybe |
 | `metrics`/telemetry | likely **skip / opt-in** |
 | `stats`, `count`, `info`, `history`, `where` | `stats` + `history` (`log`) **DONE**; rest **roadmap (Query/inspect)** |
 
-**Generate (Markdown/JSON/HTML), cross-references, and the glossary are ADLG-originals beads has none
-of** — beads is an issue tracker that snapshots to JSONL; ADLG is a spec/knowledge store whose
+**Generate (Markdown/JSON/HTML), cross-references, and the glossary are Cusp-originals beads has none
+of** — beads is an issue tracker that snapshots to JSONL; Cusp is a spec/knowledge store whose
 human/agent views are generated from the canonical DB, woven together by inline entity links and a
 shared glossary.
 
@@ -200,7 +200,7 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
   changeset slug, retry/serialization classification, `dolt_diff_stat` parsing).
 - **Integration tests** (real Dolt, **server mode — no cgo**) — a harness that starts a managed
   `dolt sql-server` (or `testcontainers-go/modules/dolt`), applies the schema, and exercises the
-  command contract end-to-end: `adlg init`; each `add` produces one Dolt commit with a **clean
+  command contract end-to-end: `cusp init`; each `add` produces one Dolt commit with a **clean
   working set**; validation rejects bad input; and the full **changeset round-trip** (`start → add
   on branch → diff → submit → merge`, with `Changeset`/`Review` rows staying on `main`). Reference:
   beads' `internal/testutil/integration`.
@@ -212,7 +212,7 @@ Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
 ## Deliberately NOT carried from beads
 
 - **Issue-tracker verbs** — `create/close/reopen/ready/blocked/dep/assign/priority/label/epic/todo/
-  defer/ack/acquire/release`. ADLG has its own entity verbs (`domain/spec/req/edge`, + planned
+  defer/ack/acquire/release`. Cusp has its own entity verbs (`domain/spec/req/edge`, + planned
   Test/Milestone/Capability/…).
 - **Agent-orchestration machinery** — `swarm/wisp/mol/gate/bond/pour/cook/prime/kv-memories`. Beads-specific.
 - **Divergences (by design):** ULID + deterministic ids (not content-hash); **Dolt-native history +

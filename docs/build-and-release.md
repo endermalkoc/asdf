@@ -1,10 +1,10 @@
 # Build & Release
 
-How ADLG is built, versioned, released, and installed — and what the `.gitignore` policy is.
+How Cusp is built, versioned, released, and installed — and what the `.gitignore` policy is.
 Pairs with [ARCHITECTURE.md](ARCHITECTURE.md) (how it's put together), the
 [Build / run](../CLAUDE.md#build--run) notes in CLAUDE.md, and [ROADMAP.md](ROADMAP.md).
 
-ADLG ships as a **single static Go binary**. The build is pure Go (`CGO_ENABLED=0`), so it
+Cusp ships as a **single static Go binary**. The build is pure Go (`CGO_ENABLED=0`), so it
 cross-compiles to every target with no C toolchain — a darwin/arm64 binary builds on a Linux
 host in seconds. That makes [GoReleaser](https://goreleaser.com) a clean fit for cutting
 cross-platform releases.
@@ -13,8 +13,8 @@ cross-platform releases.
 
 | File | Purpose |
 |---|---|
-| [cmd/adlg/version.go](../cmd/adlg/version.go) | `adlg version` (+ `--version`, `--json`). Version/commit/date are injected at build time; falls back to embedded VCS build info for `go install` builds. |
-| [cmd/adlg/upgrade.go](../cmd/adlg/upgrade.go) + [internal/selfupdate](../internal/selfupdate) | `adlg upgrade [version]` — self-update: download the release archive for this OS/arch, checksum-verify against `checksums.txt`, and replace the binary in place. `--check` reports availability only. Mirrors `install.sh`'s asset/checksum conventions. |
+| [cmd/cusp/version.go](../cmd/cusp/version.go) | `cusp version` (+ `--version`, `--json`). Version/commit/date are injected at build time; falls back to embedded VCS build info for `go install` builds. |
+| [cmd/cusp/upgrade.go](../cmd/cusp/upgrade.go) + [internal/selfupdate](../internal/selfupdate) | `cusp upgrade [version]` — self-update: download the release archive for this OS/arch, checksum-verify against `checksums.txt`, and replace the binary in place. `--check` reports availability only. Mirrors `install.sh`'s asset/checksum conventions. |
 | [.goreleaser.yaml](../.goreleaser.yaml) | Cross-builds linux/darwin/windows × amd64/arm64, archives (`tar.gz`, `zip` on Windows), `checksums.txt`, changelog. |
 | [.github/workflows/ci.yml](../.github/workflows/ci.yml) | On PR/push: `go vet` + `go build` + `go test`, plus a GoReleaser snapshot **dry-run** so release breakage is caught before tagging. |
 | [.github/workflows/release.yml](../.github/workflows/release.yml) | On a `v*` tag push: runs GoReleaser → publishes a GitHub Release. |
@@ -23,7 +23,7 @@ cross-platform releases.
 
 ## Version stamping
 
-The build metadata lives in [cmd/adlg/version.go](../cmd/adlg/version.go) as package-level
+The build metadata lives in [cmd/cusp/version.go](../cmd/cusp/version.go) as package-level
 `version` / `commit` / `date` vars (default `version = "dev"`). They are set three ways, in
 order of precedence:
 
@@ -31,24 +31,24 @@ order of precedence:
    binary reports the exact tag (e.g. `v0.1.0`).
 2. **`make build` / `make install`** — the Makefile injects `git describe --tags` + short
    commit + UTC date.
-3. **`go install …/cmd/adlg@v0.1.0`** — no ldflags, so `init()` recovers the module version
+3. **`go install …/cmd/cusp@v0.1.0`** — no ldflags, so `init()` recovers the module version
    and VCS revision/time from `runtime/debug.ReadBuildInfo()`.
 
 ```
-$ adlg version
-adlg v0.1.0
+$ cusp version
+cusp v0.1.0
   commit: abc123def456
   built:  2026-06-24T00:00:00Z
   go:     go1.26.2 linux/amd64
 ```
 
-`adlg version --json` emits the same fields as a JSON object (consistent with the CLI's
+`cusp version --json` emits the same fields as a JSON object (consistent with the CLI's
 global `--json` flag).
 
 ## Local development
 
 ```sh
-make build          # → ./adlg for the host platform (CGO-free, version-stamped)
+make build          # → ./cusp for the host platform (CGO-free, version-stamped)
 make test           # go test ./...
 make snapshot       # full cross-platform build into dist/, no publish (needs goreleaser)
 make release-check  # validate .goreleaser.yaml
@@ -77,7 +77,7 @@ secrets to configure**. Tags like `v0.1.0-rc1` publish as pre-releases automatic
 
 ### One-time setup
 
-- The repo must be **public** at `github.com/endermalkoc/adlg` for both the install script
+- The repo must be **public** at `github.com/endermalkoc/cusp` for both the install script
   (release assets must be downloadable) and `go install` to work.
 - The workflows only run once `.github/workflows/` is pushed to GitHub.
 
@@ -85,34 +85,34 @@ secrets to configure**. Tags like `v0.1.0-rc1` publish as pre-releases automatic
 
 | Method | Command |
 |---|---|
-| Install script (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh \| sh` |
-| Go | `go install github.com/endermalkoc/adlg/cmd/adlg@latest` |
-| From source | `git clone … && cd adlg && make build` |
+| Install script (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/endermalkoc/cusp/main/install.sh \| sh` |
+| Go | `go install github.com/endermalkoc/cusp/cmd/cusp@latest` |
+| From source | `git clone … && cd cusp && make build` |
 
-The installer honors `ADLG_VERSION=v0.1.0` (pin a version) and `ADLG_INSTALL_DIR=~/.local/bin`
+The installer honors `CUSP_VERSION=v0.1.0` (pin a version) and `CUSP_INSTALL_DIR=~/.local/bin`
 (choose the location; defaults to `/usr/local/bin`, falling back to `~/.local/bin`). It verifies
 the SHA-256 checksum when `sha256sum`/`shasum` is available.
 
 ## Updating (for consumers)
 
-Once `adlg` is installed it can update itself — no need to re-run the install script:
+Once `cusp` is installed it can update itself — no need to re-run the install script:
 
 ```sh
-adlg upgrade          # download + install the latest release
-adlg upgrade --check  # just report whether a newer release exists
-adlg upgrade v0.1.0   # install a specific tag (pin / downgrade)
+cusp upgrade          # download + install the latest release
+cusp upgrade --check  # just report whether a newer release exists
+cusp upgrade v0.1.0   # install a specific tag (pin / downgrade)
 ```
 
 `upgrade` resolves the target tag (latest release, or the given one), downloads the
-`adlg_<version>_<os>_<arch>` archive, **verifies its SHA-256 against the release's
+`cusp_<version>_<os>_<arch>` archive, **verifies its SHA-256 against the release's
 `checksums.txt`** (always — not best-effort), and atomically replaces the running binary. It
 reads from the same release assets `install.sh` uses, so the two stay in lockstep. If the binary
-lives in a system path (e.g. `/usr/local/bin`), run `sudo adlg upgrade` so the replace can write
+lives in a system path (e.g. `/usr/local/bin`), run `sudo cusp upgrade` so the replace can write
 there. `go install`-based installs update with `go install …@latest` instead.
 
-> **Binary name.** The binary is named `adlg`
+> **Binary name.** The binary is named `cusp`
 > PATH placement. The name is set by `project_name`/`binary:` in `.goreleaser.yaml` and `BINARY` in the
-> Makefile/installer; the Go module path / repo is `github.com/endermalkoc/adlg`.
+> Makefile/installer; the Go module path / repo is `github.com/endermalkoc/cusp`.
 
 ## `.gitignore` policy
 
@@ -123,7 +123,7 @@ The [.gitignore](../.gitignore) keeps three classes of files out of git:
   hand-edited (invariant #2 in [CLAUDE.md](../CLAUDE.md)).
 - **Dolt working database** — `.dolt/`. The knowledge store is its own versioned Dolt repo,
   not tracked by this git repo.
-- **Build output & local config** — `/adlg`, `/dist/`, `*.exe`, `*.test`, `*.out`,
+- **Build output & local config** — `/cusp`, `/dist/`, `*.exe`, `*.test`, `*.out`,
   `__debug_bin*` (VSCode/Delve), `.env*`, editor/OS files, and `.claude/settings.local.json`.
 
 Two deliberate choices:

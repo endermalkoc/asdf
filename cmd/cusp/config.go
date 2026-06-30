@@ -7,18 +7,18 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
 var configOutDir string
 
 var configCmd = &cobra.Command{
 	Use:   "config",
-	Short: "Read and edit the workspace config (.adlg/config.json)",
+	Short: "Read and edit the workspace config (.cusp/config.json)",
 	Long: "Manage project-local workspace settings. The `generate` section controls incremental\n" +
 		"auto-generation: when enabled, every change committed to main re-materializes only the\n" +
-		"affected documents in each configured format. Output defaults to .adlg/artifacts/<format>.",
+		"affected documents in each configured format. Output defaults to .cusp/artifacts/<format>.",
 	RunE: func(cmd *cobra.Command, args []string) error { return showConfig() },
 }
 
@@ -43,10 +43,10 @@ var configGenerateEnableCmd = &cobra.Command{
 		return editConfig(func(c *workspace.Config) error {
 			c.Generate.Enabled = true
 			if len(c.Generate.Formats) == 0 {
-				fmt.Fprintln(os.Stderr, "note: no formats configured yet — add one with `adlg config generate add <format>`")
+				fmt.Fprintln(os.Stderr, "note: no formats configured yet — add one with `cusp config generate add <format>`")
 			}
 			return nil
-		}, "auto-generation enabled (run `adlg config generate sync` to materialize now)")
+		}, "auto-generation enabled (run `cusp config generate sync` to materialize now)")
 	},
 }
 
@@ -64,7 +64,7 @@ var configGenerateDisableCmd = &cobra.Command{
 
 var configGenerateAddCmd = &cobra.Command{
 	Use:   "add <format>",
-	Short: "Add (or re-point) an auto-generated format; --out overrides .adlg/artifacts/<format>",
+	Short: "Add (or re-point) an auto-generated format; --out overrides .cusp/artifacts/<format>",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		format, err := canonicalFormat(args[0])
@@ -85,7 +85,7 @@ var configGenerateAddCmd = &cobra.Command{
 				c.Generate.Formats = append(c.Generate.Formats, fc)
 			}
 			return nil
-		}, fmt.Sprintf("format %q configured (run `adlg config generate sync` to materialize now)", format))
+		}, fmt.Sprintf("format %q configured (run `cusp config generate sync` to materialize now)", format))
 	},
 }
 
@@ -131,7 +131,7 @@ var configGenerateSyncCmd = &cobra.Command{
 			return nil
 		}
 		if len(st.Formats) == 0 {
-			fmt.Println("no formats configured — add one with `adlg config generate add <format>`")
+			fmt.Println("no formats configured — add one with `cusp config generate add <format>`")
 			return nil
 		}
 		fmt.Printf("synced %s: %d written, %d removed\n", strings.Join(st.Formats, ", "), st.Written, st.Removed)
@@ -140,7 +140,7 @@ var configGenerateSyncCmd = &cobra.Command{
 }
 
 func init() {
-	configGenerateAddCmd.Flags().StringVar(&configOutDir, "out", "", "output directory (default .adlg/artifacts/<format>)")
+	configGenerateAddCmd.Flags().StringVar(&configOutDir, "out", "", "output directory (default .cusp/artifacts/<format>)")
 	configGenerateCmd.AddCommand(configGenerateEnableCmd, configGenerateDisableCmd, configGenerateAddCmd, configGenerateRemoveCmd, configGenerateSyncCmd)
 	configCmd.AddCommand(configShowCmd, configGenerateCmd)
 	rootCmd.AddCommand(configCmd)
@@ -160,17 +160,17 @@ func canonicalFormat(format string) (string, error) {
 	}
 }
 
-// configDir resolves the workspace `.adlg` directory for config-file edits, which need no
+// configDir resolves the workspace `.cusp` directory for config-file edits, which need no
 // database connection. It requires the workspace to exist.
 func configDir() (string, error) {
-	adlgDir, err := workspace.ResolveADLGDir()
+	cuspDir, err := workspace.ResolveCuspDir()
 	if err != nil {
 		return "", err
 	}
-	if _, statErr := os.Stat(adlgDir); statErr != nil {
-		return "", fmt.Errorf("no ADLG workspace at %s — run `adlg init` first", adlgDir)
+	if _, statErr := os.Stat(cuspDir); statErr != nil {
+		return "", fmt.Errorf("no Cusp workspace at %s — run `cusp init` first", cuspDir)
 	}
-	return adlgDir, nil
+	return cuspDir, nil
 }
 
 func showConfig() error {

@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/ids"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/ids"
 )
 
 // This file holds idempotent, business-key upserts used by the import pipeline

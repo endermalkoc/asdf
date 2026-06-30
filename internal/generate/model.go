@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/refs"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/refs"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 // Model is the format-agnostic view of the canonical graph that every renderer (Markdown,

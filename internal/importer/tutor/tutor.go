@@ -24,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // Parse reads the tutor corpus rooted at docsRoot (the directory that contains

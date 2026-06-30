@@ -18,7 +18,7 @@ const (
 
 	// corruptJournalSignature is emitted by dolt sql-server when the journal
 	// contains damaged blocks. Unlike the empty-manifest case, Dolt may still
-	// have user data to recover, so adlg must not run destructive repair
+	// have user data to recover, so cusp must not run destructive repair
 	// automatically. See GH#2559.
 	corruptJournalSignature = "corrupted journal"
 )
@@ -41,7 +41,7 @@ func logHasCorruptJournalError(logPath string) (bool, error) {
 }
 
 func logHasSignature(logPath, signature string) (bool, error) {
-	f, err := os.Open(logPath) //nolint:gosec // G304: path derived from adlgDir
+	f, err := os.Open(logPath) //nolint:gosec // G304: path derived from cuspDir
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			return false, nil
@@ -70,25 +70,25 @@ func logHasSignature(logPath, signature string) (bool, error) {
 	return strings.Contains(string(buf), signature), nil
 }
 
-func corruptJournalRecoveryHint(adlgDir string) string {
+func corruptJournalRecoveryHint(cuspDir string) string {
 	ts := time.Now().UTC().Format("20060102T150405Z")
-	doltDir := filepath.Join(adlgDir, "dolt")
-	backupDir := filepath.Join(adlgDir, "dolt.corrupt."+ts)
+	doltDir := filepath.Join(cuspDir, "dolt")
+	backupDir := filepath.Join(cuspDir, "dolt.corrupt."+ts)
 	return fmt.Sprintf(`Dolt journal corruption detected in %s.
 
-adlg will not run automatic journal repair because Dolt's repair mode can discard data.
+cusp will not run automatic journal repair because Dolt's repair mode can discard data.
 Recommended recovery when your remote is current:
   mv %s %s
-  adlg bootstrap --dry-run
-  adlg bootstrap --yes
-  adlg stats
+  cusp bootstrap --dry-run
+  cusp bootstrap --yes
+  cusp stats
 
 If the remote may be stale, snapshot %s first and inspect with:
   dolt fsck
   dolt fsck --revive-journal-with-data-loss
 
 Only use the fsck revive path after reviewing Dolt's data-loss warning.`,
-		logPath(adlgDir), doltDir, backupDir, doltDir)
+		logPath(cuspDir), doltDir, backupDir, doltDir)
 }
 
 // findCorruptNomsDirs walks doltDir and returns the paths of every
@@ -192,13 +192,13 @@ func isLowerAlphaName(s string) bool {
 // data (empty journal, empty oldgen). Returns the corrupt .dolt/noms
 // directories, or nil when the condition does not hold. Detection only —
 // never modifies anything; repair is RecoverCorruptManifest, which must stay
-// behind an explicit user action (adlg doctor --fix; adlg-6dnrw.6).
-func DetectCorruptManifest(adlgDir string) ([]string, error) {
-	return detectCorruptManifest(adlgDir, ResolveDoltDir(adlgDir))
+// behind an explicit user action (cusp doctor --fix; cusp-6dnrw.6).
+func DetectCorruptManifest(cuspDir string) ([]string, error) {
+	return detectCorruptManifest(cuspDir, ResolveDoltDir(cuspDir))
 }
 
-func detectCorruptManifest(adlgDir, doltDir string) ([]string, error) {
-	hasErr, err := logHasCorruptManifestError(logPath(adlgDir))
+func detectCorruptManifest(cuspDir, doltDir string) ([]string, error) {
+	hasErr, err := logHasCorruptManifestError(logPath(cuspDir))
 	if err != nil || !hasErr {
 		return nil, err
 	}
@@ -209,16 +209,16 @@ func detectCorruptManifest(adlgDir, doltDir string) ([]string, error) {
 // reported by DetectCorruptManifest: each corrupt .dolt/ directory is backed
 // up with a timestamped suffix and the database is reinitialized in place.
 // Destructive — callers must only invoke this on explicit user request
-// (adlg doctor --fix), never automatically (adlg-6dnrw.6).
+// (cusp doctor --fix), never automatically (cusp-6dnrw.6).
 //
 // Returns the list of backup paths created. If the preconditions do not
 // hold, returns (nil, nil).
-func RecoverCorruptManifest(adlgDir string) ([]string, error) {
-	return recoverCorruptManifest(adlgDir, ResolveDoltDir(adlgDir))
+func RecoverCorruptManifest(cuspDir string) ([]string, error) {
+	return recoverCorruptManifest(cuspDir, ResolveDoltDir(cuspDir))
 }
 
-func recoverCorruptManifest(adlgDir, doltDir string) ([]string, error) {
-	nomsDirs, err := detectCorruptManifest(adlgDir, doltDir)
+func recoverCorruptManifest(cuspDir, doltDir string) ([]string, error) {
+	nomsDirs, err := detectCorruptManifest(cuspDir, doltDir)
 	if err != nil {
 		return nil, err
 	}

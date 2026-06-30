@@ -4,17 +4,17 @@ import (
 	"context"
 	"slices"
 
-	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
-// Raw Dolt branch operations. ADLG's tracked, PR-like workflow is the changeset
+// Raw Dolt branch operations. Cusp's tracked, PR-like workflow is the changeset
 // (a branch named changeset/<slug>, recorded in rev_changeset and made the active
 // target). These wrappers are the low-level escape hatch beneath that model: list
 // the raw branch graph, or hand-create/delete/retarget a branch. Branch state is
 // connection-scoped, so create/delete pin a dedicated connection.
 
-// BranchList is the set of Dolt branches plus the branch ADLG reads/writes by
+// BranchList is the set of Dolt branches plus the branch Cusp reads/writes by
 // default (the active changeset, else main — see ResolveBranch).
 type BranchList struct {
 	Branches []string `json:"branches"`

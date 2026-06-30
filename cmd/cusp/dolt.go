@@ -7,9 +7,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/doltserver"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/doltserver"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
 var (
@@ -20,7 +20,7 @@ var (
 var doltCmd = &cobra.Command{
 	Use:   "dolt",
 	Short: "Sync the database with a Dolt remote (push/pull/fetch, manage remotes)",
-	Long: "ADLG's store is a Dolt database, so syncing a version-controlled knowledge graph is\n" +
+	Long: "Cusp's store is a Dolt database, so syncing a version-controlled knowledge graph is\n" +
 		"`dolt push`/`pull` over the canonical branch. Remote/branch default to origin/main.\n" +
 		"Authenticated remotes: pass --user and set DOLT_REMOTE_PASSWORD in the server's env.",
 }
@@ -86,7 +86,7 @@ var doltRemoteLsCmd = &cobra.Command{
 			return nil
 		}
 		if len(remotes) == 0 {
-			fmt.Println("(no remotes — add one with `adlg dolt remote add <name> <url>`)")
+			fmt.Println("(no remotes — add one with `cusp dolt remote add <name> <url>`)")
 			return nil
 		}
 		for _, r := range remotes {
@@ -181,16 +181,16 @@ var syncCmd = &cobra.Command{
 
 // ownedServerDir resolves the workspace's server directory for owned-mode
 // lifecycle commands, refusing when the workspace targets an external server
-// (--dsn / $ADLG_DSN, or an explicit server port / shared server in metadata).
+// (--dsn / $CUSP_DSN, or an explicit server port / shared server in metadata).
 func ownedServerDir(verb string) (string, error) {
-	adlgDir, err := workspace.ResolveADLGDir()
+	cuspDir, err := workspace.ResolveCuspDir()
 	if err != nil {
 		return "", err
 	}
-	if flagDSN != "" || doltserver.ResolveServerMode(adlgDir) == doltserver.ServerModeExternal {
-		return "", fmt.Errorf("`adlg dolt %s` manages this workspace's owned server, but it is configured to use an external server", verb)
+	if flagDSN != "" || doltserver.ResolveServerMode(cuspDir) == doltserver.ServerModeExternal {
+		return "", fmt.Errorf("`cusp dolt %s` manages this workspace's owned server, but it is configured to use an external server", verb)
 	}
-	return doltserver.ResolveServerDir(adlgDir), nil
+	return doltserver.ResolveServerDir(cuspDir), nil
 }
 
 var doltStartCmd = &cobra.Command{
@@ -245,7 +245,7 @@ var doltStatusCmd = &cobra.Command{
 	Short: "Show the Dolt server's status (mode, pid, port, data dir)",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		adlgDir, err := workspace.ResolveADLGDir()
+		cuspDir, err := workspace.ResolveCuspDir()
 		if err != nil {
 			return err
 		}
@@ -254,8 +254,8 @@ var doltStatusCmd = &cobra.Command{
 				"mode:    external\nserver:  "+flagDSN)
 			return nil
 		}
-		mode := doltserver.ResolveServerMode(adlgDir)
-		serverDir := doltserver.ResolveServerDir(adlgDir)
+		mode := doltserver.ResolveServerMode(cuspDir)
+		serverDir := doltserver.ResolveServerDir(cuspDir)
 		state, err := doltserver.IsRunning(serverDir)
 		if err != nil {
 			return err
@@ -287,10 +287,10 @@ var doltCompactCmd = &cobra.Command{
 	Short: "Squash Dolt commits older than --days into one, reclaiming history storage",
 	Long: "Squashes Dolt commits older than --days into a single base commit, preserving the\n" +
 		"recent commits on top, then GCs to reclaim space. Reduces storage from auto-commit\n" +
-		"history while keeping recent change tracking. For a full squash, use `adlg flatten`.\n\n" +
-		"  adlg dolt compact --dry-run       # preview the commit breakdown\n" +
-		"  adlg dolt compact --force         # squash commits older than 30 days\n" +
-		"  adlg dolt compact --days 7 --force",
+		"history while keeping recent change tracking. For a full squash, use `cusp flatten`.\n\n" +
+		"  cusp dolt compact --dry-run       # preview the commit breakdown\n" +
+		"  cusp dolt compact --force         # squash commits older than 30 days\n" +
+		"  cusp dolt compact --days 7 --force",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

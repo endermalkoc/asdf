@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // parseEntities reads specs/entities/index.md (the curated entity glossary table:

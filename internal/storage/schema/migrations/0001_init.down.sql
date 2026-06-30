@@ -1,4 +1,4 @@
--- 0001_init.down.sql — drop the initial ADLG schema.
+-- 0001_init.down.sql — drop the initial Cusp schema.
 -- Tables are dropped dependents-first so foreign keys never block a drop.
 
 DROP TABLE IF EXISTS `deliverable_dependency`;

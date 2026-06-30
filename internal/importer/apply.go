@@ -6,8 +6,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/endermalkoc/adlg/internal/ids"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/ids"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 // TouchedTables lists every table Apply may write, so the caller (the Mutate

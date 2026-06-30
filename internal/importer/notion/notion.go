@@ -1,6 +1,6 @@
 // Package notion is the source adapter for a Notion planning workspace: the
 // Capabilities / Deliverables / Views databases that track *what to build*. It maps
-// them onto ADLG's planning layer (Capability → Deliverable → View, plus Domain and
+// them onto Cusp's planning layer (Capability → Deliverable → View, plus Domain and
 // Milestone) and produces an importer.Graph + a Report.
 //
 // Two sources, same mapping:
@@ -25,7 +25,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // Default Notion database ids for the tutor workspace (see
@@ -161,7 +161,7 @@ func joinRich(rt []richText) string {
 	return strings.TrimSpace(b.String())
 }
 
-// BuildGraph maps the three page sets onto the ADLG planning layer. It is pure: no
+// BuildGraph maps the three page sets onto the Cusp planning layer. It is pure: no
 // network, no database, deterministic ordering.
 func BuildGraph(caps, delivs, views []Page) (*importer.Graph, *importer.Report) {
 	g := &importer.Graph{}

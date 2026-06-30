@@ -9,8 +9,8 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // frStatement is the text parsed from a spec's bold FR line, to be joined onto

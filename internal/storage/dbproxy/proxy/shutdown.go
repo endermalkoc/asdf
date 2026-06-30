@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/lockfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/pidfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/server"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/cusp/internal/lockfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/pidfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/server"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/util"
 )
 
 const (

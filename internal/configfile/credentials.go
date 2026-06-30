@@ -10,19 +10,19 @@ import (
 )
 
 // DefaultCredentialsPath returns the platform-appropriate default credentials file path.
-// Linux/macOS: ~/.config/adlg/credentials
-// Windows: %APPDATA%\adlg\credentials
+// Linux/macOS: ~/.config/cusp/credentials
+// Windows: %APPDATA%\cusp\credentials
 func DefaultCredentialsPath() string {
 	if runtime.GOOS == "windows" {
 		if appdata := os.Getenv("APPDATA"); appdata != "" {
-			return filepath.Join(appdata, "adlg", "credentials")
+			return filepath.Join(appdata, "cusp", "credentials")
 		}
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(home, ".config", "adlg", "credentials")
+	return filepath.Join(home, ".config", "cusp", "credentials")
 }
 
 // LookupCredentialsPassword reads a password from an INI-style credentials file,
@@ -33,14 +33,14 @@ func DefaultCredentialsPath() string {
 //	[127.0.0.1:3307]
 //	password=localDevPassword
 //
-//	[adlg.company.com:3307]
+//	[cusp.company.com:3307]
 //	password=teamServerPassword
 //
 // The file path is determined by:
-//  1. ADLG_CREDENTIALS_FILE env var (if set)
+//  1. CUSP_CREDENTIALS_FILE env var (if set)
 //  2. Default platform path (see DefaultCredentialsPath)
 func LookupCredentialsPassword(host string, port int) string {
-	credFile := os.Getenv("ADLG_CREDENTIALS_FILE")
+	credFile := os.Getenv("CUSP_CREDENTIALS_FILE")
 	if credFile == "" {
 		credFile = DefaultCredentialsPath()
 	}

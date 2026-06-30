@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/endermalkoc/adlg/internal/enums"
+	"github.com/endermalkoc/cusp/internal/enums"
 )
 
 // ValidateEnum checks that value is in the allowed set. An empty value passes

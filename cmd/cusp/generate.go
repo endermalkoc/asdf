@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/generate"
+	"github.com/endermalkoc/cusp/internal/generate"
 )
 
 var (
@@ -43,7 +43,7 @@ var generateCmd = &cobra.Command{
 }
 
 func init() {
-	generateCmd.Flags().StringVar(&generateOut, "out", ".adlg/generated",
+	generateCmd.Flags().StringVar(&generateOut, "out", ".cusp/generated",
 		"output directory for generated artifacts")
 	generateCmd.Flags().StringVar(&generateFormat, "format", "md",
 		"output format: md | json | html")

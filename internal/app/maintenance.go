@@ -6,8 +6,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
 // Dolt history maintenance: flatten (squash all history into one commit) and

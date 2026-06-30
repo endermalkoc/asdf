@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/endermalkoc/adlg/internal/storage"
-	"github.com/endermalkoc/adlg/internal/storage/versioncontrolops"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/storage"
+	"github.com/endermalkoc/cusp/internal/storage/versioncontrolops"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
-// Remote sync. ADLG's store is a Dolt database, so syncing a version-controlled knowledge
+// Remote sync. Cusp's store is a Dolt database, so syncing a version-controlled knowledge
 // graph is just `dolt push`/`pull` over the canonical branch. These wrappers pin a single
 // connection (branch state is connection-scoped; a pull's merge needs one session) and route
 // auth (user + DOLT_REMOTE_PASSWORD in the server env) through to the lifted versioncontrolops

@@ -1,4 +1,4 @@
-module github.com/endermalkoc/adlg
+module github.com/endermalkoc/cusp
 
 go 1.26.2
 

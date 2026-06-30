@@ -10,11 +10,11 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/endermalkoc/adlg/internal/configfile"
-	"github.com/endermalkoc/adlg/internal/lockfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/pidfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/server"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/cusp/internal/configfile"
+	"github.com/endermalkoc/cusp/internal/lockfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/pidfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/server"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/util"
 )
 
 type ErrUpstreamMismatch struct {
@@ -214,7 +214,7 @@ func forkExecChild(rootDir string, opts OpenOpts, port int, lock *util.Lock) (*e
 
 	self, err := ResolveExecutable()
 	if err != nil {
-		return nil, nil, fmt.Errorf("locate adlg executable: %w", err)
+		return nil, nil, fmt.Errorf("locate cusp executable: %w", err)
 	}
 
 	idleTimeout := opts.IdleTimeout

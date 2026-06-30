@@ -6,7 +6,7 @@
 # Validate this file:                  make release-check
 version: 2
 
-project_name: adlg
+project_name: cusp
 
 before:
   hooks:
@@ -15,9 +15,9 @@ before:
     - go mod download
 
 builds:
-  - id: adlg
-    main: ./cmd/adlg
-    binary: adlg
+  - id: cusp
+    main: ./cmd/cusp
+    binary: cusp
     env:
       - CGO_ENABLED=0 # pure-Go build → trivial cross-compilation, fully static binary
     goos:
@@ -65,5 +65,5 @@ release:
     ## Install
 
     ```sh
-    curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh | sh
+    curl -fsSL https://raw.githubusercontent.com/endermalkoc/cusp/main/install.sh | sh
     ```

@@ -1,20 +1,20 @@
 #!/bin/sh
-# Install the ADLG (Agentic Delivery Lifecycle Graph) CLI from GitHub Releases.
+# Install the Cusp (Agentic Delivery Lifecycle Graph) CLI from GitHub Releases.
 #
-#   curl -fsSL https://raw.githubusercontent.com/endermalkoc/adlg/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/endermalkoc/cusp/main/install.sh | sh
 #
 # Environment overrides:
-#   ADLG_VERSION       version/tag to install, e.g. v0.1.0   (default: latest release)
-#   ADLG_INSTALL_DIR   directory to install into             (default: /usr/local/bin,
+#   CUSP_VERSION       version/tag to install, e.g. v0.1.0   (default: latest release)
+#   CUSP_INSTALL_DIR   directory to install into             (default: /usr/local/bin,
 #                                                             falling back to ~/.local/bin)
 #
-# The installed binary is named `adlg`. Set ADLG_INSTALL_DIR to choose where it
+# The installed binary is named `cusp`. Set CUSP_INSTALL_DIR to choose where it
 # lands on PATH.
 
 set -eu
 
-REPO="endermalkoc/adlg"
-BINARY="adlg"
+REPO="endermalkoc/cusp"
+BINARY="cusp"
 
 log()  { printf '%s\n' "$*" >&2; }
 err()  { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -47,12 +47,12 @@ case "$arch" in
 esac
 
 # ── resolve version ─────────────────────────────────────────────────────────
-version="${ADLG_VERSION:-}"
+version="${CUSP_VERSION:-}"
 if [ -z "$version" ]; then
   log "Resolving latest release…"
   version=$(dl "https://api.github.com/repos/$REPO/releases/latest" \
     | grep '"tag_name":' | head -n1 | sed 's/.*"tag_name": *"\([^"]*\)".*/\1/')
-  [ -n "$version" ] || err "could not determine latest release (set ADLG_VERSION=vX.Y.Z to pin one)"
+  [ -n "$version" ] || err "could not determine latest release (set CUSP_VERSION=vX.Y.Z to pin one)"
 fi
 vnum=${version#v} # archive names use the version without the leading 'v'
 
@@ -62,7 +62,7 @@ base="https://github.com/$REPO/releases/download/$version"
 log "Installing $BINARY $version ($os/$arch)…"
 
 # ── download + verify + extract in a temp dir ───────────────────────────────
-tmp=$(mktemp -d 2>/dev/null || mktemp -d -t adlg)
+tmp=$(mktemp -d 2>/dev/null || mktemp -d -t cusp)
 trap 'rm -rf "$tmp"' EXIT INT TERM
 
 dlo "$base/$asset" "$tmp/$asset" || err "download failed: $base/$asset"
@@ -94,7 +94,7 @@ tar -xzf "$tmp/$asset" -C "$tmp" || err "failed to extract $asset"
 chmod +x "$tmp/$BINARY"
 
 # ── choose an install dir and place the binary ──────────────────────────────
-dir="${ADLG_INSTALL_DIR:-/usr/local/bin}"
+dir="${CUSP_INSTALL_DIR:-/usr/local/bin}"
 install_to() { # $1 = dir
   mkdir -p "$1" 2>/dev/null || return 1
   if [ -w "$1" ]; then
@@ -109,10 +109,10 @@ install_to() { # $1 = dir
 
 if install_to "$dir"; then
   :
-elif [ -z "${ADLG_INSTALL_DIR:-}" ] && install_to "$HOME/.local/bin"; then
+elif [ -z "${CUSP_INSTALL_DIR:-}" ] && install_to "$HOME/.local/bin"; then
   dir="$HOME/.local/bin"
 else
-  err "could not write to $dir (set ADLG_INSTALL_DIR to a writable directory)"
+  err "could not write to $dir (set CUSP_INSTALL_DIR to a writable directory)"
 fi
 
 log ""

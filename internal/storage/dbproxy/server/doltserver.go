@@ -19,8 +19,8 @@ import (
 	"github.com/dolthub/dolt/go/libraries/utils/filesys"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/pidfile"
-	"github.com/endermalkoc/adlg/internal/storage/dbproxy/util"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/pidfile"
+	"github.com/endermalkoc/cusp/internal/storage/dbproxy/util"
 )
 
 const defaultKeepAlivePeriod = 30 * time.Second
@@ -132,7 +132,7 @@ func (s *DoltServer) doltConfigure(ctx context.Context) error {
 	if out, err := probe.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
 		return nil
 	}
-	name, email := "adlg", "adlg@localhost"
+	name, email := "cusp", "cusp@localhost"
 	if out, err := exec.CommandContext(ctx, "git", "config", "user.name").Output(); err == nil {
 		if v := strings.TrimSpace(string(out)); v != "" {
 			name = v

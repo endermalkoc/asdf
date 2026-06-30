@@ -10,10 +10,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/importer"
-	"github.com/endermalkoc/adlg/internal/importer/notion"
-	"github.com/endermalkoc/adlg/internal/importer/tutor"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer/notion"
+	"github.com/endermalkoc/cusp/internal/importer/tutor"
 )
 
 var (
@@ -29,9 +29,9 @@ var (
 
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "Import external corpora into ADLG",
-	Long: "Import external corpora into ADLG. Today this is a read-only parse-and-report:\n" +
-		"the adapter walks the source and stages an ADLG graph so it can be eyeballed\n" +
+	Short: "Import external corpora into Cusp",
+	Long: "Import external corpora into Cusp. Today this is a read-only parse-and-report:\n" +
+		"the adapter walks the source and stages a Cusp graph so it can be eyeballed\n" +
 		"against the data model before any write path is wired.",
 }
 
@@ -39,7 +39,7 @@ var importTutorCmd = &cobra.Command{
 	Use:   "tutor <docs-path>",
 	Short: "Parse the tutor docs corpus and report the staged graph (no writes)",
 	Long: "Parse the tutor documentation corpus (the directory containing specs/ and\n" +
-		"fr-registry/) into ADLG's entity shapes and print counts, a coverage histogram,\n" +
+		"fr-registry/) into Cusp's entity shapes and print counts, a coverage histogram,\n" +
 		"and drift / ER-gap findings. This is deterministic and read-only — it never\n" +
 		"connects to the database. Use --json to emit the full staged graph + report.",
 	Args: cobra.ExactArgs(1),
@@ -119,10 +119,10 @@ var importNotionCmd = &cobra.Command{
 	Use:   "notion",
 	Short: "Import a Notion planning workspace (capabilities, deliverables, views)",
 	Long: "Import the Notion planning databases (Capabilities / Deliverables / Views) into\n" +
-		"ADLG's planning layer. By default this is a read-only parse-and-report; --apply\n" +
+		"Cusp's planning layer. By default this is a read-only parse-and-report; --apply\n" +
 		"writes the staged graph through the command contract (one transaction, one Dolt\n" +
 		"commit), idempotent on re-run.\n\n" +
-		"Source: the Notion API (--token, or $NOTION_API_KEY / $ADLG_NOTION_TOKEN), or saved\n" +
+		"Source: the Notion API (--token, or $NOTION_API_KEY / $CUSP_NOTION_TOKEN), or saved\n" +
 		"query responses with --from <dir> (capabilities.json / deliverables.json / views.json).",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, _ []string) error {
@@ -138,7 +138,7 @@ var importNotionCmd = &cobra.Command{
 		} else {
 			token := notionToken
 			if token == "" {
-				token = envFirst("ADLG_NOTION_TOKEN", "NOTION_API_KEY")
+				token = envFirst("CUSP_NOTION_TOKEN", "NOTION_API_KEY")
 			}
 			g, rep, err = notion.Parse(ctx, notion.Config{
 				Token:          token,
@@ -298,7 +298,7 @@ func init() {
 		"write the parsed graph into the database via the command contract (default: read-only report)")
 	importCmd.AddCommand(importTutorCmd)
 
-	importNotionCmd.Flags().StringVar(&notionToken, "token", "", "Notion integration token (default: $ADLG_NOTION_TOKEN, then $NOTION_API_KEY)")
+	importNotionCmd.Flags().StringVar(&notionToken, "token", "", "Notion integration token (default: $CUSP_NOTION_TOKEN, then $NOTION_API_KEY)")
 	importNotionCmd.Flags().StringVar(&notionFrom, "from", "", "import from saved query responses in this dir (capabilities.json/deliverables.json/views.json) instead of the API")
 	importNotionCmd.Flags().StringVar(&notionCapDB, "capabilities-db", "", "override the Capabilities database id")
 	importNotionCmd.Flags().StringVar(&notionDelivDB, "deliverables-db", "", "override the Deliverables database id")

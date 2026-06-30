@@ -54,7 +54,7 @@ func findPIDOnPort(port int) int {
 // in which `dolt sql-server` no longer appears as a contiguous substring.
 // Without this, IsRunning's isDoltProcess check would reject the PID as
 // "not a dolt process" and wipe the PID/port files of a healthy server,
-// breaking `adlg dolt status` and auto-start reattachment. The per-PID
+// breaking `cusp dolt status` and auto-start reattachment. The per-PID
 // substring check below still requires both "dolt" and "sql-server" in
 // the cmdline, so this only widens the first-stage filter; it does not
 // loosen identity validation.

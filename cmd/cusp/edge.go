@@ -7,10 +7,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
-	"github.com/endermalkoc/adlg/internal/enums"
-	"github.com/endermalkoc/adlg/internal/refs"
-	"github.com/endermalkoc/adlg/internal/store"
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/refs"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 var edgeCmd = &cobra.Command{Use: "edge", Short: "Manage the cross-reference graph"}
@@ -20,9 +20,9 @@ var edgeAddCmd = &cobra.Command{
 	Short: "Link two entities with a typed edge (deterministic, merge-convergent id)",
 	Long: "Add a typed edge between any two keyed entities. Each endpoint is a TYPE:key\n" +
 		"reference; a bare value is taken as a requirement fr_key. Examples:\n" +
-		"  adlg edge add ATT-FR-002 refines ATT-FR-001\n" +
-		"  adlg edge add SPEC:ADDS depends_on ENTITY:Student\n" +
-		"  adlg edge add REQ:ATT-FR-012 relates MILESTONE:M4\n" +
+		"  cusp edge add ATT-FR-002 refines ATT-FR-001\n" +
+		"  cusp edge add SPEC:ADDS depends_on ENTITY:Student\n" +
+		"  cusp edge add REQ:ATT-FR-012 relates MILESTONE:M4\n" +
 		"Both endpoints must already exist (validated on the target branch). For the acyclic\n" +
 		"kinds (refines, depends_on, supersedes, defers_to) the edge is rejected if it would\n" +
 		"create a cycle. The id is derived from the edge's identity, so re-adding it is a no-op.",

@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/endermalkoc/adlg/internal/importer"
+	"github.com/endermalkoc/cusp/internal/importer"
 )
 
 // ---- frontmatter -----------------------------------------------------------
@@ -247,7 +247,7 @@ func topDir(relPath string) string {
 }
 
 // mapSpecStatus maps a tutor spec status (Draft|Reviewed|Active|Retired…) to
-// ADLG's spec.status enum (draft|reviewed|active|obsolete). `reviewed` is a
+// Cusp's spec.status enum (draft|reviewed|active|obsolete). `reviewed` is a
 // first-class value (added in migration 0001's enum set per decisions.md), so it
 // is preserved, not downgraded.
 func mapSpecStatus(raw string, rep *importer.Report, ref string) string {

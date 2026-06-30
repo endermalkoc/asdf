@@ -10,26 +10,26 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/configfile"
-	"github.com/endermalkoc/adlg/internal/doltserver"
-	"github.com/endermalkoc/adlg/internal/git"
-	"github.com/endermalkoc/adlg/internal/storage/doltutil"
-	"github.com/endermalkoc/adlg/internal/storage/schema"
-	"github.com/endermalkoc/adlg/internal/store"
-	"github.com/endermalkoc/adlg/internal/workspace"
+	"github.com/endermalkoc/cusp/internal/configfile"
+	"github.com/endermalkoc/cusp/internal/doltserver"
+	"github.com/endermalkoc/cusp/internal/git"
+	"github.com/endermalkoc/cusp/internal/storage/doltutil"
+	"github.com/endermalkoc/cusp/internal/storage/schema"
+	"github.com/endermalkoc/cusp/internal/store"
+	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create an ADLG workspace (.adlg/) and its Dolt database in this repo",
-	Long: "Initializes an ADLG workspace: creates .adlg/, starts a managed (owned) dolt\n" +
+	Short: "Create a Cusp workspace (.cusp/) and its Dolt database in this repo",
+	Long: "Initializes a Cusp workspace: creates .cusp/, starts a managed (owned) dolt\n" +
 		"sql-server, applies the schema, and records the initial Dolt commit. Requires the\n" +
 		"`dolt` binary on PATH.",
 	Args: cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()
 
-		// 1. Locate the project root (init a git repo if needed); create .adlg/.
+		// 1. Locate the project root (init a git repo if needed); create .cusp/.
 		root, err := git.GetMainRepoRoot()
 		if err != nil {
 			if _, e := exec.Command("git", "init").CombinedOutput(); e != nil {
@@ -39,28 +39,28 @@ var initCmd = &cobra.Command{
 				return err
 			}
 		}
-		adlgDir := filepath.Join(root, ".adlg")
-		if _, statErr := os.Stat(configfile.ConfigPath(adlgDir)); statErr == nil {
+		cuspDir := filepath.Join(root, ".cusp")
+		if _, statErr := os.Stat(configfile.ConfigPath(cuspDir)); statErr == nil {
 			if !initForce {
-				return fmt.Errorf("ADLG workspace already exists at %s (pass --force to delete and reinitialize)", adlgDir)
+				return fmt.Errorf("Cusp workspace already exists at %s (pass --force to delete and reinitialize)", cuspDir)
 			}
 			// --force: tear down the existing workspace so we can rebuild from scratch.
 			// Stop the managed server (idempotent — ErrServerNotRunning is fine), then
-			// remove .adlg entirely. The DB is reproducible (re-import), so this is the
+			// remove .cusp entirely. The DB is reproducible (re-import), so this is the
 			// fast reset loop while the schema is still churning.
-			if err := doltserver.IgnoreNotRunning(doltserver.Stop(adlgDir)); err != nil {
+			if err := doltserver.IgnoreNotRunning(doltserver.Stop(cuspDir)); err != nil {
 				return fmt.Errorf("stopping existing dolt server: %w", err)
 			}
-			if err := os.RemoveAll(adlgDir); err != nil {
-				return fmt.Errorf("removing existing workspace %s: %w", adlgDir, err)
+			if err := os.RemoveAll(cuspDir); err != nil {
+				return fmt.Errorf("removing existing workspace %s: %w", cuspDir, err)
 			}
 		}
-		if err := os.MkdirAll(adlgDir, 0o700); err != nil {
+		if err := os.MkdirAll(cuspDir, 0o700); err != nil {
 			return err
 		}
 
 		// 2. Start the owned dolt sql-server (no metadata yet → owned mode).
-		state, err := doltserver.Start(adlgDir)
+		state, err := doltserver.Start(cuspDir)
 		if err != nil {
 			return fmt.Errorf("starting dolt server: %w", err)
 		}
@@ -106,23 +106,23 @@ var initCmd = &cobra.Command{
 			return fmt.Errorf("staging schema: %w", err)
 		}
 		if _, err := conn.ExecContext(ctx, "CALL DOLT_COMMIT('-m', ?, '--author', ?)",
-			"adlg init", actor.CommitAuthorString()); err != nil {
+			"cusp init", actor.CommitAuthorString()); err != nil {
 			return fmt.Errorf("initial commit: %w", err)
 		}
 
 		// 7. Persist metadata (DoltMode empty → owned mode) + .gitignore.
 		cfg := &configfile.Config{DoltDatabase: dbName}
-		if err := cfg.Save(adlgDir); err != nil {
+		if err := cfg.Save(cuspDir); err != nil {
 			return err
 		}
-		if err := os.WriteFile(filepath.Join(adlgDir, ".gitignore"),
+		if err := os.WriteFile(filepath.Join(cuspDir, ".gitignore"),
 			[]byte("dolt-server.pid\ndolt-server.port\ndolt-server.lock\ndolt-server.log\nactive_changeset\n"), 0o644); err != nil {
 			return err
 		}
 
-		emit(map[string]any{"adlg_dir": adlgDir, "database": dbName, "migrations": n, "port": state.Port},
-			fmt.Sprintf("initialized ADLG workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
-				adlgDir, dbName, n, state.Port))
+		emit(map[string]any{"cusp_dir": cuspDir, "database": dbName, "migrations": n, "port": state.Port},
+			fmt.Sprintf("initialized Cusp workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
+				cuspDir, dbName, n, state.Port))
 		return nil
 	},
 }
@@ -131,6 +131,6 @@ var initForce bool
 
 func init() {
 	initCmd.Flags().BoolVar(&initForce, "force", false,
-		"if a workspace already exists, stop its server, delete .adlg, and reinitialize from scratch")
+		"if a workspace already exists, stop its server, delete .cusp, and reinitialize from scratch")
 	rootCmd.AddCommand(initCmd)
 }

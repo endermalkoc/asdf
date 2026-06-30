@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/endermalkoc/adlg/internal/app"
+	"github.com/endermalkoc/cusp/internal/app"
 )
 
 var checkCmd = &cobra.Command{
