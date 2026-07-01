@@ -341,12 +341,23 @@ type treeGroup struct {
 	Requirements []treeReq `json:"requirements"`
 }
 
+type treeStory struct {
+	Title string `json:"title"`
+}
+
+type treeSection struct {
+	Key   string `json:"key"`
+	Title string `json:"title"`
+}
+
 type treeSpec struct {
-	Prefix       string      `json:"prefix,omitempty"`
-	Title        string      `json:"title"`
-	DocPath      string      `json:"docPath"`
-	Groups       []treeGroup `json:"groups"`
-	Requirements []treeReq   `json:"requirements"` // ungrouped, directly under the spec
+	Prefix       string        `json:"prefix,omitempty"`
+	Title        string        `json:"title"`
+	DocPath      string        `json:"docPath"`
+	Stories      []treeStory   `json:"stories"`       // → "User Stories"
+	Groups       []treeGroup   `json:"groups"`        // → "Functional Requirements"
+	Requirements []treeReq     `json:"requirements"`  // ungrouped FRs, under "Functional Requirements"
+	Sections     []treeSection `json:"sections"`      // prose sections → "Other"
 }
 
 type treeDomain struct {
@@ -410,14 +421,29 @@ var reqTreeCmd = &cobra.Command{
 					label = s.Title
 				}
 				fmt.Fprintf(&b, "  %s — %s\n", label, s.Title)
-				for _, g := range s.Groups {
-					fmt.Fprintf(&b, "    %s\n", g.Title)
-					for _, r := range g.Requirements {
+				if len(s.Stories) > 0 {
+					fmt.Fprintf(&b, "    User Stories\n")
+					for _, st := range s.Stories {
+						fmt.Fprintf(&b, "      %s\n", st.Title)
+					}
+				}
+				if len(s.Groups) > 0 || len(s.Requirements) > 0 {
+					fmt.Fprintf(&b, "    Functional Requirements\n")
+					for _, g := range s.Groups {
+						fmt.Fprintf(&b, "      %s\n", g.Title)
+						for _, r := range g.Requirements {
+							fmt.Fprintf(&b, "        %-14s %s\n", r.FRKey, r.Statement)
+						}
+					}
+					for _, r := range s.Requirements {
 						fmt.Fprintf(&b, "      %-14s %s\n", r.FRKey, r.Statement)
 					}
 				}
-				for _, r := range s.Requirements {
-					fmt.Fprintf(&b, "    %-14s %s\n", r.FRKey, r.Statement)
+				if len(s.Sections) > 0 {
+					fmt.Fprintf(&b, "    Other\n")
+					for _, sec := range s.Sections {
+						fmt.Fprintf(&b, "      %s\n", sec.Title)
+					}
 				}
 			}
 		}
@@ -434,9 +460,22 @@ func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeS
 		Prefix:       s.Prefix,
 		Title:        s.Title,
 		DocPath:      store.SpecDocPath(s.DomainSlug, s.Path, s.Slug),
+		Stories:      []treeStory{},
 		Groups:       []treeGroup{},
 		Requirements: []treeReq{},
+		Sections:     []treeSection{},
 	}
+
+	// User Stories.
+	stories, err := store.ListStoriesBySpec(ctx, rd, s.ID)
+	if err != nil {
+		return treeSpec{}, err
+	}
+	for _, st := range stories {
+		ts.Stories = append(ts.Stories, treeStory{Title: st.Title})
+	}
+
+	// Functional Requirements: groups (with their FRs bucketed by group_id) + ungrouped FRs.
 	groups, err := store.ListReqGroups(ctx, rd, s.ID)
 	if err != nil {
 		return treeSpec{}, err
@@ -460,7 +499,32 @@ func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeS
 	if u := byGroup[""]; u != nil { // ungrouped (group_id NULL)
 		ts.Requirements = u
 	}
+
+	// Other: the spec's prose sections, in canonical render order.
+	sections, err := store.ListSpecSections(ctx, rd, s.ID)
+	if err != nil {
+		return treeSpec{}, err
+	}
+	for _, sec := range sections {
+		title := sec.Title
+		if title == "" {
+			title = humanizeKey(sec.Key)
+		}
+		ts.Sections = append(ts.Sections, treeSection{Key: sec.Key, Title: title})
+	}
 	return ts, nil
+}
+
+// humanizeKey renders a snake/kebab section slug as a title when the section type has no title
+// of its own (e.g. "open_questions" → "Open Questions", "preamble" → "Preamble").
+func humanizeKey(key string) string {
+	words := strings.FieldsFunc(key, func(r rune) bool { return r == '_' || r == '-' })
+	for i, w := range words {
+		if w != "" {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
 }
 
 // nonNilReqs returns an empty (non-nil) slice for nil input, so the JSON encodes an empty array
