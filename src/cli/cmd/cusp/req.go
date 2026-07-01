@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/endermalkoc/cusp/internal/app"
 	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/refs"
 	"github.com/endermalkoc/cusp/internal/store"
 )
 
@@ -381,6 +383,13 @@ var reqTreeCmd = &cobra.Command{
 		}
 		defer done()
 
+		// Resolve `[[TYPE:key]]` refs so FR statements render as plain text (link markup and
+		// file-path labels replaced with the target's human title).
+		resolver, err := app.LoadResolver(ctx, rd)
+		if err != nil {
+			return err
+		}
+
 		domains, err := store.ListDomains(ctx, rd)
 		if err != nil {
 			return err
@@ -399,7 +408,7 @@ var reqTreeCmd = &cobra.Command{
 		for _, d := range domains {
 			td := treeDomain{Slug: d.Slug, Name: d.Name, Specs: []treeSpec{}}
 			for _, s := range specsByDomain[d.Slug] {
-				ts, err := buildTreeSpec(ctx, rd, s)
+				ts, err := buildTreeSpec(ctx, rd, s, resolver)
 				if err != nil {
 					return err
 				}
@@ -455,7 +464,7 @@ var reqTreeCmd = &cobra.Command{
 // buildTreeSpec assembles one spec's subtree: its FR groups (each with the requirements bucketed
 // under it by group_id) plus the ungrouped requirements. Both group and requirement order come
 // straight from the store (document order).
-func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeSpec, error) {
+func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow, resolver *refs.Resolver) (treeSpec, error) {
 	ts := treeSpec{
 		Prefix:       s.Prefix,
 		Title:        s.Title,
@@ -488,7 +497,7 @@ func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeS
 	for _, r := range reqs {
 		byGroup[r.GroupID] = append(byGroup[r.GroupID], treeReq{
 			FRKey:          r.FRKey,
-			Statement:      r.Statement,
+			Statement:      stripInlineMarkdown(refs.RenderPlain(r.Statement, resolver)),
 			DeliveryStatus: r.DeliveryStatus,
 			Milestone:      r.Milestone,
 		})
@@ -506,25 +515,14 @@ func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeS
 		return treeSpec{}, err
 	}
 	for _, sec := range sections {
-		title := sec.Title
-		if title == "" {
-			title = humanizeKey(sec.Key)
+		// Untitled section types (preamble, more_info) render as headingless prose — the doc has
+		// no heading to navigate to — so they aren't surfaced as "Other" items.
+		if sec.Title == "" {
+			continue
 		}
-		ts.Sections = append(ts.Sections, treeSection{Key: sec.Key, Title: title})
+		ts.Sections = append(ts.Sections, treeSection{Key: sec.Key, Title: sec.Title})
 	}
 	return ts, nil
-}
-
-// humanizeKey renders a snake/kebab section slug as a title when the section type has no title
-// of its own (e.g. "open_questions" → "Open Questions", "preamble" → "Preamble").
-func humanizeKey(key string) string {
-	words := strings.FieldsFunc(key, func(r rune) bool { return r == '_' || r == '-' })
-	for i, w := range words {
-		if w != "" {
-			words[i] = strings.ToUpper(w[:1]) + w[1:]
-		}
-	}
-	return strings.Join(words, " ")
 }
 
 // nonNilReqs returns an empty (non-nil) slice for nil input, so the JSON encodes an empty array
@@ -534,6 +532,34 @@ func nonNilReqs(r []treeReq) []treeReq {
 		return []treeReq{}
 	}
 	return r
+}
+
+var (
+	mdFence            = regexp.MustCompile("(?s)```.*?```")
+	mdCode             = regexp.MustCompile("`([^`]+)`")
+	mdStrike           = regexp.MustCompile(`~~([^~]+)~~`)
+	mdBoldStar         = regexp.MustCompile(`\*\*([^*]+)\*\*`)
+	mdBoldUnderscore   = regexp.MustCompile(`__([^_]+)__`)
+	mdItalicStar       = regexp.MustCompile(`\*([^*]+)\*`)
+	mdItalicUnderscore = regexp.MustCompile(`(^|[^\p{L}\p{N}_])_([^_]+)_($|[^\p{L}\p{N}_])`)
+	mdWhitespace       = regexp.MustCompile(`\s+`)
+)
+
+// stripInlineMarkdown renders a statement to a single line of plain text for the tree: fenced
+// code blocks are dropped, light inline Markdown (inline code, bold, italic, strikethrough) is
+// unwrapped, and whitespace is collapsed. Bold is unwrapped before italic (`**` contains `*`);
+// underscore italics are only unwrapped at word boundaries so intraword underscores in
+// identifiers (e.g. a `__signup_meta` cookie name) survive.
+func stripInlineMarkdown(s string) string {
+	s = mdFence.ReplaceAllString(s, " ")
+	s = mdCode.ReplaceAllString(s, "$1")
+	s = mdStrike.ReplaceAllString(s, "$1")
+	s = mdBoldStar.ReplaceAllString(s, "$1")
+	s = mdBoldUnderscore.ReplaceAllString(s, "$1")
+	s = mdItalicStar.ReplaceAllString(s, "$1")
+	s = mdItalicUnderscore.ReplaceAllString(s, "$1$2$3")
+	s = mdWhitespace.ReplaceAllString(s, " ")
+	return strings.TrimSpace(s)
 }
 
 func init() {
