@@ -529,5 +529,11 @@ func htmlPageEmbedded(title, body string) string {
 // embeddedCSS adjusts the shared stylesheet for the chrome-less embedded page: the content
 // column keeps its centered max-width but gains its own padding (there is no top bar to sit
 // under). Appended after styleCSS so it wins on the cascade.
+//
+// It also defends against the host's injected element styles. A VS Code webview injects a
+// theme-scoped default stylesheet (e.g. `.vscode-dark blockquote { background: … }`) that leaks
+// a dark background into any element our doc CSS styles border-only. These high-specificity rules
+// pin those elements back to the page background so a dark host theme can't show through.
 const embeddedCSS = `body.embedded main.content { padding: 1.5rem 1.75rem 4rem; }
+body.embedded .doc blockquote { background: var(--bg); }
 `
