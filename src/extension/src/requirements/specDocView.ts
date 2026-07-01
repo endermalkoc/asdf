@@ -9,28 +9,68 @@ interface OpenArgs {
   title?: string;
 }
 
-// A single reused webview panel. The extension holds no state beyond this view handle and the
-// path of the doc currently shown (needed to resolve its relative cross-references); Dolt is the
-// source of truth and every doc is re-rendered on demand via `cusp spec render`.
+// A single reused webview panel plus a back/forward history. The extension holds no doc state
+// beyond this view handle, the path currently shown (to resolve its relative links), and the
+// navigation history; Dolt is the source of truth and every doc is re-rendered on demand.
 let panel: vscode.WebviewPanel | undefined;
 let currentDocPath = "";
 let getClientRef: (() => CuspClient) | undefined;
+let onNavigateRef: ((docPath: string, anchor?: string) => void) | undefined;
 
-export function registerSpecDocView(getClient: () => CuspClient): vscode.Disposable {
+const history: OpenArgs[] = [];
+let historyIndex = -1;
+
+export function registerSpecDocView(
+  getClient: () => CuspClient,
+  onNavigate: (docPath: string, anchor?: string) => void,
+): vscode.Disposable {
   getClientRef = getClient;
-  return vscode.commands.registerCommand("cusp.openSpecDoc", (arg: OpenArgs) => openDoc(arg));
+  onNavigateRef = onNavigate;
+  return vscode.Disposable.from(
+    vscode.commands.registerCommand("cusp.openSpecDoc", (arg: OpenArgs) => navigate(arg)),
+    vscode.commands.registerCommand("cusp.specDocBack", () => step(-1)),
+    vscode.commands.registerCommand("cusp.specDocForward", () => step(1)),
+  );
 }
 
-async function openDoc(arg: OpenArgs): Promise<void> {
-  if (!arg?.docPath || !getClientRef) {
+// navigate is a user-initiated open (tree click or in-doc link): render, then push onto history
+// (dropping any forward entries).
+async function navigate(arg: OpenArgs): Promise<void> {
+  if (!arg?.docPath) {
     return;
+  }
+  if (!(await render(arg))) {
+    return;
+  }
+  history.splice(historyIndex + 1);
+  history.push(arg);
+  historyIndex = history.length - 1;
+  updateNavContext();
+}
+
+// step moves through history without mutating it (the back/forward buttons).
+async function step(delta: number): Promise<void> {
+  const target = historyIndex + delta;
+  if (target < 0 || target >= history.length) {
+    return;
+  }
+  if (await render(history[target])) {
+    historyIndex = target;
+    updateNavContext();
+  }
+}
+
+// render shows the doc in the panel; it never touches history. Returns false on failure.
+async function render(arg: OpenArgs): Promise<boolean> {
+  if (!getClientRef) {
+    return false;
   }
   let html: string;
   try {
     html = await getClientRef().renderSpecHtml(arg.docPath);
   } catch (err) {
     vscode.window.showErrorMessage(`Cusp: failed to render spec — ${messageOf(err)}`);
-    return;
+    return false;
   }
   currentDocPath = arg.docPath;
   const title = arg.title || path.posix.basename(arg.docPath, ".md");
@@ -41,14 +81,22 @@ async function openDoc(arg: OpenArgs): Promise<void> {
     });
     panel.onDidDispose(() => {
       panel = undefined;
+      history.length = 0;
+      historyIndex = -1;
+      updateNavContext();
     });
-    // The listener lives on the webview and survives html reloads, so it keeps handling link
-    // clicks from whichever doc is currently loaded.
     panel.webview.onDidReceiveMessage((m) => onMessage(m));
   }
   panel.title = title;
   panel.webview.html = decorate(html, arg.anchor);
   panel.reveal(panel.viewColumn ?? vscode.ViewColumn.Beside, /* preserveFocus */ true);
+  onNavigateRef?.(arg.docPath, arg.anchor);
+  return true;
+}
+
+function updateNavContext(): void {
+  void vscode.commands.executeCommand("setContext", "cusp.specDocCanGoBack", historyIndex > 0);
+  void vscode.commands.executeCommand("setContext", "cusp.specDocCanGoForward", historyIndex < history.length - 1);
 }
 
 async function onMessage(m: unknown): Promise<void> {
@@ -66,7 +114,7 @@ async function onMessage(m: unknown): Promise<void> {
     );
     return;
   }
-  await openDoc({ docPath: target.docPath, anchor: target.anchor, title: path.posix.basename(target.docPath, ".md") });
+  await navigate({ docPath: target.docPath, anchor: target.anchor, title: path.posix.basename(target.docPath, ".md") });
 }
 
 // resolveHref turns a relative .html href from the rendered doc into a target .md doc path (plus

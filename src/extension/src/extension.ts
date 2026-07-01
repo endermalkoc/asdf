@@ -10,13 +10,27 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const changesets = new ChangesetTreeProvider(client);
   const requirements = new RequirementsTreeProvider(client);
+  // A TreeView (not just a provider) so we can reveal() — expand + select the node the doc panel
+  // navigates to (link clicks and back/forward included).
+  const reqView = vscode.window.createTreeView("cuspRequirements", { treeDataProvider: requirements });
+
+  const revealInTree = async (docPath: string, anchor?: string) => {
+    const node = await requirements.find(docPath, anchor);
+    if (node) {
+      try {
+        await reqView.reveal(node, { select: true, focus: false, expand: true });
+      } catch {
+        /* the view may be hidden — reveal is best-effort */
+      }
+    }
+  };
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("cuspChangesets", changesets),
-    vscode.window.registerTreeDataProvider("cuspRequirements", requirements),
+    reqView,
     vscode.commands.registerCommand("cusp.refreshChangesets", () => changesets.refresh()),
     vscode.commands.registerCommand("cusp.refreshRequirements", () => requirements.refresh()),
-    registerSpecDocView(() => client),
+    registerSpecDocView(() => client, revealInTree),
     // Rebuild the transport when the relevant settings change — no reload needed.
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("cusp.cliPath") || e.affectsConfiguration("cusp.workspaceFolder")) {
