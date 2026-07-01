@@ -10,6 +10,7 @@ import (
 
 	"github.com/endermalkoc/cusp/internal/app"
 	"github.com/endermalkoc/cusp/internal/enums"
+	"github.com/endermalkoc/cusp/internal/generate"
 	"github.com/endermalkoc/cusp/internal/store"
 )
 
@@ -128,6 +129,45 @@ var specShowCmd = &cobra.Command{
 	},
 }
 
+var specRenderFormat string
+
+var specRenderCmd = &cobra.Command{
+	Use:   "render <prefix-or-path>",
+	Short: "Render a spec's document (HTML or Markdown) from the DB to stdout",
+	Long: "Render a single spec's document on demand from the database — the review-surface\n" +
+		"render chokepoint. Unlike `cusp generate` (which writes the whole workspace to files),\n" +
+		"this reads the current DB on the active branch and prints one spec's rendered document\n" +
+		"to stdout. --format html emits a self-contained, inline-CSS page suitable for embedding\n" +
+		"(e.g. a VS Code webview); --format md emits the raw Markdown page.",
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		rd, done, err := connectRead(ctx)
+		if err != nil {
+			return err
+		}
+		defer done()
+		sp, ok, err := store.GetSpec(ctx, rd, args[0])
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return app.NotFound("spec", args[0])
+		}
+		docPath := store.SpecDocPath(sp.DomainSlug, sp.Path, sp.Slug)
+		out, err := generate.RenderSpecDoc(ctx, rd, sp.ID, docPath, specRenderFormat)
+		if err != nil {
+			return err
+		}
+		// Write the rendered document to stdout (cobra's cmd.Print goes to stderr).
+		fmt.Print(out)
+		if !strings.HasSuffix(out, "\n") {
+			fmt.Println()
+		}
+		return nil
+	},
+}
+
 var specEditCmd = &cobra.Command{
 	Use:   "edit <prefix-or-path>",
 	Short: "Edit a spec's title/status (only the flags you pass change)",
@@ -234,6 +274,8 @@ func init() {
 	specEditCmd.Flags().StringVar(&specTitle, "title", "", "new title")
 	specEditCmd.Flags().StringVar(&specStatus, "status", "", "status (draft|reviewed|active|obsolete)")
 
-	specCmd.AddCommand(specAddCmd, specShowCmd, specEditCmd, specDeleteCmd)
+	specRenderCmd.Flags().StringVar(&specRenderFormat, "format", "html", "render format: html | md")
+
+	specCmd.AddCommand(specAddCmd, specShowCmd, specRenderCmd, specEditCmd, specDeleteCmd)
 	rootCmd.AddCommand(specCmd)
 }

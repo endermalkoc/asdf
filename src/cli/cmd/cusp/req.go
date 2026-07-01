@@ -327,6 +327,151 @@ var priorityLsCmd = &cobra.Command{
 	},
 }
 
+// --- req tree: the requirements hierarchy, for tree/outline views -----------
+
+type treeReq struct {
+	FRKey          string `json:"frKey"`
+	Statement      string `json:"statement"`
+	DeliveryStatus string `json:"deliveryStatus,omitempty"`
+	Milestone      string `json:"milestone,omitempty"`
+}
+
+type treeGroup struct {
+	Title        string    `json:"title"`
+	Requirements []treeReq `json:"requirements"`
+}
+
+type treeSpec struct {
+	Prefix       string      `json:"prefix,omitempty"`
+	Title        string      `json:"title"`
+	DocPath      string      `json:"docPath"`
+	Groups       []treeGroup `json:"groups"`
+	Requirements []treeReq   `json:"requirements"` // ungrouped, directly under the spec
+}
+
+type treeDomain struct {
+	Slug  string     `json:"slug"`
+	Name  string     `json:"name"`
+	Specs []treeSpec `json:"specs"`
+}
+
+var reqTreeCmd = &cobra.Command{
+	Use:   "tree",
+	Short: "Print the requirements hierarchy (domain → spec → group → requirement)",
+	Long: "Emit the whole requirements tree — domains, their specs, each spec's FR groups, and\n" +
+		"the requirements under each group (ungrouped FRs hang directly off the spec). Ordering\n" +
+		"matches the generated documents. Use --json to drive an outline/tree view.",
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		rd, done, err := connectRead(ctx)
+		if err != nil {
+			return err
+		}
+		defer done()
+
+		domains, err := store.ListDomains(ctx, rd)
+		if err != nil {
+			return err
+		}
+		specs, err := store.ListSpecs(ctx, rd)
+		if err != nil {
+			return err
+		}
+		// Bucket specs under their domain (ListSpecs is already ordered by path, slug).
+		specsByDomain := map[string][]store.SpecRow{}
+		for _, s := range specs {
+			specsByDomain[s.DomainSlug] = append(specsByDomain[s.DomainSlug], s)
+		}
+
+		out := []treeDomain{}
+		for _, d := range domains {
+			td := treeDomain{Slug: d.Slug, Name: d.Name, Specs: []treeSpec{}}
+			for _, s := range specsByDomain[d.Slug] {
+				ts, err := buildTreeSpec(ctx, rd, s)
+				if err != nil {
+					return err
+				}
+				td.Specs = append(td.Specs, ts)
+			}
+			out = append(out, td)
+		}
+
+		if flagJSON {
+			emit(out, "")
+			return nil
+		}
+		var b strings.Builder
+		for _, d := range out {
+			fmt.Fprintf(&b, "%s\n", d.Name)
+			for _, s := range d.Specs {
+				label := s.Prefix
+				if label == "" {
+					label = s.Title
+				}
+				fmt.Fprintf(&b, "  %s — %s\n", label, s.Title)
+				for _, g := range s.Groups {
+					fmt.Fprintf(&b, "    %s\n", g.Title)
+					for _, r := range g.Requirements {
+						fmt.Fprintf(&b, "      %-14s %s\n", r.FRKey, r.Statement)
+					}
+				}
+				for _, r := range s.Requirements {
+					fmt.Fprintf(&b, "    %-14s %s\n", r.FRKey, r.Statement)
+				}
+			}
+		}
+		fmt.Print(b.String())
+		return nil
+	},
+}
+
+// buildTreeSpec assembles one spec's subtree: its FR groups (each with the requirements bucketed
+// under it by group_id) plus the ungrouped requirements. Both group and requirement order come
+// straight from the store (document order).
+func buildTreeSpec(ctx context.Context, rd store.Execer, s store.SpecRow) (treeSpec, error) {
+	ts := treeSpec{
+		Prefix:       s.Prefix,
+		Title:        s.Title,
+		DocPath:      store.SpecDocPath(s.DomainSlug, s.Path, s.Slug),
+		Groups:       []treeGroup{},
+		Requirements: []treeReq{},
+	}
+	groups, err := store.ListReqGroups(ctx, rd, s.ID)
+	if err != nil {
+		return treeSpec{}, err
+	}
+	reqs, err := store.ListReqsBySpecID(ctx, rd, s.ID)
+	if err != nil {
+		return treeSpec{}, err
+	}
+	byGroup := map[string][]treeReq{}
+	for _, r := range reqs {
+		byGroup[r.GroupID] = append(byGroup[r.GroupID], treeReq{
+			FRKey:          r.FRKey,
+			Statement:      r.Statement,
+			DeliveryStatus: r.DeliveryStatus,
+			Milestone:      r.Milestone,
+		})
+	}
+	for _, g := range groups {
+		ts.Groups = append(ts.Groups, treeGroup{Title: g.Title, Requirements: nonNilReqs(byGroup[g.ID])})
+	}
+	if u := byGroup[""]; u != nil { // ungrouped (group_id NULL)
+		ts.Requirements = u
+	}
+	return ts, nil
+}
+
+// nonNilReqs returns an empty (non-nil) slice for nil input, so the JSON encodes an empty array
+// rather than null — every list in `req tree --json` is always an array.
+func nonNilReqs(r []treeReq) []treeReq {
+	if r == nil {
+		return []treeReq{}
+	}
+	return r
+}
+
 func init() {
 	reqAddCmd.Flags().StringVar(&reqDelivery, "delivery", "", "delivery status (covered|test-pending|not-implemented|...)")
 	reqAddCmd.Flags().StringVar(&reqMilestone, "milestone-id", "", "milestone id")
@@ -339,7 +484,7 @@ func init() {
 	reqEditCmd.Flags().StringVar(&reqContentStatus, "content-status", "", "content status (draft|active|obsolete)")
 	reqEditCmd.Flags().IntVar(&reqPriority, "priority", 0, "priority level 0–4 (see `priority ls`)")
 
-	reqCmd.AddCommand(reqAddCmd, reqLsCmd, reqShowCmd, reqEditCmd, reqDeleteCmd)
+	reqCmd.AddCommand(reqAddCmd, reqLsCmd, reqShowCmd, reqTreeCmd, reqEditCmd, reqDeleteCmd)
 	priorityCmd.AddCommand(priorityLsCmd)
 	rootCmd.AddCommand(reqCmd, priorityCmd)
 }
