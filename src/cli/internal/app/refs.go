@@ -19,7 +19,9 @@ func LoadResolver(ctx context.Context, x store.Execer) (*refs.Resolver, error) {
 	}
 	targets := make([]refs.Target, len(rows))
 	for i, r := range rows {
-		targets[i] = refs.Target{Type: r.Type, Key: r.Key, ID: r.ID, DocPath: r.DocPath, Anchor: r.Anchor}
+		// Label is carried too (not just needed for validation) so callers that render refs to
+		// text — e.g. `req tree` via refs.RenderPlain — get the target's human title.
+		targets[i] = refs.Target{Type: r.Type, Key: r.Key, ID: r.ID, DocPath: r.DocPath, Anchor: r.Anchor, Label: r.Label}
 	}
 	return refs.NewResolver(targets), nil
 }

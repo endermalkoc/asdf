@@ -37,6 +37,30 @@ func RenderInline(text, ownerDocPath string, r *Resolver) (string, []Token) {
 	return b.String(), dangling
 }
 
+// RenderPlain replaces every `[[TYPE:key|display]]` token with plain display text — no link
+// markup: the resolved target's human title (a file-path label like `shared/foo.md` becomes the
+// title, any trailing `— suffix` kept), else the token's own label. For plain-text surfaces
+// (tree/outline labels, summaries) where link syntax is noise.
+func RenderPlain(text string, r *Resolver) string {
+	toks := Scan(text)
+	if len(toks) == 0 {
+		return text
+	}
+	var b strings.Builder
+	last := 0
+	for _, t := range toks {
+		b.WriteString(text[last:t.Start])
+		last = t.End
+		if tg, ok := r.Resolve(t); ok {
+			b.WriteString(displayLabel(t.Label(), tg))
+		} else {
+			b.WriteString(t.Label())
+		}
+	}
+	b.WriteString(text[last:])
+	return b.String()
+}
+
 // renderLink builds an Obsidian wikilink `[[target#^anchor|label]]` (vault-relative
 // path, extension dropped; the anchor is a `^block` reference). A target with no
 // generated page (domain/milestone) renders as plain label; a same-file target omits
