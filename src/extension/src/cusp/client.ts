@@ -14,9 +14,45 @@ export interface Changeset {
   status: string;
 }
 
+/** One functional requirement (FR) — a leaf of the requirements tree. */
+export interface ReqNode {
+  frKey: string;
+  statement: string;
+  deliveryStatus?: string;
+  milestone?: string;
+}
+
+/** A named FR group within a spec. */
+export interface GroupNode {
+  title: string;
+  requirements: ReqNode[];
+}
+
+/** A spec: its FR groups, plus any ungrouped requirements directly under it. */
+export interface SpecNode {
+  prefix?: string;
+  title: string;
+  docPath: string;
+  groups: GroupNode[];
+  requirements: ReqNode[];
+}
+
+/** A domain and its specs — a root of the requirements tree. */
+export interface DomainNode {
+  slug: string;
+  name: string;
+  specs: SpecNode[];
+}
+
 export interface CuspClient {
   /** Mirrors `cusp changeset ls`. */
   listChangesets(): Promise<Changeset[]>;
+
+  /** Mirrors `cusp req tree` — the domain → spec → group → requirement hierarchy. */
+  requirementsTree(): Promise<DomainNode[]>;
+
+  /** Mirrors `cusp spec render <ref> --format html` — one spec doc as self-contained HTML. */
+  renderSpecHtml(specRef: string): Promise<string>;
 
   // Next slices, as the review surface grows (all already CLI/MCP-shaped):
   //   diff(branch): Promise<EntityDiff[]>          — `cusp changeset diff`

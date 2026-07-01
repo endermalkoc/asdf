@@ -32,7 +32,12 @@ export class ChangesetTreeProvider implements vscode.TreeDataProvider<ChangesetI
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<void>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  constructor(private readonly client: CuspClient) {}
+  constructor(private client: CuspClient) {}
+
+  /** Swap the transport (e.g. after a settings change) and let callers refresh. */
+  setClient(client: CuspClient): void {
+    this.client = client;
+  }
 
   refresh(): void {
     this._onDidChangeTreeData.fire();

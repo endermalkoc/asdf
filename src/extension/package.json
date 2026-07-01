@@ -18,7 +18,8 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onView:cuspChangesets"
+    "onView:cuspChangesets",
+    "onView:cuspRequirements"
   ],
   "contributes": {
     "viewsContainers": {
@@ -37,6 +38,12 @@
           "name": "Changesets",
           "icon": "media/cusp.svg",
           "contextualTitle": "Cusp Changesets"
+        },
+        {
+          "id": "cuspRequirements",
+          "name": "Requirements",
+          "icon": "media/cusp.svg",
+          "contextualTitle": "Cusp Requirements"
         }
       ]
     },
@@ -46,6 +53,12 @@
         "title": "Refresh Changesets",
         "category": "Cusp",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "cusp.refreshRequirements",
+        "title": "Refresh Requirements",
+        "category": "Cusp",
+        "icon": "$(refresh)"
       }
     ],
     "menus": {
@@ -53,6 +66,11 @@
         {
           "command": "cusp.refreshChangesets",
           "when": "view == cuspChangesets",
+          "group": "navigation"
+        },
+        {
+          "command": "cusp.refreshRequirements",
+          "when": "view == cuspRequirements",
           "group": "navigation"
         }
       ]
