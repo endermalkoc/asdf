@@ -11,6 +11,21 @@ const (
 	ExitDangling   = 4
 )
 
+// SilentExit signals a nonzero exit WITHOUT printing an error message or a --json error envelope.
+// It is for commands that already printed their own report and still want to gate via the exit
+// code (e.g. `cusp doctor` when problems are found) — the report is the sole output.
+type SilentExit struct{ Code int }
+
+func (e *SilentExit) Error() string { return "" }
+
+// ExitWith returns a SilentExit for a nonzero code (a 0 code is success → nil).
+func ExitWith(code int) error {
+	if code == 0 {
+		return nil
+	}
+	return &SilentExit{Code: code}
+}
+
 // CodedError carries an exit code and a machine-readable category for a failure, so the
 // CLI can map it to a documented exit code and a --json error envelope. Unwrap exposes
 // the underlying cause for errors.As/Is.

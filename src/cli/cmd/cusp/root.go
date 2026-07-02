@@ -82,6 +82,12 @@ func Execute() int {
 	if err == nil {
 		return 0
 	}
+	// A silent exit: the command already emitted its own output (e.g. `doctor`'s report); just
+	// return the code, no error line or --json envelope.
+	var se *app.SilentExit
+	if errors.As(err, &se) {
+		return se.Code
+	}
 	code, category := app.ExitGeneric, "error"
 	var ce *app.CodedError
 	if errors.As(err, &ce) {
