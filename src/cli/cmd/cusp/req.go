@@ -356,10 +356,10 @@ type treeSpec struct {
 	Prefix       string        `json:"prefix,omitempty"`
 	Title        string        `json:"title"`
 	DocPath      string        `json:"docPath"`
-	Stories      []treeStory   `json:"stories"`       // → "User Stories"
-	Groups       []treeGroup   `json:"groups"`        // → "Functional Requirements"
-	Requirements []treeReq     `json:"requirements"`  // ungrouped FRs, under "Functional Requirements"
-	Sections     []treeSection `json:"sections"`      // prose sections → "Other"
+	Stories      []treeStory   `json:"stories"`      // → "User Stories"
+	Groups       []treeGroup   `json:"groups"`       // → "Functional Requirements"
+	Requirements []treeReq     `json:"requirements"` // ungrouped FRs, under "Functional Requirements"
+	Sections     []treeSection `json:"sections"`     // prose sections → "Other"
 }
 
 type treeDomain struct {

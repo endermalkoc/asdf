@@ -368,7 +368,9 @@ func sessionStartHookStatus(path, command string) (present bool, err error) {
 
 // ---- Claude Code recipe ---------------------------------------------------
 
-func claudeSkillPath(base string) string    { return filepath.Join(base, ".claude", "skills", "cusp", "SKILL.md") }
+func claudeSkillPath(base string) string {
+	return filepath.Join(base, ".claude", "skills", "cusp", "SKILL.md")
+}
 func claudeSettingsPath(base string) string { return filepath.Join(base, ".claude", "settings.json") }
 func claudeInstructionsPath(base string, global bool) string {
 	if global {

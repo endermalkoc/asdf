@@ -9,7 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  build-test:
+  # Fast, always-on: gofmt + build + vet + unit tests (no database).
+  unit:
     runs-on: ubuntu-latest
     # The Go module lives under src/cli/; run every go step there.
     defaults:
@@ -24,13 +25,47 @@ jobs:
           cache: true
           cache-dependency-path: src/cli/go.sum
 
-      - name: Vet
-        run: go vet ./...
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"; echo "$unformatted"; exit 1
+          fi
 
       - name: Build
         run: go build ./...
 
-      - name: Test
+      - name: Vet
+        run: go vet ./...
+
+      - name: Unit tests
+        run: go test -short ./...
+
+  # Integration: the full suite against a real (owned) Dolt server. The harness
+  # (internal/testutil) needs the `dolt` binary; without it these tests skip.
+  integration:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/cli
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: src/cli/go.mod
+          cache: true
+          cache-dependency-path: src/cli/go.sum
+
+      - name: Install Dolt
+        working-directory: .
+        run: |
+          curl -L https://github.com/dolthub/dolt/releases/latest/download/install.sh | sudo bash
+          dolt config --global --add user.email "ci@cusp.test"
+          dolt config --global --add user.name "Cusp CI"
+          dolt version
+
+      - name: Full test suite
         run: go test ./...
 
   # Sanity-check the release pipeline on every push without publishing anything.
