@@ -422,12 +422,22 @@ pre-release.
   for the structured report.
 - **`cusp doctor`** ([doctor.go](../src/cli/cmd/cusp/doctor.go), [app/doctor.go](../src/cli/internal/app/doctor.go),
   [store/hygiene.go](../src/cli/internal/store/hygiene.go)). One workspace-health report composing the
-  analyses: **integrity** (dangling refs + edge cycles, via `Check`), a **coverage** summary (covered
-  ratio + orphan/drift counts, via `Coverage`), and **hygiene** (empty domains; FR-bearing specs with
-  no requirements). Read-only; **exits nonzero when there are integrity problems** so it can gate CI or
-  an agent step (coverage gaps + hygiene are informational). `--json` emits a single report object —
-  enabled by a new `app.SilentExit` (Execute maps it to an exit code without printing an error line or
-  `--json` envelope), so the report stays the sole output while still gating via the exit code.
+  analyses: **integrity** (dangling refs + edge cycles, via `Check`), **schema drift** (the database's
+  applied migration version vs this cusp's — ok / behind / ahead), a **coverage** summary (covered
+  ratio + orphan/drift counts, via `Coverage`), **fr_key data drift** (stored fr_key ≠ its derived
+  `<prefix>-FR-<NNN><suffix>`), and **hygiene** (empty domains; FR-bearing specs with no requirements).
+  Read-only by default; **exits nonzero on integrity problems or schema drift** so it can gate CI or an
+  agent step (coverage gaps, hygiene, and fr_key drift are informational). `--json` emits a single
+  report object — enabled by a new `app.SilentExit` (Execute maps it to an exit code without printing
+  an error line or `--json` envelope), so the report stays the sole output while still gating via the code.
+- **`cusp doctor --fix`** ([app/migrate.go](../src/cli/internal/app/migrate.go),
+  [store/drift.go](../src/cli/internal/store/drift.go)). Applies the auto-fixable drift: **migrates a
+  behind database** (`app.MigrateWorkspace` — forward-only `MigrateUp` + a Dolt commit on `main`; this
+  also fills the gap that `connect` does not migrate and there is no standalone migrate command) and
+  **recomputes stale fr_keys** (`app.FixFRKeyDrift` through the `Mutate` contract). A database that is
+  *ahead* of this binary can't be fixed here — the report says to upgrade cusp. Detection + repair are
+  tested (fr_key drift round-trip; simulated behind/ahead), injecting drift through the harness since
+  it can't be produced through the CLI (the spec prefix is immutable; `sql` is read-only).
 
 ### Agent integration (CLI-first)
 
