@@ -16,19 +16,24 @@ type Actor struct {
 
 // ResolveActor determines the current actor, in precedence order:
 //
-//	handleOverride (--actor) > $CUSP_ACTOR > `git config user.name` > $USER > "unknown".
+//	handleOverride (--actor) > $CUSP_ACTOR > persisted identity (.cusp/identity.json) >
+//	`git config user.name` > $USER > "unknown".
 //
-// Email comes from `git config user.email`, else "<name>@cusp.local".
+// An explicit override (--actor / $CUSP_ACTOR) wins outright — handle, name, and email all
+// follow it — so ad-hoc attribution ("--actor agent:claude") isn't blended with the persisted
+// human identity. Otherwise the per-user identity file (set via `cusp config set user.*`) is
+// consulted, then git config. Email comes from the identity, else `git config user.email`,
+// else "<name>@cusp.local".
 func ResolveActor(handleOverride string) Actor {
-	name := firstNonEmpty(
-		handleOverride,
-		os.Getenv("CUSP_ACTOR"),
-		gitConfig("user.name"),
-		os.Getenv("USER"),
-		"unknown",
-	)
-	email := firstNonEmpty(gitConfig("user.email"), name+"@cusp.local")
-	return Actor{Handle: name, Name: name, Email: email}
+	if explicit := firstNonEmpty(handleOverride, os.Getenv("CUSP_ACTOR")); explicit != "" {
+		email := firstNonEmpty(gitConfig("user.email"), explicit+"@cusp.local")
+		return Actor{Handle: explicit, Name: explicit, Email: email}
+	}
+	id := currentIdentity()
+	handle := firstNonEmpty(id.Handle, gitConfig("user.name"), os.Getenv("USER"), "unknown")
+	name := firstNonEmpty(id.Name, handle)
+	email := firstNonEmpty(id.Email, gitConfig("user.email"), name+"@cusp.local")
+	return Actor{Handle: handle, Name: name, Email: email}
 }
 
 // CommitAuthorString formats the actor as a Dolt commit author: "Name <email>".
