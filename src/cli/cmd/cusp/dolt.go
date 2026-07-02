@@ -335,6 +335,29 @@ var doltCompactCmd = &cobra.Command{
 	},
 }
 
+var doltGCCmd = &cobra.Command{
+	Use:   "gc",
+	Short: "Reclaim disk by garbage-collecting unreferenced Dolt chunks (no history change)",
+	Long: "Runs Dolt garbage collection to reclaim space left behind by deleted branches, merged\n" +
+		"or abandoned changesets, and history compaction. It changes no commit history — unlike\n" +
+		"`cusp flatten` / `cusp dolt compact`, which squash commits and GC afterward. Safe to run\n" +
+		"anytime; it cannot run inside a transaction, so it briefly pauses concurrent writes.",
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		ctx := cmd.Context()
+		ws, err := connect(ctx)
+		if err != nil {
+			return err
+		}
+		defer ws.Close()
+		if err := app.GarbageCollect(ctx, ws); err != nil {
+			return err
+		}
+		emit(map[string]any{"gc": "ok"}, "✓ dolt gc complete — unreferenced chunks reclaimed")
+		return nil
+	},
+}
+
 func init() {
 	doltCmd.PersistentFlags().StringVar(&flagRemoteUser, "user", "",
 		"remote auth user (password via DOLT_REMOTE_PASSWORD in the server env)")
@@ -347,7 +370,7 @@ func init() {
 
 	doltRemoteCmd.AddCommand(doltRemoteAddCmd, doltRemoteRemoveCmd, doltRemoteLsCmd)
 	doltCmd.AddCommand(doltRemoteCmd, doltPushCmd, doltPullCmd, doltFetchCmd,
-		doltStartCmd, doltStopCmd, doltStatusCmd, doltCompactCmd)
+		doltStartCmd, doltStopCmd, doltStatusCmd, doltCompactCmd, doltGCCmd)
 	rootCmd.AddCommand(doltCmd, syncCmd)
 }
 

@@ -45,6 +45,20 @@ func Flatten(ctx context.Context, ws *workspace.Workspace) error {
 	return nil
 }
 
+// GarbageCollect runs a standalone Dolt GC to reclaim disk from unreferenced
+// chunks — those orphaned by deleted branches, merged/abandoned changesets, or
+// history compaction. Unlike Flatten/CompactDolt it changes no commit history;
+// it only reclaims space. DOLT_GC cannot run inside a transaction, so it uses a
+// pinned (non-transactional) connection.
+func GarbageCollect(ctx context.Context, ws *workspace.Workspace) error {
+	conn, err := ws.Pin(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	return versioncontrolops.DoltGC(ctx, conn)
+}
+
 // CompactResult summarizes a dolt-history compaction or its preview.
 type CompactResult struct {
 	TotalCommits  int    `json:"total_commits"`
