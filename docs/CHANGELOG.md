@@ -408,8 +408,18 @@ pre-release.
   findings (gates CI/agents).
 - **`cusp impact <ref>`** — graph traversal around an entity (TYPE:key): inbound (what references /
   points an edge at it = what's affected if it changes) and outbound (what it relies on), over
-  entity_refs + edges, with `--transitive` for the reverse-edge blast radius (`app.Impact` +
-  `store.ListAllEdges`/`ListEntityRefsFor`); honors the active changeset.
+  entity_refs + edges + **entity↔entity relationships** (`ent_relationship`, for entity subjects —
+  labelled `relationship (<cardinality>)`), with `--transitive` for the reverse-edge blast radius
+  (`app.Impact` + `store.ListAllEdges`/`ListEntityRefsFor`/`ListEntityRelationships`); honors the
+  active changeset.
+- **`cusp coverage`** ([coverage.go](../src/cli/cmd/cusp/coverage.go),
+  [app/coverage.go](../src/cli/internal/app/coverage.go), [store/coverage.go](../src/cli/internal/store/coverage.go)).
+  Requirement→test-case traceability: how many requirements have a linked test case (via
+  `req_requirement_test_case`, e.g. from `cusp import qase`), rolled up overall and per spec, plus two
+  actionable gap lists — **orphan FRs** (no test case) and **delivery-status drift** (a requirement
+  whose `delivery_status` counts as covered yet has no test case behind it — claims done, isn't
+  tested). Read-only, honors the active changeset; `--orphans` for just the untested FRs, `--json`
+  for the structured report.
 
 ### Agent integration (CLI-first)
 
