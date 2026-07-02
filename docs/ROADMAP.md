@@ -222,16 +222,20 @@ review rows surviving the merge, idempotent upsert), unit tests for the actor/id
 prime rendering, and a two-job **CI** workflow (fast `go test -short` always; a dolt-backed full-suite
 job). **Remaining:**
 
+- **A CLI golden-path smoke test** and a **coverage ratchet + command tracker** are **DONE** (see
+  [CHANGELOG.md](CHANGELOG.md)): the smoke test drives `rootCmd` in-process over `init → add →
+  changeset → merge` (asserting exit codes + the `--json` envelope), and `make cover-check` gates the
+  owned-package coverage floor in CI (baseline **14.1%**), with `make cover-commands` tracking
+  per-command coverage. **Raise the floor in `scripts/coverage.sh` as coverage grows.**
 - **Broaden integration coverage** — beyond the core contract: `edge`/`section`, planning + testing
   CRUD, `check`/`impact`, `comment`/`review` verbs, import (`tutor`/`qase` via `--from` fixtures),
-  `generate`, and the abandon-before-submit / merge-conflict edge cases.
-- **A subprocess CLI smoke test** — build the binary once, run a golden path (`init → add → changeset
-  → merge`), and assert exit codes + the `--json` / `{"error":…}` envelope (covers the cobra/emit
-  wiring the in-process tests skip). Deferred from the first slice.
+  `generate`, and the abandon-before-submit / merge-conflict edge cases. Each raises the ratchet floor.
 - **Speed** — integration tests use a per-test owned server (~6–7s each). If the suite grows, move to
   one server per package with a fresh database per test.
 - **More unit gaps** — `store` field mapping (`fr_key` derivation, `nullIfEmpty`), `workspace`
-  retry/serialization classification and `dolt_diff_stat` parsing, `app` validation breadth.
+  retry/serialization classification and `dolt_diff_stat` parsing, `app` validation breadth. The big
+  under-covered surfaces to target next: `internal/store` (~6%), `internal/generate` (0%),
+  `internal/importer/tutor` (0%), and the `cmd/cusp` verbs the smoke test doesn't touch.
 - **Embedded-driver e2e** — the in-process `dolthub/driver/v2` test was reverted (needs cgo +
   `libicu-dev`); reintroduce behind a build tag (e.g. `-tags dolt_e2e`) once CI guarantees ICU.
 

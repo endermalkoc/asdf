@@ -463,9 +463,23 @@ rides the existing `cusp` commands.
 - **Unit tests** — actor/identity precedence (`ResolveActor` override + `$CUSP_ACTOR`; identity-file
   round-trip), `prime` state rendering, and changeset-slug generation; alongside the existing
   `ids`/`enums`/`app`/`agentsetup`/`refs` units.
+- **CLI golden-path smoke test** ([cli_smoke_test.go](../src/cli/cmd/cusp/cli_smoke_test.go)) — drives
+  the real `rootCmd` in-process (init → domain add → changeset start/add/diff `--json`/merge → stats
+  `--json` → a not-found error case), asserting exit codes and the `--json` / `{"error":…}` envelope.
+  It covers the cobra wiring, flag parsing, `emit`, and exit-code mapping the app/store tests skip.
+  Enabled by making **`Execute()` return the exit code** (main does `os.Exit`), so it's callable
+  in-process. A `runCLI` helper resets the global flags and captures `os.Stdout`.
+- **Coverage ratchet + command tracker** ([scripts/coverage.sh](../scripts/coverage.sh), `make
+  cover`/`cover-check`/`cover-commands`/`cover-html`) — coverage over the packages Cusp *authors*
+  (excluding the salvaged Dolt infra), measured from the full dolt-backed suite. `make cover-check`
+  fails below a floor (raised in a commit as coverage grows — a monotonic ratchet), wired into the CI
+  integration job. `make cover-commands` prints statement-weighted coverage per `cmd/cusp` command
+  file — the "which commands have tests" view — which the CLI smoke test lifted for the golden-path
+  commands (init/changeset/domain/query/root). Baseline: **14.1%** owned-package coverage.
 - **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) — a fast **unit** job (gofmt +
   build + vet + `go test -short`, no database) that runs always, and an **integration** job that
-  installs the `dolt` binary and runs the full suite; plus the existing release dry-run.
+  installs the `dolt` binary, runs the full suite, and enforces the coverage ratchet; plus the
+  existing release dry-run.
 
 ### Distribution & self-update
 
