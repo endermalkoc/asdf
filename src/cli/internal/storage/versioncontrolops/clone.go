@@ -16,6 +16,10 @@ func DoltClone(ctx context.Context, conn DBConn, remoteURL, database string) err
 	return nil
 }
 
+// SanitizeURLForDisplay strips credentials from a remote URL so it is safe to
+// print (in command output, logs, etc.).
+func SanitizeURLForDisplay(raw string) string { return sanitizeURL(raw) }
+
 // sanitizeURL removes credentials from a URL for safe error reporting.
 func sanitizeURL(raw string) string {
 	parsed, err := url.Parse(raw)

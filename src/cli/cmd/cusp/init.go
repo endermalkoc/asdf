@@ -115,27 +115,7 @@ var initCmd = &cobra.Command{
 		if err := cfg.Save(cuspDir); err != nil {
 			return err
 		}
-		// .cusp/.gitignore controls what the HOST repo's git tracks. Only metadata.json
-		// (and this file) are committable; the Dolt store is its own versioned repo
-		// (sync via `cusp dolt push`/`pull`), the generated Markdown/HTML are
-		// regenerable build artifacts (invariant: never hand-edited, never committed),
-		// and the server runtime files are machine-local — none belong in host git.
-		const workspaceGitignore = `# Cusp workspace — the host repo's git tracks only metadata.json (and this file).
-# Everything else is regenerable or machine-local, and never hand-edited:
-#   dolt/          the Dolt store — its own versioned repo ('cusp dolt push'/'pull')
-#   generated/     generated Markdown/HTML build artifacts ('cusp generate' output)
-#   dolt-server.*  the managed dolt server's runtime files
-dolt/
-dolt.corrupt.*
-generated/
-dolt-server.pid
-dolt-server.port
-dolt-server.lock
-dolt-server.log
-active_changeset
-`
-		if err := os.WriteFile(filepath.Join(cuspDir, ".gitignore"),
-			[]byte(workspaceGitignore), 0o644); err != nil {
+		if err := writeWorkspaceGitignore(cuspDir); err != nil {
 			return err
 		}
 
@@ -147,6 +127,32 @@ active_changeset
 }
 
 var initForce bool
+
+// writeWorkspaceGitignore writes .cusp/.gitignore, which controls what the HOST repo's git
+// tracks: only metadata.json (and this file) are committable. The Dolt store is its own
+// versioned repo (sync via `cusp dolt push`/`pull`), the generated Markdown/HTML are
+// regenerable build artifacts (invariant #2: never hand-edited, never committed), and the
+// server runtime files are machine-local — none belong in host git. Shared by `init` and
+// `dolt clone`, which both scaffold a workspace.
+func writeWorkspaceGitignore(cuspDir string) error {
+	const workspaceGitignore = `# Cusp workspace — the host repo's git tracks only metadata.json (and this file).
+# Everything else is regenerable, per-user, or machine-local, and never hand-edited:
+#   dolt/          the Dolt store — its own versioned repo ('cusp dolt push'/'pull')
+#   generated/     generated Markdown/HTML build artifacts ('cusp generate' output)
+#   dolt-server.*  the managed dolt server's runtime files
+#   identity.json  per-user actor identity ('cusp config set user.*') — local, not shared
+dolt/
+dolt.corrupt.*
+generated/
+dolt-server.pid
+dolt-server.port
+dolt-server.lock
+dolt-server.log
+active_changeset
+identity.json
+`
+	return os.WriteFile(filepath.Join(cuspDir, ".gitignore"), []byte(workspaceGitignore), 0o644)
+}
 
 func init() {
 	initCmd.Flags().BoolVar(&initForce, "force", false,
