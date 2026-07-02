@@ -411,6 +411,38 @@ pre-release.
   entity_refs + edges, with `--transitive` for the reverse-edge blast radius (`app.Impact` +
   `store.ListAllEdges`/`ListEntityRefsFor`); honors the active changeset.
 
+### Agent integration (CLI-first)
+
+The primary agent path — a skill + instructions + a SessionStart hook that injects live workspace
+state — for **Claude Code** and **Codex**. CLI-first (no MCP server required): the whole surface
+rides the existing `cusp` commands.
+
+- **`cusp prime`** ([prime.go](../src/cli/cmd/cusp/prime.go),
+  [app/prime.go](../src/cli/internal/app/prime.go)). Emits the context an agent needs at session
+  start: live state (active/open changesets, unresolved review comments, `cusp check` integrity,
+  headline counts — `app.GatherPrime`, best-effort so a partial snapshot never fails the hook) then a
+  compact workflow reference (invariants + the changeset PR loop + read commands). `--hook-json` wraps
+  it in the SessionStart envelope `{"hookSpecificOutput":{"hookEventName":"SessionStart",
+  "additionalContext":…}}`; `--json` emits the structured state. **Silent no-op outside a Cusp
+  workspace** (safe as a universal hook); a repo-local `.cusp/PRIME.md` overrides the payload
+  verbatim; degrades to the static reference if the DB is unreachable.
+- **`cusp setup [claude|codex]`** ([setup.go](../src/cli/cmd/cusp/setup.go),
+  [setup_codex.go](../src/cli/cmd/cusp/setup_codex.go), [internal/agentsetup](../src/cli/internal/agentsetup)).
+  Installs, idempotently, per host: the **skill** (`SKILL.md` with trigger frontmatter), an
+  **instruction section** injected into `CLAUDE.md`/`AGENTS.md` via marker-delimited managed blocks
+  (`<!-- BEGIN CUSP INTEGRATION v:N hash:… -->`, content-hash freshness, append-if-absent /
+  replace-if-present, symlink guard — unit-tested in `agentsetup`), and the **SessionStart hook**.
+  Claude Code: `.claude/settings.json` hook running `cusp prime --hook-json` (check-before-add +
+  legacy-variant sweep). Codex: `[features] hooks = true` in `.codex/config.toml` + `.codex/hooks.json`
+  routing four events (SessionStart / UserPromptSubmit / PreCompact / PostCompact) through a hidden
+  **`cusp codex-hook <event>`** shim ([codex_hook.go](../src/cli/cmd/cusp/codex_hook.go)) that emits
+  the Codex envelope and re-primes after a compaction (PostCompact drops a marker, the next
+  UserPromptSubmit injects once and clears it). Flags: `--list`, `--print`, `--check`
+  (present/stale/missing), `--remove`, `--global` vs project. Verified end-to-end: install into a repo
+  with existing `CLAUDE.md` (user content preserved), idempotent re-runs, stale→updated on template
+  drift, `--check`/`--remove`, the hook payload envelope, the codex-hook shim across all four events +
+  the marker dance, and the no-workspace passthrough.
+
 ### Distribution & self-update
 
 - **`cusp version`** ([version.go](../src/cli/cmd/cusp/version.go)) — reports version / commit / build date /
