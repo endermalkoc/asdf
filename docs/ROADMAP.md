@@ -222,17 +222,15 @@ review rows surviving the merge, idempotent upsert), unit tests for the actor/id
 prime rendering, and a two-job **CI** workflow (fast `go test -short` always; a dolt-backed full-suite
 job). **Remaining:**
 
-- **The CLI smoke test, the coverage ratchet + command tracker, and the logic-package coverage push
-  are DONE** (see [CHANGELOG.md](CHANGELOG.md)): every logic/pure package (`store`, `app`, `generate`,
-  `importer` + `qase`/`notion`/`tutor`, `workspace`) is now **≥70%**, the owned total is **72.2%** (up
-  from 14.1%), and `make cover-check` gates it in CI. **Raise the floor in `scripts/coverage.sh` as
-  coverage grows.** The **one owned package still below 70% is `cmd/cusp`** (~11%) — the command layer,
-  deferred: it mostly wraps the now-tested logic, so raising it means **extending the `runCLI`
-  smoke test across the command groups** (edge/section/req/comment/review/ref/planning/testing/import),
-  each command's happy + error paths. That's the main remaining testing work.
-- **Speed** — integration tests use a per-test owned server (~6–7s each; the full suite is now several
-  minutes with the added DB-backed tests). Move to one server per package with a fresh database per
-  test if it becomes a drag.
+- **The coverage push is DONE — every owned package is now ≥70%** (see [CHANGELOG.md](CHANGELOG.md)):
+  the logic/pure packages, then the command layer (`cmd/cusp` 10.8%→**74%** via in-process `runCLI`
+  tests across all command groups). Owned total **85.1%** (from 14.1%), floor at **85%** in CI.
+  **Raise the floor in `scripts/coverage.sh` as coverage grows.** Remaining, all optional polish:
+    - **Intentional gaps** — `app` `remote.go` push/pull/fetch/sync (need a live Dolt remote peer) and
+      rare DB-error return branches (need fault injection) are the main uncovered spots; reach them with
+      a remote-peer test harness / an injectable store seam if desired.
+    - **Speed** — the DB-backed suite is now several minutes (per-test owned Dolt server, ~6–13s each).
+      Move to one server per package with a fresh database per test if it becomes a drag.
 - **Embedded-driver e2e** — the in-process `dolthub/driver/v2` test was reverted (needs cgo +
   `libicu-dev`); reintroduce behind a build tag (e.g. `-tags dolt_e2e`) once CI guarantees ICU.
 

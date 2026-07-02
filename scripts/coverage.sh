@@ -14,7 +14,7 @@
 # The ratchet: raise $MIN in a commit as coverage grows; never lower it silently.
 set -euo pipefail
 
-MIN=72.0
+MIN=85.0
 
 MODE="${1:-report}"
 CLI_DIR="$(cd "$(dirname "$0")/../src/cli" && pwd)"

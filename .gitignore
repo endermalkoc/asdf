@@ -50,3 +50,6 @@ Thumbs.db
 
 # Test coverage profiles
 coverage.out
+
+# Claude Code workflow worktrees (isolation: worktree)
+.claude/worktrees/
