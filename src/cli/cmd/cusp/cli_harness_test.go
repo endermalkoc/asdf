@@ -8,6 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
 	"github.com/endermalkoc/cusp/internal/doltserver"
 	"github.com/endermalkoc/cusp/internal/git"
 	"github.com/endermalkoc/cusp/internal/testutil"
@@ -59,7 +62,31 @@ func runCLI(t *testing.T, args ...string) (string, int) {
 	return string(out), code
 }
 
+// resetGlobalFlags returns the command tree to a fresh-process state before each Execute. cobra
+// keeps each flag's Changed() state and its bound package var across in-process Execute() calls, so
+// a flag set by one command (e.g. `req add --priority 4`) would leak into a later command that
+// reads the same var — cross-test contamination, since all CLI tests share this one package/process.
+// It walks the whole tree resetting every flag to un-Changed + default, then forces the global
+// persistent-flag vars (whose defaults may derive from the environment, e.g. --dsn ← $CUSP_DSN).
 func resetGlobalFlags() {
+	reset := func(f *pflag.Flag) {
+		f.Changed = false
+		if sv, ok := f.Value.(pflag.SliceValue); ok {
+			_ = sv.Replace(nil)
+			return
+		}
+		_ = f.Value.Set(f.DefValue)
+	}
+	var walk func(c *cobra.Command)
+	walk = func(c *cobra.Command) {
+		c.Flags().VisitAll(reset)
+		c.PersistentFlags().VisitAll(reset)
+		for _, sub := range c.Commands() {
+			walk(sub)
+		}
+	}
+	walk(rootCmd)
+
 	flagDSN = ""
 	flagJSON = false
 	flagActor = ""
