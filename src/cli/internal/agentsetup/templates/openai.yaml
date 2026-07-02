@@ -1,0 +1,3 @@
+display_name: "Cusp"
+short_description: "Version-controlled specs, requirements, tests, and plans via the cusp CLI."
+default_prompt: "Run `cusp prime` to load workspace state, then drive everything through the cusp CLI."
