@@ -56,9 +56,31 @@ pre-release.
   sections/stories; domain→specs via explicit `deleteSpecByID`; entity→sections) and cleaning non-FK
   junctions (entity relationships, glossary aliases). All honor `--dry-run` + exit codes + the active
   changeset.
+- **External references — `cusp ref add/ls/show/rm`** ([ref.go](../src/cli/cmd/cusp/ref.go),
+  [store/externalref.go](../src/cli/internal/store/externalref.go)). CRUD over `pub_external_ref` — a
+  link from a Cusp subject (deliverable | requirement | test_result) to its id/key in an outside
+  system (jira, github, beads, linear, …), previously written only by importers. `add` resolves the
+  subject from a `TYPE:key` reference (a bare value is a requirement fr_key) or an explicit
+  `--subject-type`/`--subject-id` escape hatch for tokenless subjects, and is idempotent by
+  (subject, system) via the shared `store.UpsertExternalRef`; `ls` lists all or one subject's refs
+  (subjects labelled via `app.LabelIndex`); `show`/`rm` operate by id. Rides the `Mutate` contract
+  (active changeset, `--dry-run`, exit codes); the table is non-rendering, so no doc regen.
 - **`cusp config` (workspace generate config)** — `cusp config show` +
   `cusp config generate enable/disable/add/remove/sync` drive the workspace `.cusp/config.json`
   (the `generate` section powering incremental auto-gen).
+- **`cusp config get/set` (effective config + actor identity)**
+  ([config.go](../src/cli/cmd/cusp/config.go), [workspace/identity.go](../src/cli/internal/workspace/identity.go)).
+  `config get [key]` prints the resolved configuration in one place — actor identity (what writes are
+  attributed to), Dolt server settings (mode / database / host / live port / user), and the generate
+  config — all resolved without a database connection (and without auto-starting the server). `config
+  set user.handle|user.name|user.email` persists a **per-user, git-ignored** identity to
+  `.cusp/identity.json`, wired into `workspace.ResolveActor` between the `--actor`/`$CUSP_ACTOR`
+  override and git config — so a developer's writes are attributed without passing `--actor` each
+  time, and the identity isn't shared through the host repo. Server settings are workspace-managed
+  (read-only via `get`); generate settings keep their own verbs. Verified: `set` overrides git in the
+  resolved identity and in the real Dolt commit author, `--actor` still wins, unknown/`unsettable`
+  keys give not_found/validation exits. (The lifted `internal/config` viper subsystem was found
+  orphaned/beads-flavored and deliberately not surfaced.)
 - **Reads honor the active changeset** — `ls`/`show` reads (and the `Mutate` validation hook's
   existence/ref checks) run on the resolved target branch (`--changeset` → active changeset →
   `main`) via `app.Reader`/`app.ResolveBranch`, since branch state is connection-scoped. So you see
@@ -316,6 +338,17 @@ pre-release.
   artifacts** if auto-gen is enabled (a merge bypasses the `Mutate` hook). Verified end-to-end
   against a `file://` remote: add/ls/push/fetch, a divergent commit pulled back + merged, and a local
   edit round-tripped via `sync`.
+- **Clone a workspace from a remote — `cusp dolt clone <url> [dir]`**
+  ([clone.go](../src/cli/cmd/cusp/clone.go)). The bootstrap counterpart to `cusp init`: makes `.cusp/`,
+  starts the managed server, `DOLT_CLONE`s the remote into the standard database, and writes metadata
+  + `.gitignore` (the scaffold shared with `init`). No existing `.cusp` needed — with `[dir]` it
+  clones into (and creates) that directory, resolving the workspace to the enclosing git repo's root
+  or `git init`-ing a fresh one (shelling out with an explicit dir, since the git package caches its
+  context and wouldn't see a just-created repo); `--force` tears down and re-clones. The clone's
+  `origin` remote is set up automatically, so `cusp dolt pull`/`push` work immediately. Verified
+  end-to-end against a `file://` remote: clone lands 41 tables with data + external refs intact,
+  refuse-if-exists / `--force`, `pull` from the auto-wired origin, and nested-dir → repo-root
+  resolution.
 
 ### Server, branches & DB maintenance
 
@@ -339,6 +372,12 @@ pre-release.
   recent ones on top (`--force`/`--dry-run`), driving the lifted `versioncontrolops.Compact` from the
   commit log. Both GC afterward (best-effort). Verified end-to-end against real Dolt: a 7-commit
   history collapses to root + 1 snapshot with all `req_domain` data intact.
+- **Standalone GC — `cusp dolt gc`** ([dolt.go](../src/cli/cmd/cusp/dolt.go),
+  [app/maintenance.go](../src/cli/internal/app/maintenance.go)). Reclaims disk from unreferenced Dolt
+  chunks — those orphaned by deleted branches, merged/abandoned changesets, or history compaction —
+  without changing any commit history (unlike `flatten`/`compact`, which squash *and* GC). Runs
+  `DOLT_GC()` on a pinned non-transactional connection (`app.GarbageCollect` over
+  `versioncontrolops.DoltGC`). Verified against real Dolt: GC succeeds, writes continue afterward.
 
 ### Query & inspect
 
@@ -351,6 +390,15 @@ pre-release.
   requirement fr_keys+statements / entity names+descriptions / glossary terms (`store.Search`).
   **`cusp log`** — recent commits from `dolt_log`. A shared dynamic row-printer (`writeRows`) backs
   them.
+- **JSONL export — `cusp export`** ([export.go](../src/cli/cmd/cusp/export.go),
+  [app/export.go](../src/cli/internal/app/export.go)). Dumps every data table as JSON Lines — one
+  `{"table":…,"row":{col:value|null}}` object per line — for backups and interop alongside Dolt
+  history. Tables go in name order and rows in a total order over all their columns (deterministic
+  even for composite-key junctions), so re-exporting the same data is byte-for-byte identical and
+  git-diffable. Values are string-or-null (types recover from the schema); the `schema_migrations`
+  bookkeeping cursor is excluded. Reads the active changeset (else `main`); writes to stdout (summary
+  to stderr, so pipes stay clean) or `--out <file>`. The core is a reusable `app.Export(ctx, r, w)`.
+  Verified against real Dolt: valid JSONL, byte-identical re-exports, nulls preserved.
 
 ### Validation & analysis
 

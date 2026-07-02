@@ -11,12 +11,17 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
 - **Broaden CRUD — remaining entities.** The **planning layer** (`milestone`/`capability`/`deliverable`/
   `view` + junction link/unlink) and the **testing layer** (`test suite`/`case`/`step`/`run`/`result`/
   `config` + coverage/config links) are **done** (see [CHANGELOG.md](CHANGELOG.md)), alongside the earlier
-  core surface (req/spec/domain/entity/glossary-term + `edge`/`section`). **Remaining:** `ExternalRef` CRUD
-  (today external refs are only written by importers) — low priority; and diffing deliverable/test_case docs
-  in the review surface still needs per-doc renderers for those types.
-- **`cusp config get/set`** — a general typed `config get/set` over the lifted
-  `src/cli/internal/config`/`configfile` (Dolt server settings). (The workspace `generate` config —
-  `config show` + `config generate enable/disable/add/remove/sync` — is done.)
+  core surface (req/spec/domain/entity/glossary-term + `edge`/`section`), and **`ExternalRef` CRUD**
+  (`cusp ref add/ls/show/rm`) is now done too (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** diffing
+  deliverable/test_case docs in the review surface still needs per-doc renderers for those types.
+- **`cusp config get/set`** — **DONE** (see [CHANGELOG.md](CHANGELOG.md)): `config get [key]` prints the
+  effective config (resolved actor identity, Dolt server mode/db/host/port/user, generate settings);
+  `config set user.handle|user.name|user.email` persists a **per-user, git-ignored** actor identity
+  (`.cusp/identity.json`) wired into `ResolveActor` precedence. Note: the lifted
+  `src/cli/internal/config` viper subsystem was found **orphaned/unwired** (beads-flavored — AI model,
+  federation, custom types); the real Dolt server settings live in `internal/configfile`
+  (`metadata.json`) and are workspace-managed, so `set` is intentionally limited to the identity keys
+  and server settings are read-only via `get`.
 - **Per-kind edge type policy** — which endpoint *types* a given edge kind may link. Left generic for
   now; graph integrity (endpoint resolution, self-loop/cycle rejection) is done.
 - **Changeset-preview render** — make `generate` branch-aware if a changeset-preview render is wanted
@@ -26,17 +31,17 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
 
 | Feature | What | Status / notes |
 |---|---|---|
-| **Remote sync — remaining** | `cusp dolt clone`, federation (peers) | push/pull/remote/fetch + `cusp sync` are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** `cusp dolt clone` (bootstrap a workspace from a remote — distinct flow, no existing `.cusp`) and federation/peers. |
+| **Remote sync — remaining** | federation (peers) | push/pull/remote/fetch + `cusp sync` + **`cusp dolt clone`** (bootstrap a workspace from a remote) are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** federation/peers. |
 | **Batch add** | `cusp <entity> add --file <f>` and/or `cusp batch <f>` — bulk-create entities from a **JSON/CSV** file in Cusp's own shape, in **one changeset/commit** | adapt beads' `bd create --file`/`--graph`; rides the `Mutate` wrapper so the whole batch is one transaction + one Dolt commit. |
 | **Generic import** | `cusp import --format json\|csv <f>` — ingest **arbitrary external** JSON/CSV and map columns/fields into the schema via a mapping spec | **TODO.** The staging core (`src/cli/internal/importer`: `Graph`/`Report`/idempotent `Apply`) exists from the tutor work; still needed is the external-shape → field-mapping front end (distinct from batch add). Routes through the contract. |
 | **Source adapters — remaining** | `cusp import <source>` — pluggable per-source adapters on the staging core | **`tutor` done** (see [CHANGELOG.md](CHANGELOG.md) — read-only report + `--apply`, Domain→Entity). **Remaining:** `EntityAttribute`/`EntityRelationship` need a non-prose source or an enrichment pass (they live in entity-doc prose, not a structured form); test-management data is covered by the **Qase adapter** below. Future adapters reuse `importer.Apply`. |
 | **Qase adapter (tests)** | `cusp import qase --token\|--from` — ingest a Qase project into the [testing layer](entities/testing.md) | **DONE** (see [CHANGELOG.md](CHANGELOG.md)): suites → `TestSuite` (tree), cases → `TestCase` (+ `TestStep`, + `PREFIX-FR-NNN` citations → `req_requirement_test_case` coverage), configurations → `Configuration`, runs → `TestRun` (+ `test_run_configuration`), results → `TestResult`. Deterministic ids over the Qase ids ⇒ idempotent re-import. Source: the **Qase API** (`--token`/`$CUSP_QASE_TOKEN` + `--project`) or saved API responses (`--from <dir>`, offline/testable); read-only report + `--apply`, reuses `importer.Apply` + `app.Mutate`. **Remaining/notes:** the Qase→Cusp integer enum maps (`qase.enumMaps`) are best-effort — tune against a real project; a **CSV export** / **JUnit run-report** input path and Qase milestone mapping are optional follow-ons. |
-| **Export** | `cusp export` — JSONL snapshot (git-friendly, diffable) | beads' model; useful for backups/interop alongside Dolt history. |
+| **Export** | `cusp export` — JSONL snapshot (git-friendly, diffable) | **DONE** (see [CHANGELOG.md](CHANGELOG.md)) — every data table dumped as deterministic, totally-ordered JSON Lines (`{table,row}` per line), stdout or `--out`; reusable `app.Export`. A matching **import-from-export** reader (round-trip restore) is the natural follow-on. |
 | **Open Knowledge Format (OKF)** | interop with Google's [OKF](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md): each concept is one `.md` with a YAML **frontmatter** block (`---`) + markdown body; concept id = file path minus `.md` (`tables/users.md` → `tables/users`); reserved `index.md` (grouped listings / progressive disclosure) + `log.md` (newest-first change history); frontmatter is **required `type`** + recommended `title`/`description`/`resource`/`tags`/`timestamp` (unknown fields preserved); cross-references are **plain markdown links** — bundle-absolute (`/tables/customers.md`) or relative (`./other.md`) — treated as **untyped directed edges** (relationship type lives in prose) | **TODO (requested).** Cusp already aligns closely: generated docs carry YAML frontmatter + H1 + body, we emit `index.md` sitemap pages, and our Dolt history is essentially `log.md` (`cusp log`). **Two options, decision deferred:** (a) an **OKF adapter** — import OKF bundles through the staging core + export an OKF bundle as a `generate` format (`--format okf`, with a generated `log.md` from `dolt_log`); or (b) **make the default Markdown output OKF-shaped** — frontmatter keyed to OKF (`type` ← Cusp layer, plus `title`/`description`/`tags`/`timestamp`) and cross-references rendered as **standard markdown links** (`/path.md`) instead of the current Obsidian wikilinks + `^block` anchors. **Gaps to bridge either way:** wikilink/block-ref → plain markdown link; map Cusp layers (spec/entity/requirement/term) → OKF `type`; add `log.md`; reconcile our `index.md` tree with OKF's listing convention. |
 | **Validation & analysis — remaining** | richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship`, `cusp doctor` (health + auto-fix), drift detection | **`cusp check`** (inline-ref + cycle integrity) and **`cusp impact <ref>`** (graph traversal, `--transitive`) first slices are **done** (see [CHANGELOG.md](CHANGELOG.md)). **Remaining:** richer traceability (orphan-FR/coverage rollups), `impact` over `ent_relationship` too, `doctor`/`drift` (adapt beads patterns; we have `schema.CheckForwardDrift`-style hooks). |
 | **Query / inspect — optional extensions** | a higher-level `query` DSL, a standalone `cusp diff <from> <to>` | `cusp sql`/`stats`/`search`/`log` are **done** (see [CHANGELOG.md](CHANGELOG.md)). These extensions are optional, not blocking. |
 | **Agent integration (CLI-first)** | `cusp setup` installs the **skill + instructions** (CLAUDE.md/AGENTS.md/`.cursor/…`) **+ a `prime`-style SessionStart hook** that injects live state (the open changeset, ready work) into context — for **Claude Code**, Codex, Cursor, Gemini, Aider, opencode. The **MCP server** (`cusp serve --mcp`) is **secondary** | **requested.** Mirror beads' `cmd/bd/{setup,prime}` + hooks. **CLI + skill + hooks is the primary path** for shell-capable agents: beads' own [beads-mcp README] measures it at **~1–2k context tokens vs ~10–50k for MCP tool schemas**, and it reuses the single `Mutate` write path the command contract already mandates (no second surface to keep in sync). **MCP is demoted to a fallback** for shell-less hosts (Claude Desktop) — a thin adapter over `Mutate`, not a second source of truth. Valued, kept in the pocket, not required. |
-| **DB maintenance** | `cusp backup`/`restore`, `gc` (standalone Dolt GC) | **`cusp flatten` + `cusp dolt compact` (history compaction) DONE** (see [CHANGELOG.md](CHANGELOG.md)) — both GC after squashing. **Remaining:** `backup`/`restore` and a standalone `gc` command (infra lifted in `versioncontrolops`; wire the CLI). |
+| **DB maintenance** | `cusp backup`/`restore` | **`cusp flatten` + `cusp dolt compact` (history compaction) + `cusp dolt gc` (standalone Dolt GC) DONE** (see [CHANGELOG.md](CHANGELOG.md)) — flatten/compact GC after squashing; `gc` reclaims chunks without touching history. **Remaining:** `backup`/`restore`. |
 | **CLI polish** | **help system** (rich help + examples, `help-all` overview), shell completion | **requested (help).** Cobra gives base help/completion; add per-command examples and a top-level overview. |
 
 ## Modules & plugins (separable layers)
@@ -191,19 +196,19 @@ Cross-cutting beads features (not issue-domain), and Cusp's status:
 
 | beads | Cusp status |
 |---|---|
-| `dolt push/pull/remote`, `sync`, `federation` | push/pull/remote/fetch + `sync` **DONE**; `clone` + federation remaining |
+| `dolt push/pull/remote`, `sync`, `federation` | push/pull/remote/fetch + `sync` + `clone` **DONE**; federation remaining |
 | `dolt start/stop/status` (server lifecycle), `branch` | **DONE** — `cusp dolt start/stop/status` + `cusp branch ls/create/delete/checkout` (see [CHANGELOG.md](CHANGELOG.md)) |
-| `export` (JSONL) | **roadmap (Export)** |
+| `export` (JSONL) | **DONE** — `cusp export` (deterministic JSONL snapshot; see [CHANGELOG.md](CHANGELOG.md)) |
 | `import` | **roadmap** — Generic import (arbitrary JSON/CSV mapping) remaining; Source adapters `tutor`/`notion`/`qase` **done** |
 | `batch` (bulk create) | **roadmap (Batch add — JSON/CSV)** |
 | `sql` (raw passthrough) | **DONE** (read-only) — Query/inspect |
 | `search` | **DONE** — Query/inspect |
 | `backup`/`restore` | **roadmap (DB maintenance)** |
 | `doctor`, `drift`, `preflight` | **roadmap (Validation & analysis)** |
-| `gc`, `compact`, `flatten` | `compact` + `flatten` **DONE** (see [CHANGELOG.md](CHANGELOG.md)); standalone `gc` command remaining → **roadmap (DB maintenance)** |
+| `gc`, `compact`, `flatten` | **DONE** — `cusp dolt gc` + `cusp dolt compact` + `cusp flatten` (see [CHANGELOG.md](CHANGELOG.md)) |
 | `setup` (agent install) + `prime`/hooks | **roadmap (Agent integration)** — **primary** agent path (skill + instructions + SessionStart `prime` hook) |
 | MCP server | **roadmap (Agent integration)** — **secondary**, shell-less hosts only (Claude Desktop); thin adapter over `Mutate`. CLI+skill+hooks is primary |
-| `config` (get/set) | **Finish the command contract** |
+| `config` (get/set) | **DONE** — `cusp config get/set` (effective config + persisted actor identity; see [CHANGELOG.md](CHANGELOG.md)) |
 | `version`/`upgrade` (self-update) | **DONE** — `cusp version` + `cusp upgrade` (download + checksum-verify + replace in place) |
 | shell completion | **roadmap (CLI polish)** — cobra-provided |
 | `hooks` (`on_create`, …) | **deferred** — `internal/hooks` not lifted (needs a node concept) |
