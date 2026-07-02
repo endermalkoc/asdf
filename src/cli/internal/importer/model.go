@@ -26,6 +26,13 @@ type Graph struct {
 	Capabilities []Capability  `json:"capabilities,omitempty"`
 	Deliverables []Deliverable `json:"deliverables,omitempty"`
 	Views        []View        `json:"views,omitempty"`
+
+	// Testing layer (populated by e.g. internal/importer/qase).
+	TestSuites     []TestSuite         `json:"test_suites,omitempty"`
+	TestCases      []TestCase          `json:"test_cases,omitempty"`
+	Configurations []TestConfiguration `json:"test_configurations,omitempty"`
+	TestRuns       []TestRun           `json:"test_runs,omitempty"`
+	TestResults    []TestResult        `json:"test_results,omitempty"`
 }
 
 // ---- planning layer --------------------------------------------------------
@@ -74,6 +81,78 @@ type View struct {
 	DomainSlug           string   `json:"domain_slug"`
 	SpecFile             string   `json:"spec_file,omitempty"`              // best-effort → view.spec_id
 	DeliverableSourceIDs []string `json:"deliverable_source_ids,omitempty"` // → deliverable_view
+}
+
+// ---- testing layer ---------------------------------------------------------
+//
+// Testing rows (Suite → Case → Step, Configuration, Run → Result) come from a
+// test-management system (e.g. Qase). Like the planning layer they carry no natural
+// business key, so each records its source id (SourceID); the apply pass derives a
+// deterministic row id from it, so re-import converges. A case's requirement coverage
+// is a list of fr_keys resolved to existing requirements at apply time.
+
+// TestSuite ← a Qase suite (a self-nesting tree via ParentSourceID).
+type TestSuite struct {
+	SourceID       string `json:"source_id"`
+	ParentSourceID string `json:"parent_source_id,omitempty"`
+	Name           string `json:"name"`
+	Description    string `json:"description,omitempty"`
+	Position       *int   `json:"position,omitempty"`
+}
+
+// TestCase ← a Qase case, with inline steps and any fr_key citations it covers.
+type TestCase struct {
+	SourceID      string     `json:"source_id"`
+	SuiteSourceID string     `json:"suite_source_id,omitempty"`
+	Title         string     `json:"title"`
+	Description   string     `json:"description,omitempty"`
+	Preconditions string     `json:"preconditions,omitempty"`
+	Layer         string     `json:"layer,omitempty"`
+	Type          string     `json:"type,omitempty"`
+	Priority      *int       `json:"priority,omitempty"`
+	Severity      string     `json:"severity,omitempty"`
+	Automation    string     `json:"automation,omitempty"`
+	Status        string     `json:"status,omitempty"`
+	Path          string     `json:"path,omitempty"`
+	IsFlaky       bool       `json:"is_flaky,omitempty"`
+	FRKeys        []string   `json:"fr_keys,omitempty"` // → req_requirement_test_case coverage
+	Steps         []TestStep `json:"steps,omitempty"`
+}
+
+// TestStep ← one ordered step of a case.
+type TestStep struct {
+	Position       *int   `json:"position,omitempty"`
+	Action         string `json:"action,omitempty"`
+	ExpectedResult string `json:"expected_result,omitempty"`
+}
+
+// TestConfiguration ← a Qase configuration (group/value pair).
+type TestConfiguration struct {
+	SourceID    string `json:"source_id"`
+	Group       string `json:"group"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+}
+
+// TestRun ← a Qase run (execution cycle), with the configurations it exercised.
+type TestRun struct {
+	SourceID        string   `json:"source_id"`
+	Title           string   `json:"title"`
+	Description     string   `json:"description,omitempty"`
+	Status          string   `json:"status,omitempty"`
+	MilestoneSlug   string   `json:"milestone_slug,omitempty"`
+	ConfigSourceIDs []string `json:"config_source_ids,omitempty"` // → test_run_configuration
+}
+
+// TestResult ← one case's outcome in a run (optionally pinned to a configuration).
+type TestResult struct {
+	RunSourceID    string `json:"run_source_id"`
+	CaseSourceID   string `json:"case_source_id"`
+	ConfigSourceID string `json:"config_source_id,omitempty"`
+	Status         string `json:"status,omitempty"`
+	Comment        string `json:"comment,omitempty"`
+	DurationMs     *int   `json:"duration_ms,omitempty"`
+	ExecutedBy     string `json:"executed_by,omitempty"`
 }
 
 // EntityRelationship ← a foreign-key / junction relationship extracted from the

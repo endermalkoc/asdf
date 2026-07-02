@@ -13,6 +13,7 @@ import (
 	"github.com/endermalkoc/cusp/internal/app"
 	"github.com/endermalkoc/cusp/internal/importer"
 	"github.com/endermalkoc/cusp/internal/importer/notion"
+	"github.com/endermalkoc/cusp/internal/importer/qase"
 	"github.com/endermalkoc/cusp/internal/importer/tutor"
 )
 
@@ -25,6 +26,10 @@ var (
 	notionCapDB   string
 	notionDelivDB string
 	notionViewsDB string
+
+	qaseToken   string
+	qaseProject string
+	qaseFrom    string
 )
 
 var importCmd = &cobra.Command{
@@ -111,6 +116,100 @@ func printApplyStats(title string, kinds []string, s *importer.ApplyStats) {
 			continue
 		}
 		fmt.Fprintf(&b, "  %-24s %8d %8d %8d\n", k, s.Inserted[k], s.Updated[k], s.Skipped[k])
+	}
+	fmt.Print(b.String())
+}
+
+var qaseKinds = []string{"test_suites", "test_cases", "test_steps", "configurations", "test_runs", "test_results", "coverage", "run_configs"}
+
+var importQaseCmd = &cobra.Command{
+	Use:   "qase",
+	Short: "Import a Qase project into the testing layer (suites, cases, runs, results)",
+	Long: "Import a Qase test-management project into Cusp's testing layer (suites → cases →\n" +
+		"steps, configurations, runs, results, and fr_key coverage). Read-only report by\n" +
+		"default; --apply writes through the command contract (one transaction, one Dolt\n" +
+		"commit), idempotent on re-run (ids are deterministic over the Qase ids).\n\n" +
+		"Source: the Qase API (--token + --project, or $CUSP_QASE_TOKEN / $QASE_API_TOKEN), or\n" +
+		"saved API responses with --from <dir> (suites.json / cases.json / configurations.json /\n" +
+		"runs.json / results.json).",
+	Args: cobra.NoArgs,
+	RunE: func(cmd *cobra.Command, _ []string) error {
+		ctx := cmd.Context()
+		var (
+			g   *importer.Graph
+			rep *importer.Report
+			err error
+		)
+		if qaseFrom != "" {
+			g, rep, err = qase.ParseDir(qaseFrom)
+		} else {
+			token := qaseToken
+			if token == "" {
+				token = envFirst("CUSP_QASE_TOKEN", "QASE_API_TOKEN")
+			}
+			g, rep, err = qase.Parse(ctx, qase.Config{Token: token, Project: qaseProject})
+		}
+		if err != nil {
+			return err
+		}
+
+		if !importApply {
+			if flagJSON {
+				out := struct {
+					Graph  *importer.Graph  `json:"graph"`
+					Report *importer.Report `json:"report"`
+				}{g, rep}
+				b, _ := json.MarshalIndent(out, "", "  ")
+				fmt.Println(string(b))
+				return nil
+			}
+			printQaseReport(g, rep)
+			return nil
+		}
+
+		ws, err := connect(ctx)
+		if err != nil {
+			return err
+		}
+		defer ws.Close()
+		var stats *importer.ApplyStats
+		err = runMutate(cmd, ws, app.MutateOpts{
+			Summary: fmt.Sprintf("import Qase tests (%d suites, %d cases, %d runs)",
+				rep.Counts["test_suites"], rep.Counts["test_cases"], rep.Counts["test_runs"]),
+		}, func(ctx context.Context, w *app.Write) error {
+			s, e := importer.Apply(ctx, w.Tx, g)
+			if e != nil {
+				return e
+			}
+			stats = s
+			for _, t := range importer.TouchedTables {
+				w.MarkDirty(t)
+			}
+			return nil
+		})
+		if err != nil {
+			return err
+		}
+		if flagJSON {
+			emit(stats, "")
+			return nil
+		}
+		printApplyStats("imported Qase tests", qaseKinds, stats)
+		return nil
+	},
+}
+
+func printQaseReport(_ *importer.Graph, rep *importer.Report) {
+	var b strings.Builder
+	fmt.Fprintln(&b, "parsed Qase project:")
+	for _, k := range []string{"test_suites", "test_cases", "test_configurations", "test_runs", "test_results", "fr_citations"} {
+		fmt.Fprintf(&b, "  %-22s %d\n", k, rep.Counts[k])
+	}
+	if len(rep.Findings) > 0 {
+		fmt.Fprintln(&b, "findings:")
+		for _, f := range rep.Findings {
+			fmt.Fprintf(&b, "  [%s] %s — %s\n", f.Severity, f.Message, f.Ref)
+		}
 	}
 	fmt.Print(b.String())
 }
@@ -306,6 +405,13 @@ func init() {
 	importNotionCmd.Flags().BoolVar(&importApply, "apply", false,
 		"write the parsed graph into the database via the command contract (default: read-only report)")
 	importCmd.AddCommand(importNotionCmd)
+
+	importQaseCmd.Flags().StringVar(&qaseToken, "token", "", "Qase API token (default: $CUSP_QASE_TOKEN, then $QASE_API_TOKEN)")
+	importQaseCmd.Flags().StringVar(&qaseProject, "project", "", "Qase project code, e.g. DEMO (required for the API)")
+	importQaseCmd.Flags().StringVar(&qaseFrom, "from", "", "import from saved API responses in this dir (suites.json/cases.json/…) instead of the API")
+	importQaseCmd.Flags().BoolVar(&importApply, "apply", false,
+		"write the parsed graph into the database via the command contract (default: read-only report)")
+	importCmd.AddCommand(importQaseCmd)
 
 	rootCmd.AddCommand(importCmd)
 }

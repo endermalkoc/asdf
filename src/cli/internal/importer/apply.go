@@ -20,6 +20,9 @@ var TouchedTables = []string{
 	"plan_capability", "plan_deliverable", "plan_view",
 	"plan_capability_milestone", "plan_capability_deliverable",
 	"plan_deliverable_view", "plan_deliverable_dependency",
+	// testing layer (Qase adapter)
+	"test_suite", "test_case", "test_step", "test_configuration", "test_run", "test_result",
+	"req_requirement_test_case", "test_run_configuration",
 }
 
 // ApplyStats tallies the write, per entity kind.
@@ -330,8 +333,147 @@ func Apply(ctx context.Context, x store.Execer, g *Graph) (*ApplyStats, error) {
 	if err := applyPlanning(ctx, x, g, st, domainID, milestoneID); err != nil {
 		return st, err
 	}
+	if err := applyTesting(ctx, x, g, st, milestoneID); err != nil {
+		return st, err
+	}
 
 	return st, nil
+}
+
+// applyTesting writes the testing layer (Suite/Case/Step/Configuration/Run/Result + coverage and
+// run-config junctions). Like the planning layer, rows are keyed by a source id (Qase id) and the
+// row id is derived deterministically (ids.Rel) so re-import converges. A case's fr_key citations
+// link to *existing* requirements (resolved via the DB); unresolved keys are skipped and counted.
+func applyTesting(ctx context.Context, x store.Execer, g *Graph, st *ApplyStats, milestoneID map[string]string) error {
+	if len(g.TestSuites)+len(g.TestCases)+len(g.Configurations)+len(g.TestRuns)+len(g.TestResults) == 0 {
+		return nil
+	}
+	suiteRowID := func(src string) string { return ids.Rel("test_suite", src) }
+	caseRowID := func(src string) string { return ids.Rel("test_case", src) }
+	cfgRowID := func(src string) string { return ids.Rel("test_configuration", src) }
+	runRowID := func(src string) string { return ids.Rel("test_run", src) }
+
+	suiteOK := map[string]bool{}
+	for _, s := range g.TestSuites {
+		ins, err := store.UpsertTestSuite(ctx, x, store.TestSuiteRow{
+			ID: suiteRowID(s.SourceID), Name: s.Name, Description: s.Description, Position: s.Position,
+		})
+		if err != nil {
+			return err
+		}
+		suiteOK[s.SourceID] = true
+		st.bump("test_suites", ins)
+	}
+	// Parents in a second pass, once every suite exists (self-referencing FK).
+	for _, s := range g.TestSuites {
+		if s.ParentSourceID != "" && suiteOK[s.ParentSourceID] {
+			if err := store.SetTestSuiteParent(ctx, x, suiteRowID(s.SourceID), suiteRowID(s.ParentSourceID)); err != nil {
+				return err
+			}
+		}
+	}
+
+	caseOK := map[string]bool{}
+	for _, c := range g.TestCases {
+		if c.SuiteSourceID == "" || !suiteOK[c.SuiteSourceID] {
+			st.Skipped["test_cases"]++ // suite_id is NOT NULL — a case with no known suite can't land
+			continue
+		}
+		crid := caseRowID(c.SourceID)
+		ins, err := store.UpsertTestCase(ctx, x, store.TestCaseRow{
+			ID: crid, SuiteID: suiteRowID(c.SuiteSourceID), Title: c.Title, Description: c.Description,
+			Preconditions: c.Preconditions, Layer: c.Layer, Type: c.Type, Priority: c.Priority,
+			Severity: c.Severity, Automation: c.Automation, Status: c.Status, Path: c.Path, IsFlaky: c.IsFlaky,
+		})
+		if err != nil {
+			return err
+		}
+		caseOK[c.SourceID] = true
+		st.bump("test_cases", ins)
+
+		for i, step := range c.Steps {
+			pos := i + 1
+			if step.Position != nil {
+				pos = *step.Position
+			}
+			p := pos
+			ins, err := store.UpsertTestStep(ctx, x, store.TestStepRow{
+				ID: ids.Rel("test_step", c.SourceID, strconv.Itoa(pos)), TestCaseID: crid,
+				Position: &p, Action: step.Action, ExpectedResult: step.ExpectedResult,
+			})
+			if err != nil {
+				return err
+			}
+			st.bump("test_steps", ins)
+		}
+		for _, fr := range c.FRKeys {
+			req, ok, err := store.GetRequirement(ctx, x, fr)
+			if err != nil {
+				return err
+			}
+			if !ok {
+				st.Skipped["coverage"]++ // fr_key cites a requirement not in this workspace
+				continue
+			}
+			if err := store.LinkRequirementTestCase(ctx, x, req.ID, crid); err != nil {
+				return err
+			}
+			st.Inserted["coverage"]++
+		}
+	}
+
+	cfgOK := map[string]bool{}
+	for _, cf := range g.Configurations {
+		ins, err := store.UpsertConfiguration(ctx, x, store.ConfigurationRow{
+			ID: cfgRowID(cf.SourceID), Group: cf.Group, Name: cf.Name, Description: cf.Description,
+		})
+		if err != nil {
+			return err
+		}
+		cfgOK[cf.SourceID] = true
+		st.bump("configurations", ins)
+	}
+
+	runOK := map[string]bool{}
+	for _, r := range g.TestRuns {
+		rrid := runRowID(r.SourceID)
+		ins, err := store.UpsertTestRun(ctx, x, store.TestRunRow{
+			ID: rrid, Title: r.Title, Description: r.Description, Status: r.Status,
+		}, milestoneID[r.MilestoneSlug])
+		if err != nil {
+			return err
+		}
+		runOK[r.SourceID] = true
+		st.bump("test_runs", ins)
+		for _, cs := range r.ConfigSourceIDs {
+			if !cfgOK[cs] {
+				continue
+			}
+			if err := store.LinkRunConfiguration(ctx, x, rrid, cfgRowID(cs)); err != nil {
+				return err
+			}
+			st.Inserted["run_configs"]++
+		}
+	}
+
+	for _, res := range g.TestResults {
+		if !runOK[res.RunSourceID] || !caseOK[res.CaseSourceID] {
+			st.Skipped["test_results"]++
+			continue
+		}
+		cfg := ""
+		if res.ConfigSourceID != "" && cfgOK[res.ConfigSourceID] {
+			cfg = cfgRowID(res.ConfigSourceID)
+		}
+		if _, err := store.UpsertTestResult(ctx, x, store.TestResultRow{
+			RunID: runRowID(res.RunSourceID), TestCaseID: caseRowID(res.CaseSourceID), ConfigurationID: cfg,
+			Status: res.Status, Comment: res.Comment, DurationMs: res.DurationMs, ExecutedBy: res.ExecutedBy,
+		}); err != nil {
+			return err
+		}
+		st.Inserted["test_results"]++
+	}
+	return nil
 }
 
 // applyPlanning writes the planning layer (Capability/Deliverable/View + junctions

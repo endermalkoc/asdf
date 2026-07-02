@@ -456,6 +456,109 @@ func UnlinkRunConfiguration(ctx context.Context, x Execer, runID, configurationI
 	return unlinkJunction(ctx, x, "test_run_configuration", "run_id", "configuration_id", runID, configurationID)
 }
 
+// ---- deterministic upserts (for import: caller supplies a stable id) ------
+//
+// The Add* funcs above mint a fresh ULID each call (for authored CLI rows). Import needs
+// convergence on re-run, so these take a caller-supplied deterministic id (ids.Rel over the
+// source id) and INSERT-or-UPDATE by it — mirroring the planning/requirements upserts. Each
+// returns whether it inserted (true) or updated.
+
+func upsertByID(ctx context.Context, x Execer, table, id string, insert, update func() error) (bool, error) {
+	var existing string
+	err := x.QueryRowContext(ctx, "SELECT id FROM `"+table+"` WHERE id=?", id).Scan(&existing)
+	switch {
+	case err == sql.ErrNoRows:
+		return true, insert()
+	case err != nil:
+		return false, err
+	default:
+		return false, update()
+	}
+}
+
+// UpsertTestSuite upserts a suite by id; parent is set separately (SetTestSuiteParent) so the
+// self-referencing FK always resolves.
+func UpsertTestSuite(ctx context.Context, x Execer, s TestSuiteRow) (bool, error) {
+	return upsertByID(ctx, x, "test_suite", s.ID, func() error {
+		_, err := x.ExecContext(ctx, "INSERT INTO `test_suite` (id,name,description,position) VALUES (?,?,?,?)",
+			s.ID, nullIfEmpty(s.Name), nullIfEmpty(s.Description), nullInt(s.Position))
+		return err
+	}, func() error {
+		_, err := x.ExecContext(ctx, "UPDATE `test_suite` SET name=?, description=?, position=? WHERE id=?",
+			nullIfEmpty(s.Name), nullIfEmpty(s.Description), nullInt(s.Position), s.ID)
+		return err
+	})
+}
+
+// SetTestSuiteParent sets (or clears) a suite's parent_id; run after all suites exist.
+func SetTestSuiteParent(ctx context.Context, x Execer, id, parentID string) error {
+	if _, err := x.ExecContext(ctx, "UPDATE `test_suite` SET parent_id=? WHERE id=?", nullIfEmpty(parentID), id); err != nil {
+		return fmt.Errorf("set suite %s parent: %w", id, err)
+	}
+	return nil
+}
+
+// UpsertTestCase upserts a test case by id.
+func UpsertTestCase(ctx context.Context, x Execer, c TestCaseRow) (bool, error) {
+	if c.Status == "" {
+		c.Status = "draft"
+	}
+	return upsertByID(ctx, x, "test_case", c.ID, func() error {
+		_, err := x.ExecContext(ctx,
+			"INSERT INTO `test_case` (id,suite_id,title,description,preconditions,layer,type,priority,severity,automation,status,path,is_flaky) "+
+				"VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+			c.ID, c.SuiteID, nullIfEmpty(c.Title), nullIfEmpty(c.Description), nullIfEmpty(c.Preconditions),
+			nullIfEmpty(c.Layer), nullIfEmpty(c.Type), nullInt(c.Priority), nullIfEmpty(c.Severity),
+			nullIfEmpty(c.Automation), c.Status, nullIfEmpty(c.Path), c.IsFlaky)
+		return err
+	}, func() error {
+		return UpdateTestCase(ctx, x, c)
+	})
+}
+
+// UpsertTestStep upserts a step by id (position is NOT NULL; defaults to 0 when unset).
+func UpsertTestStep(ctx context.Context, x Execer, s TestStepRow) (bool, error) {
+	pos := 0
+	if s.Position != nil {
+		pos = *s.Position
+	}
+	return upsertByID(ctx, x, "test_step", s.ID, func() error {
+		_, err := x.ExecContext(ctx, "INSERT INTO `test_step` (id,test_case_id,position,action,expected_result) VALUES (?,?,?,?,?)",
+			s.ID, s.TestCaseID, pos, nullIfEmpty(s.Action), nullIfEmpty(s.ExpectedResult))
+		return err
+	}, func() error {
+		_, err := x.ExecContext(ctx, "UPDATE `test_step` SET position=?, action=?, expected_result=? WHERE id=?",
+			pos, nullIfEmpty(s.Action), nullIfEmpty(s.ExpectedResult), s.ID)
+		return err
+	})
+}
+
+// UpsertConfiguration upserts a configuration by id.
+func UpsertConfiguration(ctx context.Context, x Execer, c ConfigurationRow) (bool, error) {
+	return upsertByID(ctx, x, "test_configuration", c.ID, func() error {
+		_, err := x.ExecContext(ctx, "INSERT INTO `test_configuration` (id,`group`,name,description) VALUES (?,?,?,?)",
+			c.ID, c.Group, c.Name, nullIfEmpty(c.Description))
+		return err
+	}, func() error {
+		return UpdateConfiguration(ctx, x, c)
+	})
+}
+
+// UpsertTestRun upserts a run by id.
+func UpsertTestRun(ctx context.Context, x Execer, r TestRunRow, milestoneID string) (bool, error) {
+	if r.Status == "" {
+		r.Status = "active"
+	}
+	return upsertByID(ctx, x, "test_run", r.ID, func() error {
+		_, err := x.ExecContext(ctx,
+			"INSERT INTO `test_run` (id,title,description,status,milestone_id,started_at) VALUES (?,?,?,?,?,?)",
+			r.ID, nullIfEmpty(r.Title), nullIfEmpty(r.Description), r.Status, nullIfEmpty(milestoneID), time.Now().UTC())
+		return err
+	}, func() error {
+		return UpdateTestRun(ctx, x, r, milestoneID)
+	})
+}
+
 // deleteByID is a shared "DELETE FROM <table> WHERE id=?" returning whether a row was removed.
 func deleteByID(ctx context.Context, x Execer, table, id string) (bool, error) {
 	res, err := x.ExecContext(ctx, "DELETE FROM `"+table+"` WHERE id=?", id)
