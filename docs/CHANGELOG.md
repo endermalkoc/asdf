@@ -420,6 +420,14 @@ pre-release.
   whose `delivery_status` counts as covered yet has no test case behind it — claims done, isn't
   tested). Read-only, honors the active changeset; `--orphans` for just the untested FRs, `--json`
   for the structured report.
+- **`cusp doctor`** ([doctor.go](../src/cli/cmd/cusp/doctor.go), [app/doctor.go](../src/cli/internal/app/doctor.go),
+  [store/hygiene.go](../src/cli/internal/store/hygiene.go)). One workspace-health report composing the
+  analyses: **integrity** (dangling refs + edge cycles, via `Check`), a **coverage** summary (covered
+  ratio + orphan/drift counts, via `Coverage`), and **hygiene** (empty domains; FR-bearing specs with
+  no requirements). Read-only; **exits nonzero when there are integrity problems** so it can gate CI or
+  an agent step (coverage gaps + hygiene are informational). `--json` emits a single report object —
+  enabled by a new `app.SilentExit` (Execute maps it to an exit code without printing an error line or
+  `--json` envelope), so the report stays the sole output while still gating via the exit code.
 
 ### Agent integration (CLI-first)
 
