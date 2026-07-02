@@ -73,13 +73,14 @@ func runMutateOnMain(cmd *cobra.Command, ws *workspace.Workspace, o app.MutateOp
 	return app.Mutate(cmd.Context(), ws, o, body)
 }
 
-// Execute runs the CLI. On failure it maps the error to a documented exit code (see
-// docs/command-contract.md) and, under --json, emits a structured error envelope on
-// stdout; otherwise a plain "error: …" line on stderr.
-func Execute() {
+// Execute runs the CLI and returns the process exit code (0 on success). On failure it maps the
+// error to a documented exit code (see docs/command-contract.md) and, under --json, emits a
+// structured error envelope on stdout; otherwise a plain "error: …" line on stderr. main() turns
+// the returned code into os.Exit — keeping Execute callable in-process (tests) without exiting.
+func Execute() int {
 	err := rootCmd.ExecuteContext(context.Background())
 	if err == nil {
-		return
+		return 0
 	}
 	code, category := app.ExitGeneric, "error"
 	var ce *app.CodedError
@@ -94,7 +95,7 @@ func Execute() {
 	} else {
 		fmt.Fprintln(os.Stderr, "error:", err.Error())
 	}
-	os.Exit(code)
+	return code
 }
 
 // connect opens the workspace: managed (owned) server by default, or the
