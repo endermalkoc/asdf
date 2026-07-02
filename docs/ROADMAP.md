@@ -224,7 +224,10 @@ job). **Remaining:**
 
 - **The coverage push is DONE — every owned package is now ≥70%** (see [CHANGELOG.md](CHANGELOG.md)):
   the logic/pure packages, then the command layer (`cmd/cusp` 10.8%→**74%** via in-process `runCLI`
-  tests across all command groups). Owned total **85.1%** (from 14.1%), floor at **85%** in CI.
+  tests across all command groups). Owned total **~85%** (from 14.1%), floor at **84%** in CI (headroom
+  for run-to-run variance). The push also **found + fixed a real bug** — `comment ls --subject` read
+  `rev_comment` on the changeset branch (via a pooled-connection leak in `app.Reader`) instead of
+  `main`, so it returned "no comments"; see [CHANGELOG.md](CHANGELOG.md).
   **Raise the floor in `scripts/coverage.sh` as coverage grows.** Remaining, all optional polish:
     - **Intentional gaps** — `app` `remote.go` push/pull/fetch/sync (need a live Dolt remote peer) and
       rare DB-error return branches (need fault injection) are the main uncovered spots; reach them with

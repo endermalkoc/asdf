@@ -485,7 +485,14 @@ rides the existing `cusp` commands.
   `newCLIWorkspace`/`runCLI` harness (structure, graph, planning, testing, review, config/setup,
   maintenance/import), asserting exit codes + `--json`. The harness resets the *whole* command tree's
   flags between calls, since cobra retains per-command `Changed()` state and bound vars across
-  in-process `Execute()`s. All test-only, no source changes. The ratchet floor is raised to **85%**.
+  in-process `Execute()`s. The ratchet floor is raised to **84%** (headroom below the ~85% measured,
+  for run-to-run variance).
+- **Bug found + fixed by the coverage work — `cusp comment ls --subject <ref>` returned "no
+  comments".** Writing the review CLI tests surfaced it: `app.Reader`'s `release` restored the pooled
+  connection only after a revision-database read, not after a live-branch checkout — so resolving the
+  `--subject` on the changeset branch left the pooled connection checked out there, and the follow-on
+  `ws.DB()` read of `rev_comment` landed on the changeset branch instead of `main` (where comments
+  live), reporting none. Fixed by always restoring `main` in `release`; regression test added.
 - **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) — a fast **unit** job (gofmt +
   build + vet + `go test -short`, no database) that runs always, and an **integration** job that
   installs the `dolt` binary, runs the full suite, and enforces the coverage ratchet; plus the
