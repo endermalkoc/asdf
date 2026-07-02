@@ -6,6 +6,8 @@ import { EntitiesTreeProvider } from "./entities/entitiesTree";
 import { registerSpecDocView } from "./requirements/specDocView";
 import { registerReviewView } from "./changesets/reviewView";
 import { registerChangesetCommands } from "./changesets/changesetCommands";
+import { TestTreeProvider } from "./tests/testsTree";
+import { registerTestCaseView } from "./tests/testCaseView";
 
 interface Filterable {
   readonly filterText: string;
@@ -19,6 +21,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const changesets = new ChangesetTreeProvider(client);
   const requirements = new RequirementsTreeProvider(client);
   const entities = new EntitiesTreeProvider(client);
+  const tests = new TestTreeProvider(client);
 
   // TreeViews (not bare providers) so we can reveal() the node the doc panel navigates to, and get
   // a built-in Collapse All button.
@@ -72,9 +75,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.window.registerTreeDataProvider("cuspChangesets", changesets),
+    vscode.window.registerTreeDataProvider("cuspTests", tests),
     reqView,
     entitiesView,
     vscode.commands.registerCommand("cusp.refreshChangesets", () => changesets.refresh()),
+    vscode.commands.registerCommand("cusp.refreshTests", () => tests.refresh()),
     vscode.commands.registerCommand("cusp.refreshRequirements", () => requirements.refresh()),
     vscode.commands.registerCommand("cusp.refreshEntities", () => entities.refresh()),
     vscode.commands.registerCommand(
@@ -96,6 +101,7 @@ export function activate(context: vscode.ExtensionContext): void {
     registerSpecDocView(() => client, revealInTree),
     registerReviewView(() => client),
     registerChangesetCommands(() => client, () => changesets.refresh()),
+    registerTestCaseView(() => client),
     // Rebuild the transport when the relevant settings change — no reload needed.
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("cusp.cliPath") || e.affectsConfiguration("cusp.workspaceFolder")) {
@@ -103,9 +109,11 @@ export function activate(context: vscode.ExtensionContext): void {
         changesets.setClient(client);
         requirements.setClient(client);
         entities.setClient(client);
+        tests.setClient(client);
         changesets.refresh();
         requirements.refresh();
         entities.refresh();
+        tests.refresh();
       }
     }),
   );

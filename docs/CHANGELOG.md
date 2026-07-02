@@ -128,6 +128,18 @@ pre-release.
   confirm. Menu visibility is status-gated via the tree-item contextValue — active changesets get the full
   set (review + verdict + lifecycle), **merged** ones are viewable-only (their diff, no lifecycle/verdict),
   and **abandoned** ones are inert (no twistie, no click, no actions).
+- **VS Code extension — Test view** ([tests/testsTree.ts](../src/extension/src/tests/testsTree.ts)). A new
+  **Test** activity-bar view over the testing layer, with two roots: **Tests** — the imported catalog as a
+  self-nesting **suite tree → cases** (each case showing type · status · priority), and **Test Runs** — the
+  runs, each expanding to its **results** (the case title + a pass/fail/blocked/skipped status icon). Built
+  client-side from `test suite ls` / `test case ls` / `test run ls` / `test result ls` (`--json`); the catalog
+  is fetched once and indexed (parent→children, suite→cases, case-id→title so results show titles), run results
+  load lazily on expand. Clicking a **case** (or a run's **result**) opens a Qase-style **detail panel**
+  ([testCaseView.ts](../src/extension/src/tests/testCaseView.ts)) — title, metadata chips, preconditions, and
+  the ordered **steps with the gherkin** (Given/When/Then keywords highlighted), from `test case show` +
+  `test case step ls`. Client gains `testSuites`/`testCases`/`testRuns`/`testResults`/`testCase`/`testCaseSteps`.
+  Verified against the live-imported Qase catalog (10 domain suites → features → 1287 cases; 9 runs → results;
+  gherkin rendered from a real case).
 
 ### Planning & testing layers (CRUD)
 
@@ -269,6 +281,29 @@ pre-release.
   workspace (392 capabilities, 252 deliverables, 20 views; idempotent re-run). The pure mapping is
   unit-tested. This widened `ExternalRef.subject_type` to add `capability` / `view` (and `notion` as a
   `system`) — see [interop.md](entities/interop.md).
+- **Qase source adapter (testing layer)** — `cusp import qase` ingests a Qase test-management project
+  into the [testing layer](entities/testing.md) (`src/cli/internal/importer/qase`). Maps Qase **suites →
+  `TestSuite`** (self-nesting tree), **cases → `TestCase`** (+ inline **`TestStep`s**, + any
+  `PREFIX-FR-NNN` citations found in the case text/tags/custom-fields → **`req_requirement_test_case`**
+  coverage against *existing* requirements), **configuration groups → `Configuration`**, **runs →
+  `TestRun`** (+ `test_run_configuration`), and **results → `TestResult`**. Because the `test_*` `Add*`
+  funcs mint fresh ULIDs, the import path uses new **deterministic `Upsert*` variants** (row id =
+  `ids.Rel` over the Qase id) so re-import converges (verified: stable row counts on a second `--apply`).
+  Qase encodes case enums as integers; each enum field decodes as **int _or_ string** and normalizes
+  string-first, so the offline path uses readable values and the integer maps (`qase.enumMaps`,
+  best-effort) are the API fallback. Source is the **Qase API v1** (`--token`/`$CUSP_QASE_TOKEN` /
+  `$QASE_API_TOKEN` + `--project`, `Token` header, paginated) or saved API responses (`--from <dir>`:
+  `suites.json`/`cases.json`/`configurations.json`/`runs.json`/`results.json`) for an offline/testable
+  path. Read-only report by default; `--apply` rides `importer.Apply` + `app.Mutate` (one transaction,
+  one Dolt commit). The pure mapping (enum normalization, FR extraction, suite tree) is unit-tested.
+  **Verified against a real Qase project via the live API** — a 1291-case / 59-suite / 7-run / 225-result
+  project imported in one ~8s commit (7 suite-less cases correctly skipped), with **1427 FR-tag citations
+  resolving to real requirements** (18 unmatched skipped) and a re-`--apply` leaving row counts identical
+  (idempotent). Real-API shape notes baked in: Qase tags are objects (`{title}`, where the FR ids live),
+  results come from the project-level `/result/{code}` list (per-run paths 404), the duration field is
+  `time_spent_ms`, and the case enum integers (`type 7`→acceptance, `status 0`→active, `severity 4`→normal,
+  `automation 0`→manual) validated against live data. Reuses the staging core alongside the `tutor`/`notion`
+  adapters.
 
 ### Remote sync
 

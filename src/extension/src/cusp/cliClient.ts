@@ -11,6 +11,12 @@ import {
   CuspClient,
   DomainNode,
   EntityTreeNode,
+  TestCaseDetail,
+  TestCaseInfo,
+  TestResultInfo,
+  TestRunInfo,
+  TestStepDetail,
+  TestSuiteInfo,
   Verdict,
 } from "./client";
 
@@ -195,6 +201,101 @@ export class CliCuspClient implements CuspClient {
   async abandonChangeset(branch: string): Promise<void> {
     await this.exec(["changeset", "abandon", branch]);
   }
+
+  async testSuites(): Promise<TestSuiteInfo[]> {
+    const raw = (await this.runJSON(["test", "suite", "ls"])) as RawSuite[] | null;
+    return (raw ?? []).map((s) => ({ id: s.id, parentId: s.parent_id, name: s.name, description: s.description }));
+  }
+
+  async testCases(): Promise<TestCaseInfo[]> {
+    const raw = (await this.runJSON(["test", "case", "ls"])) as RawCase[] | null;
+    return (raw ?? []).map((c) => ({
+      id: c.id,
+      suiteId: c.suite_id,
+      title: c.title,
+      type: c.type,
+      status: c.status,
+      priority: c.priority,
+    }));
+  }
+
+  async testRuns(): Promise<TestRunInfo[]> {
+    const raw = (await this.runJSON(["test", "run", "ls"])) as RawRun[] | null;
+    return (raw ?? []).map((r) => ({ id: r.id, title: r.title, status: r.status, milestone: r.milestone }));
+  }
+
+  async testResults(runId: string): Promise<TestResultInfo[]> {
+    const raw = (await this.runJSON(["test", "result", "ls", runId])) as RawResult[] | null;
+    return (raw ?? []).map((r) => ({ caseId: r.test_case_id, status: r.status }));
+  }
+
+  async testCase(caseId: string): Promise<TestCaseDetail> {
+    const c = (await this.runJSON(["test", "case", "show", caseId])) as RawCaseDetail;
+    return {
+      id: c.id,
+      title: c.title,
+      description: c.description,
+      preconditions: c.preconditions,
+      layer: c.layer,
+      type: c.type,
+      priority: c.priority,
+      severity: c.severity,
+      automation: c.automation,
+      status: c.status,
+      path: c.path,
+      isFlaky: c.is_flaky,
+    };
+  }
+
+  async testCaseSteps(caseId: string): Promise<TestStepDetail[]> {
+    const raw = (await this.runJSON(["test", "case", "step", "ls", caseId])) as RawStep[] | null;
+    return (raw ?? []).map((s) => ({ position: s.position, action: s.action, expectedResult: s.expected_result }));
+  }
+}
+
+/** Raw `cusp test … ls --json` rows (snake_case store fields). */
+interface RawSuite {
+  id: string;
+  parent_id?: string;
+  name: string;
+  description?: string;
+}
+interface RawCase {
+  id: string;
+  suite_id?: string;
+  title: string;
+  type?: string;
+  status: string;
+  priority?: number;
+}
+interface RawRun {
+  id: string;
+  title: string;
+  status: string;
+  milestone?: string;
+}
+interface RawResult {
+  test_case_id: string;
+  status: string;
+}
+interface RawCaseDetail {
+  id: string;
+  title: string;
+  description?: string;
+  preconditions?: string;
+  layer?: string;
+  type?: string;
+  priority?: number;
+  severity?: string;
+  automation?: string;
+  status: string;
+  path?: string;
+  is_flaky?: boolean;
+}
+interface RawStep {
+  position?: number;
+  action?: string;
+  expected_result?: string;
 }
 
 interface ExecError extends Error {

@@ -133,6 +133,61 @@ export interface AddCommentInput {
   reply?: string; // parent comment id (threaded reply)
 }
 
+/** A test suite (self-nesting via parentId) from the imported catalog. */
+export interface TestSuiteInfo {
+  id: string;
+  parentId?: string;
+  name: string;
+  description?: string;
+}
+
+/** A test case within a suite. */
+export interface TestCaseInfo {
+  id: string;
+  suiteId?: string;
+  title: string;
+  type?: string;
+  status: string;
+  priority?: number;
+}
+
+/** A test run (execution cycle). */
+export interface TestRunInfo {
+  id: string;
+  title: string;
+  status: string;
+  milestone?: string;
+}
+
+/** One case's outcome within a run. */
+export interface TestResultInfo {
+  caseId: string;
+  status: string;
+}
+
+/** A test case's full detail (for the case panel). */
+export interface TestCaseDetail {
+  id: string;
+  title: string;
+  description?: string;
+  preconditions?: string;
+  layer?: string;
+  type?: string;
+  priority?: number;
+  severity?: string;
+  automation?: string;
+  status: string;
+  path?: string;
+  isFlaky?: boolean;
+}
+
+/** One ordered step of a test case (Qase gherkin lives in `action`). */
+export interface TestStepDetail {
+  position?: number;
+  action?: string;
+  expectedResult?: string;
+}
+
 export interface CuspClient {
   /** Mirrors `cusp changeset ls`. */
   listChangesets(): Promise<Changeset[]>;
@@ -178,4 +233,22 @@ export interface CuspClient {
 
   /** Mirrors `cusp changeset abandon <branch>` — discard a changeset (deletes its branch). */
   abandonChangeset(branch: string): Promise<void>;
+
+  /** Mirrors `cusp test suite ls` — every test suite (flat; tree via parentId). */
+  testSuites(): Promise<TestSuiteInfo[]>;
+
+  /** Mirrors `cusp test case ls` — every test case (flat; grouped by suiteId). */
+  testCases(): Promise<TestCaseInfo[]>;
+
+  /** Mirrors `cusp test run ls` — the test runs. */
+  testRuns(): Promise<TestRunInfo[]>;
+
+  /** Mirrors `cusp test result ls <runId>` — one run's results. */
+  testResults(runId: string): Promise<TestResultInfo[]>;
+
+  /** Mirrors `cusp test case show <id>` — a case's full detail. */
+  testCase(caseId: string): Promise<TestCaseDetail>;
+
+  /** Mirrors `cusp test case step ls <id>` — a case's ordered steps. */
+  testCaseSteps(caseId: string): Promise<TestStepDetail[]>;
 }

@@ -20,7 +20,8 @@
   "activationEvents": [
     "onView:cuspChangesets",
     "onView:cuspRequirements",
-    "onView:cuspEntities"
+    "onView:cuspEntities",
+    "onView:cuspTests"
   ],
   "contributes": {
     "viewsContainers": {
@@ -51,6 +52,12 @@
           "name": "Entities",
           "icon": "media/cusp.svg",
           "contextualTitle": "Cusp Entities"
+        },
+        {
+          "id": "cuspTests",
+          "name": "Test",
+          "icon": "media/cusp.svg",
+          "contextualTitle": "Cusp Tests"
         }
       ]
     },
@@ -84,6 +91,17 @@
         "title": "Refresh Entities",
         "category": "Cusp",
         "icon": "$(refresh)"
+      },
+      {
+        "command": "cusp.refreshTests",
+        "title": "Refresh Tests",
+        "category": "Cusp",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "cusp.openTestCase",
+        "title": "Open Test Case",
+        "category": "Cusp"
       },
       {
         "command": "cusp.searchEntities",
@@ -211,6 +229,11 @@
           "command": "cusp.refreshEntities",
           "when": "view == cuspEntities",
           "group": "navigation@3"
+        },
+        {
+          "command": "cusp.refreshTests",
+          "when": "view == cuspTests",
+          "group": "navigation"
         }
       ],
       "editor/title": [
