@@ -108,6 +108,54 @@ var RequirementDelivery = []string{
 	"e2e-sufficient", "shared", "schema-only", "deferred",
 }
 
+// ---- Planning layer (closed sets) ----------------------------------------
+
+// CapabilityLevel — plan_capability.level (nullable; validated when present).
+var CapabilityLevel = []string{"domain", "epic", "capability"}
+
+// DeliverableStatus — plan_deliverable.status. The store defaults an empty value to
+// DeliverableProposed; the verbs reference these constants instead of bare literals.
+const (
+	DeliverableProposed = "proposed"
+	DeliverableSpecced  = "specced"
+	DeliverableWired    = "wired"
+	DeliverableBuilt    = "built"
+	DeliverableShip     = "ship"
+)
+
+var DeliverableStatus = []string{
+	DeliverableProposed, DeliverableSpecced, DeliverableWired, DeliverableBuilt, DeliverableShip,
+}
+
+// DeliverableSize — plan_deliverable.size (nullable; validated when present).
+var DeliverableSize = []string{"S", "M", "L", "XL"}
+
+// DeliverableAIReady — plan_deliverable.ai_ready (nullable; validated when present).
+var DeliverableAIReady = []string{"yes", "no", "na"}
+
+// ---- Testing layer (Qase-derived closed sets) ----------------------------
+
+// TestLayer — test_case.layer.
+var TestLayer = []string{"unit", "integration", "e2e", "component", "shared"}
+
+// TestType — test_case.type.
+var TestType = []string{"functional", "smoke", "regression", "acceptance", "other"}
+
+// TestSeverity — test_case.severity.
+var TestSeverity = []string{"trivial", "minor", "normal", "major", "critical", "blocker"}
+
+// TestAutomation — test_case.automation.
+var TestAutomation = []string{"manual", "automated", "to_be_automated"}
+
+// TestCaseStatus — test_case.status (lifecycle, not a run outcome; default draft).
+var TestCaseStatus = []string{"draft", "active", "deprecated"}
+
+// TestRunStatus — test_run.status (default active).
+var TestRunStatus = []string{"active", "complete", "aborted"}
+
+// TestResultStatus — test_result.status (run outcome).
+var TestResultStatus = []string{"passed", "failed", "blocked", "skipped", "invalid", "in_progress"}
+
 // Valid reports whether v is in allowed.
 func Valid(allowed []string, v string) bool {
 	for _, a := range allowed {

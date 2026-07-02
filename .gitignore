@@ -12,6 +12,8 @@
 # ── Go build output ────────────────────────────────────────────────────────
 # The Go module lives under src/cli/; `make build` still drops the binary here.
 /cusp
+# a `go build`/`go install` run inside src/cli can drop a binary there too.
+/src/cli/cusp
 /dist/
 *.exe
 *.test

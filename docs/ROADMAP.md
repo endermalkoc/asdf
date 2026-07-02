@@ -8,10 +8,12 @@ data model), and [docs/command-contract.md](command-contract.md) (the workflow e
 
 ## Finish the command contract
 
-- **Broaden CRUD — remaining entities.** CRUD for the entities not yet modeled as CRUD: Milestone,
-  Test*, Capability, Deliverable, View, ExternalRef. (The core surface —
-  req/spec/domain/entity/glossary-term + `edge ls`/`delete` + `section delete` — is done; see
-  [CHANGELOG.md](CHANGELOG.md).)
+- **Broaden CRUD — remaining entities.** The **planning layer** (`milestone`/`capability`/`deliverable`/
+  `view` + junction link/unlink) and the **testing layer** (`test suite`/`case`/`step`/`run`/`result`/
+  `config` + coverage/config links) are **done** (see [CHANGELOG.md](CHANGELOG.md)), alongside the earlier
+  core surface (req/spec/domain/entity/glossary-term + `edge`/`section`). **Remaining:** `ExternalRef` CRUD
+  (today external refs are only written by importers) — low priority; and diffing deliverable/test_case docs
+  in the review surface still needs per-doc renderers for those types.
 - **`cusp config get/set`** — a general typed `config get/set` over the lifted
   `src/cli/internal/config`/`configfile` (Dolt server settings). (The workspace `generate` config —
   `config show` + `config generate enable/disable/add/remove/sync` — is done.)
@@ -169,32 +171,19 @@ verdict → `cusp review`); spec **and entity** docs are diffed (a section-only 
 surface, covering editor + browser via vscode.dev/code-server; CLI/TUI as the terminal floor; GitHub federation
 as optional interop; the from-scratch web app deferred unless a non-editor reviewer surface is demanded.
 
-**Review surface — remaining follow-ups** (the CLI verbs + native-diff extension slice shipped; see
-[CHANGELOG.md](CHANGELOG.md)):
+**Review surface — remaining follow-ups** (the CLI verbs, native-diff extension slice, exact base/head
+rendering, and section/relationship roll-up shipped; see [CHANGELOG.md](CHANGELOG.md)):
 
 - **MCP surface for `Review`/`Comment`.** The CLI slice of Step 1 is done; the MCP half is still pending
   (deferred with [Agent integration](#core-features) — no server yet). The new `store` review funcs are the
   reusable seam for a thin adapter over `Mutate`; no second source of truth.
-- **Diff base at the exact `base_commit`.** The extension renders the base side at `main` (a "diff vs main"),
-  not the changeset's recorded `base_commit`. Correct when `main` hasn't advanced since the branch forked;
-  otherwise it shows unrelated `main` changes too. Needs `spec render`/`entity render --at <commit-or-ref>`
-  (render `AS OF` a commit) so the base side is the true merge base. (`cusp changeset diff` already resolves
-  the head from the branch, else the recorded `head_commit`/`merge_commit`, so **merged** changesets stay
-  reviewable and an **abandoned-before-submit** one fails cleanly with a coded `not_found`.)
 - **Diff `deliverable` / `test_case` docs.** Only spec and entity docs are diffed today (requirement/spec/
-  user_story → owning spec; entity/entity-section → entity). `deliverable`/`test_case` `EntityDiff` rows carry
-  no `docRef` because there's no single-doc renderer for them yet — add `deliverable`/`testcase render` (or a
-  planning/testing doc render) and populate `docRef`.
-- **Roll up `ent_relationship` edits.** Section/child roll-up to the owning doc covers `ent_entity_section`
-  and the spec child tables; an entity-relationship-only edit (`ent_relationship`) doesn't yet surface the
-  affected entity docs. Extend the doc-coverage pass in `app/diff.go` (both endpoints).
-- **Abandoned-after-submit rendering.** `changeset diff` recovers via the recorded `head_commit`, but the
-  extension's doc render still passes the (deleted) branch name to `--changeset`, so a *submitted-then-
-  abandoned* changeset can't render its head side. Either render the head `AS OF head_commit` too, or mark
-  abandoned changesets non-reviewable in the tree.
-- **True base/head diff editor for prose fidelity + richer thread navigation.** Comments anchor via `^fr-key`
-  block anchors (requirements) or whole-doc (entities); deepen to field/section-level locators and a
-  comments-panel jump list.
+  user_story → owning spec; entity/entity-section/relationship → entity). `deliverable`/`test_case`
+  `EntityDiff` rows carry no `docRef` because there's no single-doc renderer for them yet — add
+  `deliverable`/`testcase render` (or a planning/testing doc render) and populate `docRef`. Rides the same
+  base/head render path (the `Reader` revision-database read handles rendering at any commit).
+- **Richer thread anchoring + navigation.** Comments anchor via `^fr-key` block anchors (requirements) or
+  whole-doc (entities); deepen to field/section-level locators and add a comments-panel jump list.
 
 ## "What am I missing vs beads?" — feature survey
 

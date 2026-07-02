@@ -93,17 +93,25 @@ pre-release.
   `changeType` (added/modified/removed), and the per-field base→head values — so a review surface can anchor
   a comment to a concrete row and field. Reuses the auto-gen `dolt_diff` plumbing (`quoteRef`), pairs the
   `to_/from_` columns dynamically (no static column list), and resolves labels on the changeset branch so
-  changeset-new rows show their `fr_key`. It also carries a self-describing `docRef` (`spec:<ref>` /
-  `entity:<name>`) and rolls section/child changes up to their owning doc. The head ref is the branch while it
-  exists, else the recorded `head_commit`/`merge_commit` (both survive branch deletion), so a **merged**
-  changeset stays reviewable and an **abandoned-before-submit** one fails cleanly with a coded `not_found`
-  instead of a raw Dolt checkout error.
+  changeset-new rows show their `fr_key`. Each row carries a self-describing `docRef` (`spec:<ref>` /
+  `entity:<name>`), and a **doc-coverage pass** rolls section/child changes up to their owning doc so a
+  prose-only edit still surfaces its doc — `ent_entity_section` + `ent_relationship` (both endpoints) →
+  entity, `req_spec_section`/`req_requirement_group`/`req_acceptance_scenario` → spec. The `--json` form is an
+  **envelope** `{base, head, entities}` carrying the exact refs to render each side at: `base` = the merge
+  base, `head` = the branch while it exists, else the recorded `head_commit`/`merge_commit` (both survive
+  branch deletion). So a **merged** changeset stays reviewable, an **abandoned-before-submit** one fails
+  cleanly with a coded `not_found`, and the human (non-JSON) output is unchanged.
 - **VS Code extension — the review surface (first slice)** ([reviewView.ts](../src/extension/src/changesets/reviewView.ts),
   [changesetTree.ts](../src/extension/src/changesets/changesetTree.ts)). The changeset tree expands to its
   changed entities (`diff`), and reviewing a changeset opens VS Code's **native diff editor** (`vscode.diff`)
-  over two virtual documents — the affected **spec or entity** doc rendered as Markdown at the base (`main`)
-  vs the head (changeset branch), via `cusp spec render`/`cusp entity render --format md --changeset …` — so
-  the gutters, side-by-side/inline toggle, navigation and coloring are VS Code's, not hand-rolled. Review
+  over two virtual documents — the affected **spec or entity** doc rendered as Markdown at the exact **base
+  commit** (the merge base) vs the **head** (the live branch, else its recorded commit), via `cusp spec
+  render`/`cusp entity render --format md --changeset <ref>` — so the gutters, side-by-side/inline toggle,
+  navigation and coloring are VS Code's, not hand-rolled. Rendering at a commit works because `app.Reader`
+  falls back to a **read-only revision database** (`USE db/<commit>`) when the ref isn't a live branch (Dolt
+  has no detached HEAD), resetting the pooled connection on release. So the diff is exact even if `main`
+  advanced after the branch forked, and a merged/abandoned-after-submit changeset still renders from its
+  commits. Review
   comments hang off the head side as **native Comments API** `CommentThread`s, anchored to a requirement via
   the rendered `^fr-key` block anchors (a comment binds to a requirement, not a line number), or to the whole
   entity for an entity doc; reply → `addComment`, resolve/reopen → `resolveComment`, and a **Set Verdict**
@@ -114,7 +122,37 @@ pre-release.
   opens its doc's diff even though no subject row changed. Fills the transport contract's pending methods
   (`diff`/`listComments`/`addComment`/`resolveComment`/`setReview`) in the transport-agnostic `client.ts` +
   `cliClient.ts`, keeping the UI free of `cusp`-process knowledge (MCP-swappable later). The extension holds
-  no state — Dolt stays the source of truth.
+  no state — Dolt stays the source of truth. **Changeset lifecycle actions** complete the in-editor loop: a
+  **New Changeset** button (view title → `cusp changeset start`) and per-changeset **Submit / Merge /
+  Abandon** context actions (`cusp changeset submit`/`merge`/`abandon`), Merge/Abandon behind a modal
+  confirm. Menu visibility is status-gated via the tree-item contextValue — active changesets get the full
+  set (review + verdict + lifecycle), **merged** ones are viewable-only (their diff, no lifecycle/verdict),
+  and **abandoned** ones are inert (no twistie, no click, no actions).
+
+### Planning & testing layers (CRUD)
+
+- **Planning-layer CRUD** ([milestone.go](../src/cli/cmd/cusp/milestone.go), [capability.go](../src/cli/cmd/cusp/capability.go),
+  [deliverable.go](../src/cli/cmd/cusp/deliverable.go), [view.go](../src/cli/cmd/cusp/view.go),
+  [store/planning_crud.go](../src/cli/internal/store/planning_crud.go)). Hand-editing verbs for the layer that
+  was previously write-only via the Notion import: **`cusp milestone`** (add/ls/show/edit/delete, keyed by
+  slug), and **`cusp capability`/`deliverable`/`view`** (add/ls/show/edit/delete, keyed by their ULID id, with
+  FKs resolved from human keys — `--domain`/`--milestone`/`--spec`). Junctions are managed by **`link`/`unlink`**
+  subcommands (`capability link --milestone|--deliverable`, `deliverable link --view|--blocked-by`), reusing
+  the importer's `Upsert*`/`Link*`/`Clear*` store helpers so add and edit share one path (add mints
+  `ids.New()`; edit loads-then-upserts). Deletes clear junctions (FK cascade) and polymorphic refs
+  (`DeleteNodeRefs`). New closed enums: `CapabilityLevel`, `DeliverableSize`/`Status`/`AIReady`.
+- **Testing-layer CRUD** ([test.go](../src/cli/cmd/cusp/test.go), [testrun.go](../src/cli/cmd/cusp/testrun.go),
+  [store/testing.go](../src/cli/internal/store/testing.go)) — **net-new** (the Qase-modeled test tables had zero
+  app code). **`cusp test`** groups: **`suite`** (self-nesting tree), **`case`** (+ `step add/ls/delete`, +
+  `cover`/`uncover` linking a case to the requirements it covers via `req_requirement_test_case`), **`run`**
+  (+ `config`/`unconfig` attaching configurations), **`result`** (`add`/`ls` — the id is **deterministic** over
+  run+case+config, so a re-report converges via `ON DUPLICATE KEY UPDATE`), and **`config`** (group/value
+  pairs). Seven new closed enums (`TestLayer`/`Type`/`Severity`/`Automation`, `TestCaseStatus`, `TestRunStatus`,
+  `TestResultStatus`); test-case priority reuses the shared 0–4 scheme; steps auto-assign their ordinal.
+  Shared command-shape helpers (`simpleList`/`simpleGet`/`simpleMutate`/`simpleDelete`,
+  [cmdhelpers.go](../src/cli/cmd/cusp/cmdhelpers.go)) keep each verb a few lines over the same
+  connect/`runMutate`/`emit` primitives. Verified end-to-end against real Dolt (nested suites, coverage,
+  deterministic-result idempotency, cascade deletes, enum rejection, `--dry-run`). Enum sets are unit-tested.
 
 ### Generation & cross-references
 

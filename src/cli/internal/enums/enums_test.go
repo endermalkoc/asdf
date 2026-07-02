@@ -36,6 +36,53 @@ func TestReviewVerdictSet(t *testing.T) {
 	}
 }
 
+func TestPlanningEnumSets(t *testing.T) {
+	valid := map[*[]string][]string{
+		&CapabilityLevel:    {"domain", "epic", "capability"},
+		&DeliverableSize:    {"S", "M", "L", "XL"},
+		&DeliverableStatus:  {"proposed", "specced", "wired", "built", "ship"},
+		&DeliverableAIReady: {"yes", "no", "na"},
+	}
+	for set, vals := range valid {
+		for _, v := range vals {
+			if !Valid(*set, v) {
+				t.Errorf("%q should be valid", v)
+			}
+		}
+		if Valid(*set, "bogus") {
+			t.Errorf("bogus should be invalid in %v", *set)
+		}
+	}
+	// The deliverable-status constants must all be in the set.
+	for _, c := range []string{DeliverableProposed, DeliverableSpecced, DeliverableWired, DeliverableBuilt, DeliverableShip} {
+		if !Valid(DeliverableStatus, c) {
+			t.Errorf("deliverable status const %q missing from set", c)
+		}
+	}
+}
+
+func TestTestingEnumSets(t *testing.T) {
+	cases := map[*[]string][]string{
+		&TestLayer:        {"unit", "e2e", "shared"},
+		&TestType:         {"functional", "smoke", "other"},
+		&TestSeverity:     {"trivial", "normal", "blocker"},
+		&TestAutomation:   {"manual", "automated", "to_be_automated"},
+		&TestCaseStatus:   {"draft", "active", "deprecated"},
+		&TestRunStatus:    {"active", "complete", "aborted"},
+		&TestResultStatus: {"passed", "failed", "skipped", "in_progress"},
+	}
+	for set, vals := range cases {
+		for _, v := range vals {
+			if !Valid(*set, v) {
+				t.Errorf("%q should be valid", v)
+			}
+		}
+		if Valid(*set, "nope") {
+			t.Errorf("nope should be invalid in %v", *set)
+		}
+	}
+}
+
 func TestCommentSubjectTypeSet(t *testing.T) {
 	for _, st := range []string{"requirement", "spec", "user_story", "test_case", "entity", "deliverable"} {
 		if !Valid(CommentSubjectType, st) {
