@@ -16,7 +16,8 @@ LDFLAGS := -s -w \
 
 GO_BUILD := CGO_ENABLED=0 go build -C $(CLI) -ldflags "$(LDFLAGS)"
 
-.PHONY: all build install test vet tidy fmt clean snapshot release-check help
+.PHONY: all build install test vet tidy fmt clean snapshot release-check help \
+	cover cover-check cover-commands cover-html
 
 all: build ## Build the binary (default)
 
@@ -34,6 +35,18 @@ vet: ## Run go vet
 
 tidy: ## Prune go.mod/go.sum to what's actually used
 	go mod -C $(CLI) tidy
+
+cover: ## Coverage over owned packages + per-package breakdown (needs dolt)
+	@scripts/coverage.sh report
+
+cover-check: ## Enforce the coverage ratchet floor — the CI gate (needs dolt)
+	@scripts/coverage.sh check
+
+cover-commands: ## Per-command-file coverage: which commands have tests (needs dolt)
+	@scripts/coverage.sh commands
+
+cover-html: ## Open the HTML coverage report (needs dolt)
+	@scripts/coverage.sh html
 
 fmt: ## Format all Go source
 	go fmt -C $(CLI) ./...

@@ -47,3 +47,6 @@ Thumbs.db
 # Only the repo-root .vscode/ (personal, Go-side settings) is ignored. The VS
 # Code extension's own src/extension/.vscode/ is committed — it IS the dev setup.
 /.vscode/
+
+# Test coverage profiles
+coverage.out

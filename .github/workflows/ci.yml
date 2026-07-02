@@ -65,8 +65,11 @@ jobs:
           dolt config --global --add user.name "Cusp CI"
           dolt version
 
-      - name: Full test suite
-        run: go test ./...
+      # Runs the full suite (unit + integration + CLI smoke) and enforces the coverage ratchet
+      # floor over the packages Cusp authors. Raise the floor in scripts/coverage.sh as it grows.
+      - name: Coverage ratchet (full suite)
+        working-directory: .
+        run: make cover-check
 
   # Sanity-check the release pipeline on every push without publishing anything.
   release-dry-run:
