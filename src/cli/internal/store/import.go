@@ -310,12 +310,13 @@ func UpsertExternalRef(ctx context.Context, x Execer, subjectType, subjectID, sy
 // the glossary one-liner (not a section).
 type Entity struct {
 	Name        string
-	Path        string // full doc path (e.g. entities/student.md)
+	Path        string // optional sub-directory under entities/; the filename derives from Name (e.g. "" → entities/student.md, "core" → entities/core/student.md — see EntityDocPath)
 	Description string
 	Status      string
 }
 
-// UpsertEntity upserts by name (UK). Entities are domain-less; path is the full doc path.
+// UpsertEntity upserts by name (UK). Entities are domain-less; path is an optional sub-directory
+// under entities/ (the filename derives from Name — see EntityDocPath), not the full doc path.
 func UpsertEntity(ctx context.Context, x Execer, e Entity) (string, bool, error) {
 	if e.Status == "" {
 		e.Status = enums.EntityDraft
