@@ -443,6 +443,30 @@ rides the existing `cusp` commands.
   drift, `--check`/`--remove`, the hook payload envelope, the codex-hook shim across all four events +
   the marker dance, and the no-workspace passthrough.
 
+### Testing & CI (first slice)
+
+- **Integration harness — `internal/testutil`** ([testutil/workspace.go](../src/cli/internal/testutil/workspace.go)).
+  `NewWorkspace(t)` spins up an isolated Cusp workspace on a **real owned Dolt server** in a temp dir
+  (own ephemeral port), initialized through the same `app.InitWorkspace` path the `cusp init` command
+  uses, with `t.Cleanup` stopping the server. `RequireDolt(t)` skips when the `dolt` binary is absent
+  or under `-short`. Enabled by two refactors that also improve the code: **`app.InitWorkspace`**
+  (init's DB setup extracted from the cobra command — server, schema, seed, initial commit, metadata)
+  and **`workspace.ConnectAt(cuspDir)`** (connect to an explicit workspace dir, not just the cwd).
+- **Contract integration suite — `internal/integration`**
+  ([contract_test.go](../src/cli/internal/integration/contract_test.go)). Exercises the guarantees only
+  a real DB can prove, driving the same `app.Mutate` / `store` / `versioncontrolops` primitives the CLI
+  uses: `init` leaves a clean working set + one commit; each add is **exactly one commit** with a clean
+  working set and correct actor attribution; **validation rejects before any write**; dry-run rolls
+  back; **reads honor the changeset branch** (edits don't leak to `main`); the **changeset round-trip**
+  (`start → add on branch → merge`) lands on `main` with the **review comment (written to `main`)
+  surviving the merge**; and deterministic upsert is idempotent.
+- **Unit tests** — actor/identity precedence (`ResolveActor` override + `$CUSP_ACTOR`; identity-file
+  round-trip), `prime` state rendering, and changeset-slug generation; alongside the existing
+  `ids`/`enums`/`app`/`agentsetup`/`refs` units.
+- **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) — a fast **unit** job (gofmt +
+  build + vet + `go test -short`, no database) that runs always, and an **integration** job that
+  installs the `dolt` binary and runs the full suite; plus the existing release dry-run.
+
 ### Distribution & self-update
 
 - **`cusp version`** ([version.go](../src/cli/cmd/cusp/version.go)) — reports version / commit / build date /

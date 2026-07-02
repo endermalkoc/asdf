@@ -214,22 +214,26 @@ shared glossary.
 
 ## Testing & CI
 
-Today only `src/cli/internal/ids` is unit-tested; everything else was verified **manually** against real
-Dolt (`init` → `add` → commit → changeset round-trip). Codify that:
+The **first slice is DONE** (see [CHANGELOG.md](CHANGELOG.md)): the `internal/testutil` harness (an
+isolated workspace on a real owned Dolt server via `app.InitWorkspace`), the `internal/integration`
+contract suite (init clean+committed, add=one-commit+clean working set+attribution,
+validation-rejects-before-write, dry-run rollback, branch-scoped reads, the changeset round-trip with
+review rows surviving the merge, idempotent upsert), unit tests for the actor/identity precedence and
+prime rendering, and a two-job **CI** workflow (fast `go test -short` always; a dolt-backed full-suite
+job). **Remaining:**
 
-- **Unit tests** (fast, no DB) — pure logic: `ids` (✅), `enums` + `app` validation, `store` SQL +
-  field mapping (`fr_key` derivation, `nullIfEmpty`), and `workspace` helpers (actor resolution,
-  changeset slug, retry/serialization classification, `dolt_diff_stat` parsing).
-- **Integration tests** (real Dolt, **server mode — no cgo**) — a harness that starts a managed
-  `dolt sql-server` (or `testcontainers-go/modules/dolt`), applies the schema, and exercises the
-  command contract end-to-end: `cusp init`; each `add` produces one Dolt commit with a **clean
-  working set**; validation rejects bad input; and the full **changeset round-trip** (`start → add
-  on branch → diff → submit → merge`, with `Changeset`/`Review` rows staying on `main`). Reference:
-  beads' `internal/testutil/integration`.
+- **Broaden integration coverage** — beyond the core contract: `edge`/`section`, planning + testing
+  CRUD, `check`/`impact`, `comment`/`review` verbs, import (`tutor`/`qase` via `--from` fixtures),
+  `generate`, and the abandon-before-submit / merge-conflict edge cases.
+- **A subprocess CLI smoke test** — build the binary once, run a golden path (`init → add → changeset
+  → merge`), and assert exit codes + the `--json` / `{"error":…}` envelope (covers the cobra/emit
+  wiring the in-process tests skip). Deferred from the first slice.
+- **Speed** — integration tests use a per-test owned server (~6–7s each). If the suite grows, move to
+  one server per package with a fresh database per test.
+- **More unit gaps** — `store` field mapping (`fr_key` derivation, `nullIfEmpty`), `workspace`
+  retry/serialization classification and `dolt_diff_stat` parsing, `app` validation breadth.
 - **Embedded-driver e2e** — the in-process `dolthub/driver/v2` test was reverted (needs cgo +
   `libicu-dev`); reintroduce behind a build tag (e.g. `-tags dolt_e2e`) once CI guarantees ICU.
-- **CI** — run `go build -C src/cli ./...` · `go vet -C src/cli ./...` · `go test -C src/cli ./...` on every push; gate the
-  integration suite on `dolt` availability (PATH or testcontainers).
 
 ## Deliberately NOT carried from beads
 
