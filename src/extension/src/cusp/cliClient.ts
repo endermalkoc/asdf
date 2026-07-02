@@ -3,7 +3,16 @@ import { promisify } from "node:util";
 import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { Changeset, CuspClient, DomainNode } from "./client";
+import {
+  AddCommentInput,
+  Changeset,
+  Comment,
+  CuspClient,
+  DomainNode,
+  EntityDiff,
+  EntityTreeNode,
+  Verdict,
+} from "./client";
 
 const execFileAsync = promisify(execFile);
 
@@ -106,9 +115,67 @@ export class CliCuspClient implements CuspClient {
     return raw ?? [];
   }
 
-  async renderSpecHtml(specRef: string): Promise<string> {
-    // Raw HTML on stdout (not a --json envelope).
-    return this.exec(["spec", "render", specRef, "--format", "html"]);
+  async entitiesTree(): Promise<EntityTreeNode[]> {
+    const raw = (await this.runJSON(["entity", "tree"])) as EntityTreeNode[] | null;
+    return raw ?? [];
+  }
+
+  async renderDocHtml(docPath: string): Promise<string> {
+    // Raw HTML on stdout (not a --json envelope). Entity docs live under entities/.
+    const args = docPath.startsWith("entities/")
+      ? ["entity", "render", docPath, "--format", "html"]
+      : ["spec", "render", docPath, "--format", "html"];
+    return this.exec(args);
+  }
+
+  async renderDocMarkdown(docRef: string, branch: string): Promise<string> {
+    // docRef is a self-describing token from `changeset diff --entities` — `spec:<ref>` or
+    // `entity:<name>`. `--changeset <branch>` selects the base (main) or head branch.
+    const [kind, ...rest] = docRef.split(":");
+    const ref = rest.join(":");
+    const args =
+      kind === "entity"
+        ? ["entity", "render", ref, "--format", "md", "--changeset", branch]
+        : ["spec", "render", ref, "--format", "md", "--changeset", branch];
+    return this.exec(args);
+  }
+
+  async diff(branch: string): Promise<EntityDiff[]> {
+    const raw = (await this.runJSON(["changeset", "diff", branch, "--entities"])) as EntityDiff[] | null;
+    return raw ?? [];
+  }
+
+  async listComments(branch: string): Promise<Comment[]> {
+    const raw = (await this.runJSON(["comment", "ls", branch])) as Comment[] | null;
+    return raw ?? [];
+  }
+
+  async addComment(input: AddCommentInput): Promise<Comment> {
+    const args = ["comment", "add", input.branch, "--body", input.body];
+    if (input.subject) {
+      args.push("--subject", input.subject);
+    } else if (input.subjectType && input.subjectId) {
+      args.push("--subject-type", input.subjectType, "--subject-id", input.subjectId);
+    }
+    if (input.locator) {
+      args.push("--locator", input.locator);
+    }
+    if (input.reply) {
+      args.push("--reply", input.reply);
+    }
+    return (await this.runJSON(args)) as Comment;
+  }
+
+  async resolveComment(id: string, resolved: boolean): Promise<void> {
+    await this.runJSON(["comment", resolved ? "resolve" : "reopen", id]);
+  }
+
+  async setReview(branch: string, verdict: Verdict, summary?: string): Promise<void> {
+    const args = ["review", branch, "--verdict", verdict];
+    if (summary) {
+      args.push("--summary", summary);
+    }
+    await this.runJSON(args);
   }
 }
 

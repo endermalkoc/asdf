@@ -69,7 +69,7 @@ async function render(arg: OpenArgs, reveal: boolean): Promise<boolean> {
   }
   let html: string;
   try {
-    html = await getClientRef().renderSpecHtml(arg.docPath);
+    html = await getClientRef().renderDocHtml(arg.docPath);
   } catch (err) {
     vscode.window.showErrorMessage(`Cusp: failed to render spec — ${messageOf(err)}`);
     return false;
@@ -112,9 +112,9 @@ async function onMessage(m: unknown): Promise<void> {
   if (!target) {
     return;
   }
-  if (!isSpecPath(target.docPath)) {
+  if (!isRenderableDoc(target.docPath)) {
     vscode.window.showInformationMessage(
-      `Cusp: ${target.docPath} isn't a spec — only spec links open in this view for now.`,
+      `Cusp: ${target.docPath} has no rendered view — only spec and entity links open here.`,
     );
     return;
   }
@@ -135,16 +135,13 @@ function resolveHref(baseDocPath: string, href: string): { docPath: string; anch
   return { docPath: resolved.replace(/\.html$/, ".md"), anchor };
 }
 
-// isSpecPath excludes the generated non-spec pages (entity/glossary/planning/index) — only spec
-// docs can be re-rendered via `cusp spec render`.
-function isSpecPath(p: string): boolean {
-  return !(
-    p.startsWith("entities/") ||
-    p.startsWith("planning/") ||
-    p === "glossary.md" ||
-    p === "index.md" ||
-    p.endsWith("/index.md")
-  );
+// isRenderableDoc reports whether a doc path has a render chokepoint: spec docs and entity docs
+// (entities/…) do; the generated glossary/planning/index rollup pages do not.
+function isRenderableDoc(p: string): boolean {
+  if (p.startsWith("entities/")) {
+    return true; // entity doc → `cusp entity render`
+  }
+  return !(p.startsWith("planning/") || p === "glossary.md" || p === "index.md" || p.endsWith("/index.md"));
 }
 
 // decorate injects a CSP (the doc's CSS is inlined; only a nonce'd script is added) and the
