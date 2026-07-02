@@ -152,12 +152,17 @@ func TestCLI_Review_ChangesetLifecycle(t *testing.T) {
 	if _, code := reviewRun(t, "comment", "ls", "--unresolved"); code != 0 {
 		t.Fatalf("comment ls --unresolved exit=%d", code)
 	}
-	// --subject resolves REQ:<key> on the changeset branch, then filters the listing; just assert
-	// it runs cleanly (the resolve+filter code path). Membership isn't asserted: within this one
-	// command the subject resolve leaves the pooled connection checked out on the branch, so the
-	// follow-on ws.DB() read of rev_comment lands on the branch rather than main.
-	if _, code := reviewRun(t, "comment", "ls", "--subject", "REQ:"+frKey); code != 0 {
-		t.Fatalf("comment ls --subject exit=%d", code)
+	// --subject resolves REQ:<key> on the changeset branch, then filters the listing to that
+	// subject; the anchored comment added above must appear. Regression guard for the pooled-
+	// connection branch-leak: the subject resolve used to leave the pooled connection checked out
+	// on the changeset branch, so the follow-on ws.DB() read of rev_comment landed on the branch
+	// (not main) and returned "no comments" — fixed by restoring main in app.Reader's release.
+	out, code = reviewRun(t, "comment", "ls", "--subject", "REQ:"+frKey)
+	if code != 0 {
+		t.Fatalf("comment ls --subject exit=%d out=%q", code, out)
+	}
+	if !strings.Contains(out, frKey) {
+		t.Fatalf("comment ls --subject %s did not list the anchored comment:\n%s", frKey, out)
 	}
 
 	// comment show: human names the id; JSON is a valid array.

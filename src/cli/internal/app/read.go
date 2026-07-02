@@ -51,12 +51,17 @@ func Reader(ctx context.Context, ws *workspace.Workspace, changeset string) (sto
 		return nil, nil, fmt.Errorf("selecting read target %q: %w", target, err)
 	}
 	release := func() error {
-		// If we borrowed a read-only revision database (a commit ref), switch the pooled
-		// connection back to the plain database before returning it, so the next borrower
-		// doesn't inherit the revision view.
+		// If we borrowed a read-only revision database (a commit ref), drop the revision view by
+		// switching the pooled connection back to the plain database first.
 		if resetDB != "" {
 			_, _ = conn.ExecContext(ctx, "USE `"+resetDB+"`")
 		}
+		// Always restore `main` before returning the connection to the pool, so a later ws.DB()
+		// read — which does NOT check out a branch — doesn't inherit this reader's branch. Without
+		// this, a --changeset read poisons the pool: e.g. `comment ls --subject <ref>` resolves the
+		// subject on the changeset branch, then reads rev_comment on that reused connection and
+		// misses the comments (which live on main), reporting "no comments".
+		_ = versioncontrolops.CheckoutBranch(ctx, conn, "main")
 		return conn.Close()
 	}
 	return conn, release, nil
