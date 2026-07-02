@@ -6,10 +6,10 @@ import * as fs from "node:fs";
 import {
   AddCommentInput,
   Changeset,
+  ChangesetDiff,
   Comment,
   CuspClient,
   DomainNode,
-  EntityDiff,
   EntityTreeNode,
   Verdict,
 } from "./client";
@@ -140,9 +140,9 @@ export class CliCuspClient implements CuspClient {
     return this.exec(args);
   }
 
-  async diff(branch: string): Promise<EntityDiff[]> {
-    const raw = (await this.runJSON(["changeset", "diff", branch, "--entities"])) as EntityDiff[] | null;
-    return raw ?? [];
+  async diff(branch: string): Promise<ChangesetDiff> {
+    const raw = (await this.runJSON(["changeset", "diff", branch, "--entities"])) as ChangesetDiff | null;
+    return raw ?? { base: "main", head: branch, entities: [] };
   }
 
   async listComments(branch: string): Promise<Comment[]> {
@@ -176,6 +176,24 @@ export class CliCuspClient implements CuspClient {
       args.push("--summary", summary);
     }
     await this.runJSON(args);
+  }
+
+  // Lifecycle verbs run without --json so a failure (e.g. a merge conflict) lands on stderr,
+  // where describe() turns it into a readable message.
+  async startChangeset(title: string): Promise<void> {
+    await this.exec(["changeset", "start", title]);
+  }
+
+  async submitChangeset(branch: string): Promise<void> {
+    await this.exec(["changeset", "submit", branch]);
+  }
+
+  async mergeChangeset(branch: string): Promise<void> {
+    await this.exec(["changeset", "merge", branch]);
+  }
+
+  async abandonChangeset(branch: string): Promise<void> {
+    await this.exec(["changeset", "abandon", branch]);
   }
 }
 

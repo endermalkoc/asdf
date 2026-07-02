@@ -109,11 +109,22 @@ func connect(ctx context.Context) (*workspace.Workspace, error) {
 // the workspace. Use this for content reads (`ls`/`show`); reads of rows that always
 // live on main (e.g. `changeset ls`) use connect + ws.DB() directly.
 func connectRead(ctx context.Context) (r store.Execer, done func(), err error) {
+	return connectReadAt(ctx, "")
+}
+
+// connectReadAt is connectRead pinned to an explicit ref (a branch OR a commit hash) when atRef
+// is non-empty — so a command can read a doc's state at a specific commit (e.g. a changeset's
+// base_commit for an exact base/head diff), falling back to the --changeset target otherwise.
+func connectReadAt(ctx context.Context, atRef string) (r store.Execer, done func(), err error) {
+	target := atRef
+	if target == "" {
+		target = flagChangeset
+	}
 	ws, err := connect(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
-	r, release, err := app.Reader(ctx, ws, flagChangeset)
+	r, release, err := app.Reader(ctx, ws, target)
 	if err != nil {
 		_ = ws.Close()
 		return nil, nil, err

@@ -139,19 +139,48 @@
         "title": "Reopen",
         "category": "Cusp",
         "icon": "$(comment)"
+      },
+      {
+        "command": "cusp.newChangeset",
+        "title": "New Changeset",
+        "category": "Cusp",
+        "icon": "$(add)"
+      },
+      {
+        "command": "cusp.submitChangeset",
+        "title": "Submit for Review",
+        "category": "Cusp",
+        "icon": "$(check)"
+      },
+      {
+        "command": "cusp.mergeChangeset",
+        "title": "Merge into main",
+        "category": "Cusp",
+        "icon": "$(git-merge)"
+      },
+      {
+        "command": "cusp.abandonChangeset",
+        "title": "Abandon Changeset",
+        "category": "Cusp",
+        "icon": "$(trash)"
       }
     ],
     "menus": {
       "view/title": [
         {
-          "command": "cusp.refreshChangesets",
+          "command": "cusp.newChangeset",
           "when": "view == cuspChangesets",
-          "group": "navigation"
+          "group": "navigation@1"
         },
         {
           "command": "cusp.setVerdict",
           "when": "view == cuspChangesets",
-          "group": "navigation@0"
+          "group": "navigation@2"
+        },
+        {
+          "command": "cusp.refreshChangesets",
+          "when": "view == cuspChangesets",
+          "group": "navigation@3"
         },
         {
           "command": "cusp.searchRequirements",
@@ -199,13 +228,28 @@
       "view/item/context": [
         {
           "command": "cusp.reviewChangeset",
-          "when": "view == cuspChangesets && viewItem == cuspChangeset",
+          "when": "view == cuspChangesets && (viewItem == cuspChangeset || viewItem == cuspChangesetMerged)",
           "group": "inline@1"
         },
         {
           "command": "cusp.setVerdict",
           "when": "view == cuspChangesets && viewItem == cuspChangeset",
           "group": "inline@2"
+        },
+        {
+          "command": "cusp.submitChangeset",
+          "when": "view == cuspChangesets && viewItem == cuspChangeset",
+          "group": "1_lifecycle@1"
+        },
+        {
+          "command": "cusp.mergeChangeset",
+          "when": "view == cuspChangesets && viewItem == cuspChangeset",
+          "group": "1_lifecycle@2"
+        },
+        {
+          "command": "cusp.abandonChangeset",
+          "when": "view == cuspChangesets && viewItem == cuspChangeset",
+          "group": "1_lifecycle@3"
         }
       ],
       "comments/commentThread/context": [

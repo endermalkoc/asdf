@@ -89,6 +89,13 @@ export interface FieldDiff {
   head: string;
 }
 
+/** A changeset's per-entity diff plus the exact refs to render each side at. */
+export interface ChangesetDiff {
+  base: string; // the merge-base commit
+  head: string; // the changeset branch while live, else its recorded head/merge commit
+  entities: EntityDiff[];
+}
+
 /** One entity's change in a changeset — the coordinates a comment can anchor to. */
 export interface EntityDiff {
   subjectType: string; // requirement | spec | user_story | entity | deliverable | test_case
@@ -144,8 +151,9 @@ export interface CuspClient {
    *  changeset branch for the head) — the two sides of a native diff editor. */
   renderDocMarkdown(docRef: string, branch: string): Promise<string>;
 
-  /** Mirrors `cusp changeset diff <branch> --entities` — the per-entity/field diff. */
-  diff(branch: string): Promise<EntityDiff[]>;
+  /** Mirrors `cusp changeset diff <branch> --entities` — the per-entity/field diff plus the
+   *  exact base/head refs to render each side of the diff editor at. */
+  diff(branch: string): Promise<ChangesetDiff>;
 
   /** Mirrors `cusp comment ls <branch>` — the changeset's comments (threaded via parentId). */
   listComments(branch: string): Promise<Comment[]>;
@@ -158,4 +166,16 @@ export interface CuspClient {
 
   /** Mirrors `cusp review <branch> --verdict …` — set the reviewer's verdict. */
   setReview(branch: string, verdict: Verdict, summary?: string): Promise<void>;
+
+  /** Mirrors `cusp changeset start <title>` — open a new changeset (a Dolt branch). */
+  startChangeset(title: string): Promise<void>;
+
+  /** Mirrors `cusp changeset submit <branch>` — mark a changeset open for review. */
+  submitChangeset(branch: string): Promise<void>;
+
+  /** Mirrors `cusp changeset merge <branch>` — merge a changeset into main. */
+  mergeChangeset(branch: string): Promise<void>;
+
+  /** Mirrors `cusp changeset abandon <branch>` — discard a changeset (deletes its branch). */
+  abandonChangeset(branch: string): Promise<void>;
 }

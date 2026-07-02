@@ -5,6 +5,7 @@ import { RequirementsTreeProvider } from "./requirements/requirementsTree";
 import { EntitiesTreeProvider } from "./entities/entitiesTree";
 import { registerSpecDocView } from "./requirements/specDocView";
 import { registerReviewView } from "./changesets/reviewView";
+import { registerChangesetCommands } from "./changesets/changesetCommands";
 
 interface Filterable {
   readonly filterText: string;
@@ -94,6 +95,7 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     registerSpecDocView(() => client, revealInTree),
     registerReviewView(() => client),
+    registerChangesetCommands(() => client, () => changesets.refresh()),
     // Rebuild the transport when the relevant settings change — no reload needed.
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("cusp.cliPath") || e.affectsConfiguration("cusp.workspaceFolder")) {

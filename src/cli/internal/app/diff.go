@@ -85,6 +85,13 @@ func EntityDiffs(ctx context.Context, conn *sql.Conn, base, head string) ([]Enti
 		return nil, err
 	}
 	out = append(out, docs...)
+	// Normalize Fields to a non-nil slice so the JSON is `[]`, not `null` — a doc-level (roll-up)
+	// entry has no field detail, and consumers iterate Fields directly.
+	for i := range out {
+		if out[i].Fields == nil {
+			out[i].Fields = []FieldDiff{}
+		}
+	}
 	return out, nil
 }
 
@@ -149,6 +156,21 @@ func docLevelDiffs(ctx context.Context, conn *sql.Conn, base, head string, chang
 		}
 		for _, id := range ids {
 			add("entity", id)
+		}
+	}
+	// A relationship edit changes both endpoints' rendered docs (each lists its relationships).
+	if changed["ent_relationship"] {
+		for _, cols := range [][2]string{
+			{"to_from_entity_id", "from_from_entity_id"},
+			{"to_to_entity_id", "from_to_entity_id"},
+		} {
+			ids, err := diffOwnerIDs(ctx, conn, base, head, "ent_relationship", cols[0], cols[1])
+			if err != nil {
+				return nil, err
+			}
+			for _, id := range ids {
+				add("entity", id)
+			}
 		}
 	}
 	return out, nil

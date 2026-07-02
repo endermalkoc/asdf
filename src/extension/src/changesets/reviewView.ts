@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { AddCommentInput, Comment, CuspClient, Verdict } from "../cusp/client";
+import { isReviewable } from "./changesetTree";
 
 // The changeset review surface. The diff itself is VS Code's **native diff editor**
 // (`vscode.diff`) over two virtual documents — the affected spec rendered as Markdown at the
@@ -25,6 +26,17 @@ interface Anchor {
   rootCommentId?: string; // once the thread has a root comment, replies target it
 }
 
+// A command may be invoked with an explicit branch string (the tree item's `.command`), a tree
+// item (a view/item menu action passes the item), or nothing (view-title / palette → pick one).
+type ChangesetArg = string | { changeset?: { branch?: string } } | undefined;
+
+function argBranch(arg: ChangesetArg): string | undefined {
+  if (typeof arg === "string") {
+    return arg;
+  }
+  return arg?.changeset?.branch;
+}
+
 export function registerReviewView(getClient: () => CuspClient): vscode.Disposable {
   const content = new Map<string, string>(); // uri.toString() → rendered markdown
   const heads = new Map<string, HeadDoc>(); // head uri.toString() → its anchor map
@@ -45,14 +57,15 @@ export function registerReviewView(getClient: () => CuspClient): vscode.Disposab
   const uriFor = (side: "base" | "head", branch: string, docRef: string) =>
     vscode.Uri.from({ scheme: SCHEME, path: `/${side}/${docRef}`, query: branch });
 
-  const openReview = async (branchArg?: string) => {
+  const openReview = async (arg?: ChangesetArg) => {
     const client = getClient();
-    const branch = branchArg ?? (await pickChangeset(client));
+    const branch = argBranch(arg) ?? (await pickChangeset(client));
     if (!branch) {
       return;
     }
     try {
-      const [entities, comments] = await Promise.all([client.diff(branch), client.listComments(branch)]);
+      const [diff, comments] = await Promise.all([client.diff(branch), client.listComments(branch)]);
+      const entities = diff.entities;
       const docRefs = unique(entities.map((e) => e.docRef).filter((d): d is string => Boolean(d)));
       if (docRefs.length === 0) {
         vscode.window.showInformationMessage(
@@ -65,6 +78,8 @@ export function registerReviewView(getClient: () => CuspClient): vscode.Disposab
       for (let i = 0; i < docRefs.length; i++) {
         await openDocDiff(client, controller, content, heads, anchors, onDidChange, uriFor, {
           branch,
+          base: diff.base,
+          head: diff.head,
           docRef: docRefs[i],
           comments,
           refBySubject,
@@ -113,9 +128,9 @@ export function registerReviewView(getClient: () => CuspClient): vscode.Disposab
     }
   };
 
-  const setVerdict = async (branchArg?: string) => {
+  const setVerdict = async (arg?: ChangesetArg) => {
     const client = getClient();
-    const branch = branchArg ?? (await pickChangeset(client));
+    const branch = argBranch(arg) ?? (await pickChangeset(client));
     if (!branch) {
       return;
     }
@@ -157,6 +172,8 @@ export function registerReviewView(getClient: () => CuspClient): vscode.Disposab
 
 interface OpenDocArgs {
   branch: string;
+  base: string; // exact merge-base ref for the base side
+  head: string; // exact head ref (branch while live, else its commit) for the head side
   docRef: string;
   comments: Comment[];
   refBySubject: Map<string, string>;
@@ -176,8 +193,8 @@ async function openDocDiff(
   const baseUri = uriFor("base", a.branch, a.docRef);
   const headUri = uriFor("head", a.branch, a.docRef);
   const [baseMd, headMd] = await Promise.all([
-    client.renderDocMarkdown(a.docRef, "main").catch(() => "(new in this changeset)\n"),
-    client.renderDocMarkdown(a.docRef, a.branch),
+    client.renderDocMarkdown(a.docRef, a.base).catch(() => "(new in this changeset)\n"),
+    client.renderDocMarkdown(a.docRef, a.head),
   ]);
   content.set(baseUri.toString(), baseMd);
   content.set(headUri.toString(), headMd);
@@ -282,13 +299,13 @@ function toVsComment(c: Comment): vscode.Comment {
 }
 
 async function pickChangeset(client: CuspClient): Promise<string | undefined> {
-  const changesets = await client.listChangesets();
-  if (changesets.length === 0) {
+  const reviewable = (await client.listChangesets()).filter((c) => isReviewable(c.status));
+  if (reviewable.length === 0) {
     vscode.window.showInformationMessage("Cusp: no changesets to review.");
     return undefined;
   }
   const pick = await vscode.window.showQuickPick(
-    changesets.map((c) => ({ label: c.branch, description: `${c.status} — ${c.title}` })),
+    reviewable.map((c) => ({ label: c.branch, description: `${c.status} — ${c.title}` })),
     { placeHolder: "Changeset to review" },
   );
   return pick?.label;

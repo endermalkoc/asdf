@@ -178,8 +178,13 @@ var changesetDiffCmd = &cobra.Command{
 			if err != nil {
 				return err
 			}
+			if ents == nil {
+				ents = []app.EntityDiff{}
+			}
 			if flagJSON {
-				emit(ents, "")
+				// Envelope carries the exact base/head refs so a review surface renders each side at
+				// the right commit (base = the merge base; head = the live branch, else its commit).
+				emit(map[string]any{"base": base, "head": head, "entities": ents}, "")
 				return nil
 			}
 			fmt.Print(printEntityDiffs(branch, ents))

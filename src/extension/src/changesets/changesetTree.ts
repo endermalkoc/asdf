@@ -1,20 +1,42 @@
 import * as vscode from "vscode";
 import { Changeset, CuspClient, EntityDiff } from "../cusp/client";
 
+/** An abandoned changeset has no branch to diff, so it isn't reviewable (merged still is). */
+export function isReviewable(status: string): boolean {
+  return status !== "closed";
+}
+
+// The tree-item contextValue drives which menu actions show: active changesets get the full set
+// (review, verdict, submit/merge/abandon); merged ones are viewable-only (their diff, no
+// lifecycle); abandoned ones are inert.
+function changesetContext(status: string): string {
+  if (status === "closed") {
+    return "cuspChangesetClosed";
+  }
+  if (status === "merged") {
+    return "cuspChangesetMerged";
+  }
+  return "cuspChangeset"; // active: draft | open | changes_requested | approved
+}
+
 /** A single changeset row in the Cusp activity-bar tree. Expands to its changed entities. */
 export class ChangesetItem extends vscode.TreeItem {
   constructor(public readonly changeset: Changeset) {
-    super(changeset.branch, vscode.TreeItemCollapsibleState.Collapsed);
+    const reviewable = isReviewable(changeset.status);
+    super(
+      changeset.branch,
+      reviewable ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+    );
     this.description = changeset.status;
     this.tooltip = changeset.title || changeset.branch;
-    this.contextValue = "cuspChangeset";
+    // The contextValue gates the menu actions per status; an abandoned changeset gets no click
+    // command either, so clicking it is a silent no-op (no diff error, no popup).
+    this.contextValue = changesetContext(changeset.status);
     this.iconPath = new vscode.ThemeIcon(iconForStatus(changeset.status));
-    // Clicking the label opens the review surface; the twistie still expands the entity list.
-    this.command = {
-      command: "cusp.reviewChangeset",
-      title: "Review",
-      arguments: [changeset.branch],
-    };
+    if (reviewable) {
+      // Clicking the label opens the review surface; the twistie still expands the entity list.
+      this.command = { command: "cusp.reviewChangeset", title: "Review", arguments: [changeset.branch] };
+    }
   }
 }
 
@@ -25,7 +47,7 @@ export class EntityDiffItem extends vscode.TreeItem {
     this.description = diff.changeType;
     this.contextValue = "cuspEntityDiff";
     this.iconPath = new vscode.ThemeIcon(iconForChange(diff.changeType));
-    this.tooltip = diff.fields.map((f) => `${f.name}: ${f.base} → ${f.head}`).join("\n") || diff.changeType;
+    this.tooltip = (diff.fields ?? []).map((f) => `${f.name}: ${f.base} → ${f.head}`).join("\n") || diff.changeType;
     this.command = { command: "cusp.reviewChangeset", title: "Review", arguments: [branch] };
   }
 }
@@ -83,11 +105,14 @@ export class ChangesetTreeProvider implements vscode.TreeDataProvider<ChangesetN
       return [];
     }
     if (element instanceof ChangesetItem) {
+      if (!isReviewable(element.changeset.status)) {
+        return []; // abandoned — no branch to diff
+      }
       try {
-        const diffs = await this.client.diff(element.changeset.branch);
-        return diffs.map((d) => new EntityDiffItem(element.changeset.branch, d));
+        const diff = await this.client.diff(element.changeset.branch);
+        return diff.entities.map((d) => new EntityDiffItem(element.changeset.branch, d));
       } catch {
-        return []; // a merged/empty changeset has no diff — leave it childless
+        return []; // an empty/errored changeset has no diff — leave it childless
       }
     }
     try {
