@@ -1,21 +1,17 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/spf13/cobra"
 
+	"github.com/endermalkoc/cusp/internal/app"
 	"github.com/endermalkoc/cusp/internal/configfile"
 	"github.com/endermalkoc/cusp/internal/doltserver"
 	"github.com/endermalkoc/cusp/internal/git"
-	"github.com/endermalkoc/cusp/internal/storage/doltutil"
-	"github.com/endermalkoc/cusp/internal/storage/schema"
-	"github.com/endermalkoc/cusp/internal/store"
 	"github.com/endermalkoc/cusp/internal/workspace"
 )
 
@@ -55,73 +51,20 @@ var initCmd = &cobra.Command{
 				return fmt.Errorf("removing existing workspace %s: %w", cuspDir, err)
 			}
 		}
-		if err := os.MkdirAll(cuspDir, 0o700); err != nil {
-			return err
-		}
-
-		// 2. Start the owned dolt sql-server (no metadata yet → owned mode).
-		state, err := doltserver.Start(cuspDir)
-		if err != nil {
-			return fmt.Errorf("starting dolt server: %w", err)
-		}
-
-		// 3. Connect (server only), create + select the database, on one pinned conn.
-		dbName := configfile.DefaultDoltDatabase
-		serverDSN := doltutil.ServerDSN{
-			Host: configfile.DefaultDoltServerHost,
-			Port: state.Port,
-			User: configfile.DefaultDoltServerUser,
-		}.String()
-		db, err := sql.Open("mysql", serverDSN)
+		// 2. Build the workspace database (server, schema, seed, initial commit, metadata).
+		res, err := app.InitWorkspace(ctx, cuspDir, workspace.ResolveActor(flagActor))
 		if err != nil {
 			return err
 		}
-		defer db.Close()
-		conn, err := db.Conn(ctx)
-		if err != nil {
-			return err
-		}
-		defer conn.Close()
-		if _, err := conn.ExecContext(ctx, "CREATE DATABASE IF NOT EXISTS `"+dbName+"`"); err != nil {
-			return fmt.Errorf("create database %q: %w", dbName, err)
-		}
-		if _, err := conn.ExecContext(ctx, "USE `"+dbName+"`"); err != nil {
-			return err
-		}
 
-		// 4. Apply the schema.
-		n, err := schema.MigrateUp(ctx, conn)
-		if err != nil {
-			return fmt.Errorf("applying schema: %w", err)
-		}
-
-		// 5. Seed the current actor (changeset.author_id references actor).
-		actor := workspace.ResolveActor(flagActor)
-		if _, err := store.SeedActor(ctx, conn, actor.Handle, actor.Name); err != nil {
-			return err
-		}
-
-		// 6. Initial Dolt commit — stage everything (fresh DB) on the same conn.
-		if _, err := conn.ExecContext(ctx, "CALL DOLT_ADD('-A')"); err != nil {
-			return fmt.Errorf("staging schema: %w", err)
-		}
-		if _, err := conn.ExecContext(ctx, "CALL DOLT_COMMIT('-m', ?, '--author', ?)",
-			"cusp init", actor.CommitAuthorString()); err != nil {
-			return fmt.Errorf("initial commit: %w", err)
-		}
-
-		// 7. Persist metadata (DoltMode empty → owned mode) + .gitignore.
-		cfg := &configfile.Config{DoltDatabase: dbName}
-		if err := cfg.Save(cuspDir); err != nil {
-			return err
-		}
+		// 3. Write the host `.gitignore` (what the surrounding git repo may track).
 		if err := writeWorkspaceGitignore(cuspDir); err != nil {
 			return err
 		}
 
-		emit(map[string]any{"cusp_dir": cuspDir, "database": dbName, "migrations": n, "port": state.Port},
+		emit(map[string]any{"cusp_dir": cuspDir, "database": res.Database, "migrations": res.Migrations, "port": res.Port},
 			fmt.Sprintf("initialized Cusp workspace at %s\n  database: %s · migrations applied: %d · server port: %d",
-				cuspDir, dbName, n, state.Port))
+				cuspDir, res.Database, res.Migrations, res.Port))
 		return nil
 	},
 }

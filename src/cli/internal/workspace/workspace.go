@@ -52,12 +52,19 @@ func Connect(ctx context.Context, dsnOverride string) (*Workspace, error) {
 	if err != nil {
 		return nil, err
 	}
+	return ConnectAt(ctx, cuspDir, dsnOverride)
+}
+
+// ConnectAt is Connect against an explicit `.cusp` directory rather than one resolved from the
+// cwd — for callers (tests, tooling) that already know the workspace location. It manages/adopts
+// the owned server unless dsnOverride is set.
+func ConnectAt(ctx context.Context, cuspDir, dsnOverride string) (*Workspace, error) {
 	if _, statErr := os.Stat(cuspDir); statErr != nil {
 		return nil, fmt.Errorf("no Cusp workspace at %s — run `cusp init` first", cuspDir)
 	}
-
 	dsn := dsnOverride
 	if dsn == "" {
+		var err error
 		dsn, err = managedDSN(cuspDir)
 		if err != nil {
 			return nil, err
