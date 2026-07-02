@@ -16,9 +16,10 @@ var impactCmd = &cobra.Command{
 	Short: "Show what references / depends on an entity (and what it relies on)",
 	Long: "Traverse the cross-reference graph around an entity. <ref> is a TYPE:key reference\n" +
 		"(e.g. REQ:ATT-FR-012, SPEC:ADDS, ENTITY:Student); a bare value is a requirement fr_key.\n" +
-		"Reports inbound relationships (what references or points an edge at it — i.e. what's\n" +
-		"affected if it changes) and outbound (what it references / relies on). --transitive adds\n" +
-		"the reverse-edge closure (the full blast radius). Read-only; honors the active changeset.",
+		"Reports inbound relationships (what references it, points an edge at it, or relates to it —\n" +
+		"i.e. what's affected if it changes) and outbound (what it references / relies on), across\n" +
+		"inline refs, typed edges, and entity↔entity relationships. --transitive adds the reverse-edge\n" +
+		"closure (the full blast radius). Read-only; honors the active changeset.",
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		ctx := cmd.Context()

@@ -78,6 +78,28 @@ func Impact(ctx context.Context, x store.Execer, subject refs.Target, transitive
 		}
 	}
 
+	// Entity↔entity relationships (ent_relationship) — only entities participate. Outgoing means
+	// this entity → other (outbound); incoming means other → this (inbound). Labelled by the other
+	// entity's name (entities are keyed by name), matching the ref/edge endpoint convention.
+	if subject.Type == "entity" {
+		rels, err := store.ListEntityRelationships(ctx, x, subject.ID)
+		if err != nil {
+			return ImpactReport{}, err
+		}
+		for _, rel := range rels {
+			endpoint := "entity:" + rel.OtherName
+			via := "relationship"
+			if rel.Cardinality != "" {
+				via += " (" + rel.Cardinality + ")"
+			}
+			if rel.Outgoing {
+				addOut(endpoint, via)
+			} else {
+				addIn(endpoint, via)
+			}
+		}
+	}
+
 	if transitive {
 		radj := map[EdgeNode][]EdgeNode{}
 		for _, e := range edges {
