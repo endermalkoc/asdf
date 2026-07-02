@@ -475,7 +475,14 @@ rides the existing `cusp` commands.
   fails below a floor (raised in a commit as coverage grows — a monotonic ratchet), wired into the CI
   integration job. `make cover-commands` prints statement-weighted coverage per `cmd/cusp` command
   file — the "which commands have tests" view — which the CLI smoke test lifted for the golden-path
-  commands (init/changeset/domain/query/root). Baseline: **14.1%** owned-package coverage.
+  commands (init/changeset/domain/query/root).
+- **Logic-package coverage push — owned total 14.1% → 72.2%.** Every logic/pure package brought to
+  **≥70%**: `internal/store` 5.6%→**82%**, `internal/app` 18%→**76%**, `internal/generate` 0%→**91%**,
+  `internal/importer` 0.2%→**87%** (+ `qase` **94%**, `notion` **97%**, `tutor` 0%→**96%**),
+  `internal/workspace` 59%→**82%** — via the real-Dolt harness for the DB-backed paths and pure
+  unit/fixture tests elsewhere (test-only; no source changes). The ratchet floor is raised to **72%**.
+  Remaining below the floor: `cmd/cusp` (the command layer, ~11%), deferred — it mostly wraps the now-
+  tested logic; raising it means extending the `runCLI` smoke test across command groups.
 - **CI** ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) — a fast **unit** job (gofmt +
   build + vet + `go test -short`, no database) that runs always, and an **integration** job that
   installs the `dolt` binary, runs the full suite, and enforces the coverage ratchet; plus the
