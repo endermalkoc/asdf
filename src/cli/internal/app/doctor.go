@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 
+	"github.com/endermalkoc/cusp/internal/storage/schema"
 	"github.com/endermalkoc/cusp/internal/store"
 )
 
@@ -24,20 +25,37 @@ type CoverageSummary struct {
 	Drift   int `json:"drift"`
 }
 
-// DoctorReport is the aggregated health picture. It is healthy when there are no integrity
-// findings; coverage gaps and hygiene warnings are informational, not failures.
-type DoctorReport struct {
-	Integrity []CheckFinding   `json:"integrity"`
-	Coverage  CoverageSummary  `json:"coverage"`
-	Hygiene   []HygieneFinding `json:"hygiene"`
+// SchemaStatus compares the database's applied schema version to the one this binary embeds.
+// "behind" → the DB predates this cusp (pending migrations; fixable by `doctor --fix`); "ahead" →
+// the DB was migrated by a newer cusp (upgrade this binary before writing — not fixable here).
+type SchemaStatus struct {
+	Current int    `json:"current"`
+	Latest  int    `json:"latest"`
+	Status  string `json:"status"` // ok | behind | ahead
+	Pending int    `json:"pending,omitempty"`
 }
 
-// Healthy reports whether the workspace has no integrity errors.
-func (r DoctorReport) Healthy() bool { return len(r.Integrity) == 0 }
+// DoctorReport is the aggregated health picture. It is healthy when there are no integrity errors
+// and the schema is in sync; coverage gaps, hygiene, and fr_key drift are informational.
+type DoctorReport struct {
+	Integrity  []CheckFinding     `json:"integrity"`
+	Schema     SchemaStatus       `json:"schema"`
+	Coverage   CoverageSummary    `json:"coverage"`
+	Hygiene    []HygieneFinding   `json:"hygiene"`
+	FRKeyDrift []store.FRKeyDrift `json:"frKeyDrift"`
+}
+
+// Healthy reports whether the workspace has no blocking problems: no integrity errors and a schema
+// that matches this binary. (Coverage/hygiene/fr_key drift are fixable warnings, not failures.)
+func (r DoctorReport) Healthy() bool { return len(r.Integrity) == 0 && r.Schema.Status == "ok" }
 
 // Doctor runs the aggregated health checks against x.
 func Doctor(ctx context.Context, x store.Execer) (DoctorReport, error) {
 	integ, err := Check(ctx, x)
+	if err != nil {
+		return DoctorReport{}, err
+	}
+	sch, err := schemaStatus(ctx, x)
 	if err != nil {
 		return DoctorReport{}, err
 	}
@@ -49,17 +67,45 @@ func Doctor(ctx context.Context, x store.Execer) (DoctorReport, error) {
 	if err != nil {
 		return DoctorReport{}, err
 	}
+	drift, err := store.DriftedFRKeys(ctx, x)
+	if err != nil {
+		return DoctorReport{}, err
+	}
 	if integ == nil {
 		integ = []CheckFinding{}
 	}
+	if drift == nil {
+		drift = []store.FRKeyDrift{}
+	}
 	return DoctorReport{
 		Integrity: integ,
+		Schema:    sch,
 		Coverage: CoverageSummary{
 			Total: cov.Total, Covered: cov.Covered,
 			Orphans: len(cov.Orphans), Drift: len(cov.Drift),
 		},
-		Hygiene: hyg,
+		Hygiene:    hyg,
+		FRKeyDrift: drift,
 	}, nil
+}
+
+func schemaStatus(ctx context.Context, x store.Execer) (SchemaStatus, error) {
+	cur, err := schema.CurrentVersion(ctx, x)
+	if err != nil {
+		return SchemaStatus{}, err
+	}
+	latest := schema.LatestVersion()
+	s := SchemaStatus{Current: cur, Latest: latest, Status: "ok"}
+	switch {
+	case cur < latest:
+		s.Status = "behind"
+		if pending, e := schema.PendingVersions(ctx, x); e == nil {
+			s.Pending = len(pending)
+		}
+	case cur > latest:
+		s.Status = "ahead"
+	}
+	return s, nil
 }
 
 func hygiene(ctx context.Context, x store.Execer) ([]HygieneFinding, error) {

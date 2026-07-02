@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"github.com/endermalkoc/cusp/internal/app"
+	"github.com/endermalkoc/cusp/internal/store"
 )
 
 // In-process CLI tests for `cusp doctor` (aggregated health: integrity + coverage + hygiene, with
@@ -74,7 +77,34 @@ func TestCLI_Doctor_Healthy(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("healthy doctor exit=%d:\n%s", code, out)
 	}
-	if !strings.Contains(out, "✓ healthy") || !strings.Contains(out, "integrity: clean") || !strings.Contains(out, "100%") {
+	if !strings.Contains(out, "✓ healthy") || !strings.Contains(out, "integrity: clean") ||
+		!strings.Contains(out, "up to date") || !strings.Contains(out, "100%") {
 		t.Fatalf("expected a clean, healthy report:\n%s", out)
+	}
+
+	// --fix on a healthy workspace: nothing to fix, exit 0.
+	fout, fcode := runCLI(t, "doctor", "--fix")
+	if fcode != 0 || !strings.Contains(fout, "nothing to fix") {
+		t.Fatalf("doctor --fix (healthy) exit=%d:\n%s", fcode, fout)
+	}
+}
+
+// TestRenderDoctor covers the schema-drift and fr_key-drift render branches (unreachable via the
+// CLI, since drift can't be created without corrupting the DB) with crafted reports.
+func TestRenderDoctor(t *testing.T) {
+	behind := renderDoctor(app.DoctorReport{
+		Schema:     app.SchemaStatus{Current: 18, Latest: 20, Status: "behind", Pending: 2},
+		Coverage:   app.CoverageSummary{Total: 2, Covered: 1},
+		FRKeyDrift: []store.FRKeyDrift{{Stored: "WRONG", Derived: "ATT-FR-001"}},
+	})
+	for _, w := range []string{"BEHIND", "v18", "v20", "2 pending", "stale fr_key", "WRONG → ATT-FR-001", "✗"} {
+		if !strings.Contains(behind, w) {
+			t.Errorf("behind render missing %q:\n%s", w, behind)
+		}
+	}
+
+	ahead := renderDoctor(app.DoctorReport{Schema: app.SchemaStatus{Current: 21, Latest: 20, Status: "ahead"}})
+	if !strings.Contains(ahead, "AHEAD") || !strings.Contains(ahead, "upgrade cusp") {
+		t.Errorf("ahead render:\n%s", ahead)
 	}
 }
